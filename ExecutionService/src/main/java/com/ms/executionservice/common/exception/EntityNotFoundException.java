@@ -1,0 +1,8 @@
+package com.ms.executionservice.common.exception;
+
+public class EntityNotFoundException extends RuntimeException {
+
+    public EntityNotFoundException(String message) {
+        super(message);
+    }
+}
