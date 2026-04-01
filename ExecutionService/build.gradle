@@ -1,6 +1,6 @@
 plugins {
     id 'java'
-    id 'org.springframework.boot' version '4.0.4'
+    id 'org.springframework.boot' version '3.5.4'
     id 'io.spring.dependency-management' version '1.1.7'
 }
 
@@ -25,7 +25,7 @@ repositories {
 }
 
 ext {
-    springdocVersion = '2.8.9'
+    springdocVersion = '2.8.10'
 }
 
 dependencies {
@@ -37,7 +37,8 @@ dependencies {
     implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:${springdocVersion}"
 
     implementation 'org.flywaydb:flyway-core'
-    implementation 'org.postgresql:postgresql'
+
+    runtimeOnly 'org.postgresql:postgresql'
 
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
 
@@ -45,6 +46,9 @@ dependencies {
     annotationProcessor 'org.projectlombok:lombok'
 
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
+
+    testCompileOnly 'org.projectlombok:lombok'
+    testAnnotationProcessor 'org.projectlombok:lombok'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.boot:spring-boot-testcontainers'

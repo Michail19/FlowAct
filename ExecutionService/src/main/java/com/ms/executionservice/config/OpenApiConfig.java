@@ -5,11 +5,8 @@ import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
-import io.swagger.v3.oas.models.servers.Server;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
-import java.util.List;
 
 @Configuration
 public class OpenApiConfig {
@@ -21,13 +18,8 @@ public class OpenApiConfig {
                         .title("FlowAct Execution Service API")
                         .version("1.0.0")
                         .description("API сервиса исполнения рабочих процессов FlowAct")
-                        .contact(new Contact()
-                                .name("Mikhail Ershov"))
-                        .license(new License()
-                                .name("Internal / Educational use")))
-                .servers(List.of(
-                        new Server().url("http://localhost:8082").description("Local")
-                ))
+                        .contact(new Contact().name("Mikhail Ershov"))
+                        .license(new License().name("Internal / Educational use")))
                 .externalDocs(new ExternalDocumentation()
                         .description("FlowAct docs"));
     }
