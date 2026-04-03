@@ -1,4 +1,4 @@
-package com.ms.executionservice.common.exception;
+package com.ms.executionservice.common.handler;
 
 import com.ms.executionservice.common.dto.ApiErrorResponse;
 import jakarta.persistence.EntityNotFoundException;
