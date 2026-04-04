@@ -5,5 +5,6 @@ public enum ExecutionLogStatus {
     RUNNING,
     SUCCESS,
     FAILED,
-    SKIPPED
+    SKIPPED,
+    WAITING
 }

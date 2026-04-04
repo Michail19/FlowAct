@@ -2,12 +2,19 @@ package com.ms.executionservice.workflow.enumtype;
 
 public enum BlockType {
     START,
+    END,
     INPUT,
-    TEXT_PROCESS,
-    API_CALL,
-    LLM,
-    ML,
-    CONDITION,
-    OUTPUT,
-    END
+    IF,
+    SWITCH,
+    MERGE,
+    SET_VARIABLE,
+    MAP,
+    FILTER,
+    TRANSFORM_JSON,
+    HTTP_REQUEST,
+    LLM_REQUEST,
+    ML_REQUEST,
+    DELAY,
+    WAIT,
+    WEBHOOK
 }
