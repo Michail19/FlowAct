@@ -1,11 +1,15 @@
 package com.ms.executionservice.execution.controller;
 
+import com.ms.executionservice.execution.dto.request.CreateExecutionRequest;
+import com.ms.executionservice.execution.dto.response.ExecutionLogResponse;
 import com.ms.executionservice.execution.dto.response.ExecutionResponse;
 import com.ms.executionservice.execution.service.ExecutionService;
 import jakarta.validation.Valid;
-import org.hibernate.validator.constraints.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -21,7 +25,7 @@ public class ExecutionController {
     @ResponseStatus(HttpStatus.CREATED)
     public ExecutionResponse run(
             @PathVariable UUID workflowId,
-            @Valid @RequestBody RunExecutionRequest request
+            @Valid @RequestBody CreateExecutionRequest request
     ) {
         return executionService.run(workflowId, request);
     }
@@ -31,9 +35,9 @@ public class ExecutionController {
         return executionService.getById(executionId);
     }
 
-    @GetMapping("/executions/{executionId}/nodes")
-    public List<NodeExecutionResponse> getNodeExecutions(@PathVariable UUID executionId) {
-        return executionService.getNodeExecutions(executionId);
+    @GetMapping("/executions/{executionId}/logs")
+    public List<ExecutionLogResponse> getLogs(@PathVariable UUID executionId) {
+        return executionService.getLogs(executionId);
     }
 
     @PostMapping("/executions/{executionId}/retry")

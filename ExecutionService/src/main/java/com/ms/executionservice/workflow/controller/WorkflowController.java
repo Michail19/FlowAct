@@ -1,13 +1,17 @@
 package com.ms.executionservice.workflow.controller;
 
+import com.ms.executionservice.workflow.dto.request.CreateWorkflowRequest;
+import com.ms.executionservice.workflow.dto.request.UpdateWorkflowRequest;
 import com.ms.executionservice.workflow.dto.response.WorkflowResponse;
+import com.ms.executionservice.workflow.dto.response.WorkflowValidationResponse;
 import com.ms.executionservice.workflow.service.WorkflowService;
 import jakarta.validation.Valid;
-import org.hibernate.validator.constraints.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
+
 
 @RestController
 @RequestMapping("/api/v1/workflows")
@@ -21,7 +25,7 @@ public class WorkflowController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public WorkflowService create(@Valid @RequestBody CreateWorkflowRequest request) {
+    public WorkflowResponse create(@Valid @RequestBody CreateWorkflowRequest request) {
         return workflowService.create(request);
     }
 
