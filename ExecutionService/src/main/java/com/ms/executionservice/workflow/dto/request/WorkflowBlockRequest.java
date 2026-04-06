@@ -10,17 +10,10 @@ import java.util.UUID;
 
 @Builder
 public record WorkflowBlockRequest(
-
         UUID id,
-
-        @NotNull
-        BlockType type,
-
-        @NotBlank
-        String name,
-
+        @NotNull BlockType type,
+        @NotBlank String name,
         Map<String, Object> position,
-
         Map<String, Object> config
 ) {
 }

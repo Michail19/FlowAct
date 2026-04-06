@@ -7,15 +7,9 @@ import java.util.UUID;
 
 @Builder
 public record WorkflowConnectionRequest(
-
         UUID id,
-
-        @NotNull
-        UUID fromBlockId,
-
-        @NotNull
-        UUID toBlockId,
-
+        @NotNull UUID fromBlockId,
+        @NotNull UUID toBlockId,
         String condition
 ) {
 }
