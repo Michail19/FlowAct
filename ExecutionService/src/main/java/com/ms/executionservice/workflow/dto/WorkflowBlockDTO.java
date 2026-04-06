@@ -1,4 +1,4 @@
-package com.ms.executionservice.workflow.dto.response;
+package com.ms.executionservice.workflow.dto;
 
 import com.ms.executionservice.workflow.enumtype.BlockType;
 import lombok.Builder;
@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @Builder
-public record WorkflowBlockResponse(
+public record WorkflowBlockDTO(
         UUID id,
         UUID workflowId,
         BlockType type,

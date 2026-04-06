@@ -6,18 +6,23 @@ import com.ms.executionservice.workflow.dto.request.UpdateWorkflowRequest;
 import com.ms.executionservice.workflow.dto.response.WorkflowResponse;
 import com.ms.executionservice.workflow.dto.response.WorkflowValidationResponse;
 import com.ms.executionservice.workflow.entity.NotebookEntity;
+import com.ms.executionservice.workflow.enumtype.WorkflowStatus;
 import com.ms.executionservice.workflow.repository.NotebookRepository;
+import com.ms.executionservice.workflow.repository.WorkflowRepository;
 import org.springframework.stereotype.Service;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
 @Service
 public class WorkflowService {
     private final NotebookRepository notebookRepository;
+    private final WorkflowRepository workflowRepository;
 
-    public WorkflowService(NotebookRepository notebookRepository) {
+    public WorkflowService(NotebookRepository notebookRepository, WorkflowRepository workflowRepository) {
         this.notebookRepository = notebookRepository;
+        this.workflowRepository = workflowRepository;
     }
 
     public WorkflowResponse create(CreateWorkflowRequest request) {
@@ -28,7 +33,19 @@ public class WorkflowService {
             throw new IllegalArgumentException("Workflow must contain at least one block");
         }
 
-        WorkflowResponse response = new WorkflowResponse();
+        WorkflowResponse response = new WorkflowResponse(
+                UUID.randomUUID(),
+                request.notebookId(),
+                request.name(),
+                request.description(),
+                WorkflowStatus.DRAFT,
+                request.blocks(),
+                request.connections(),
+                OffsetDateTime.now(),
+                OffsetDateTime.now()
+        );
+
+        
 
         return response;
     }

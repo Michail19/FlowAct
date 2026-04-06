@@ -1,5 +1,7 @@
 package com.ms.executionservice.workflow.dto.response;
 
+import com.ms.executionservice.workflow.dto.WorkflowBlockDTO;
+import com.ms.executionservice.workflow.dto.WorkflowConnectionDTO;
 import com.ms.executionservice.workflow.enumtype.WorkflowStatus;
 import lombok.Builder;
 
@@ -14,8 +16,8 @@ public record WorkflowResponse(
         String name,
         String description,
         WorkflowStatus status,
-        List<WorkflowBlockResponse> blocks,
-        List<WorkflowConnectionResponse> connections,
+        List<WorkflowBlockDTO> blocks,
+        List<WorkflowConnectionDTO> connections,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt
 ) {

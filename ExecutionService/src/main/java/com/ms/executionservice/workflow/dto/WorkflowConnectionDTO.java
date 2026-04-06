@@ -1,4 +1,4 @@
-package com.ms.executionservice.workflow.dto.response;
+package com.ms.executionservice.workflow.dto;
 
 import lombok.Builder;
 
@@ -6,7 +6,7 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Builder
-public record WorkflowConnectionResponse(
+public record WorkflowConnectionDTO(
         UUID id,
         UUID workflowId,
         UUID fromBlockId,

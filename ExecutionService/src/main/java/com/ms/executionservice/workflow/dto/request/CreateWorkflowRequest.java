@@ -1,5 +1,7 @@
 package com.ms.executionservice.workflow.dto.request;
 
+import com.ms.executionservice.workflow.dto.WorkflowBlockDTO;
+import com.ms.executionservice.workflow.dto.WorkflowConnectionDTO;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
@@ -10,6 +12,6 @@ public record CreateWorkflowRequest(
         @NotNull UUID notebookId,
         @NotBlank String name,
         String description,
-        @NotNull List<WorkflowBlockRequest> blocks,
-        @NotNull List<WorkflowConnectionRequest> connections
+        @NotNull List<WorkflowBlockDTO> blocks,
+        @NotNull List<WorkflowConnectionDTO> connections
 ) {}
