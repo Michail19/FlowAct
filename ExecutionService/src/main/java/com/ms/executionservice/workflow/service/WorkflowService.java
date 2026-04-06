@@ -156,7 +156,6 @@ public class WorkflowService {
                 .build();
     }
 
-
     public WorkflowResponse getById(UUID workflowId) {}
 
     public List<WorkflowResponse> getAll() {}
