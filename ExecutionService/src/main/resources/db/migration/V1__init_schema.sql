@@ -70,14 +70,21 @@ CREATE TABLE workflow_blocks (
                                      CHECK (
                                          type IN (
                                                   'START',
+                                                  'END',
                                                   'INPUT',
-                                                  'TEXT_PROCESS',
-                                                  'API_CALL',
-                                                  'LLM',
-                                                  'ML',
-                                                  'CONDITION',
-                                                  'OUTPUT',
-                                                  'END'
+                                                  'IF',
+                                                  'SWITCH',
+                                                  'MERGE',
+                                                  'SET_VARIABLE',
+                                                  'MAP',
+                                                  'FILTER',
+                                                  'TRANSFORM_JSON',
+                                                  'HTTP_REQUEST',
+                                                  'LLM_REQUEST',
+                                                  'ML_REQUEST',
+                                                  'DELAY',
+                                                  'WAIT',
+                                                  'WEBHOOK'
                                              )
                                          )
 );
@@ -146,7 +153,18 @@ CREATE TABLE executions (
                                     ON DELETE CASCADE,
 
                             CONSTRAINT chk_executions_status
-                                CHECK (status IN ('PENDING', 'RUNNING', 'SUCCESS', 'FAILED', 'CANCELLED'))
+                                CHECK (status IN (
+                                                  'CREATED',
+                                                  'VALIDATING',
+                                                  'PENDING',
+                                                  'READY',
+                                                  'RUNNING',
+                                                  'WAITING',
+                                                  'SUCCESS',
+                                                  'FAILED',
+                                                  'CANCELLED'
+                                                 )
+                                )
 );
 
 CREATE INDEX idx_executions_workflow_id
@@ -184,7 +202,15 @@ CREATE TABLE execution_logs (
                                         ON DELETE CASCADE,
 
                                 CONSTRAINT chk_execution_logs_status
-                                    CHECK (status IN ('PENDING', 'RUNNING', 'SUCCESS', 'FAILED', 'SKIPPED'))
+                                    CHECK (status IN (
+                                                      'PENDING',
+                                                      'RUNNING',
+                                                      'SUCCESS',
+                                                      'FAILED',
+                                                      'SKIPPED',
+                                                      'WAITING'
+                                                     )
+                                        )
 );
 
 CREATE INDEX idx_execution_logs_execution_id
