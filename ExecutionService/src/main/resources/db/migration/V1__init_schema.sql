@@ -162,6 +162,7 @@ CREATE TABLE executions (
                                                   'WAITING',
                                                   'SUCCESS',
                                                   'FAILED',
+                                                  'CANCELLING',
                                                   'CANCELLED'
                                                  )
                                 )
