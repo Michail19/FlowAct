@@ -11,15 +11,38 @@ import java.util.UUID;
 @Service
 public class ExecutionService {
 
-    public ExecutionResponse run(UUID workflowId, CreateExecutionRequest request) {}
+    public ExecutionResponse run(
+            UUID notebookId,
+            UUID workflowId,
+            CreateExecutionRequest request
+    ) {}
 
-    public ExecutionResponse getById(UUID executionId) {}
+    public ExecutionResponse getById(
+            UUID notebookId,
+            UUID workflowId,
+            UUID executionId
+    ) {}
 
-    public List<ExecutionLogResponse> getLogs(UUID executionId) {}
+    public List<ExecutionLogResponse> getLogs(
+            UUID notebookId,
+            UUID workflowId,
+            UUID executionId
+    ) {}
 
-    public List<ExecutionResponse> getExecutionsByWorkflow(UUID workflowId) {}
+    public List<ExecutionResponse> getExecutionsByWorkflow(
+            UUID notebookId,
+            UUID workflowId
+    ) {}
 
-    public ExecutionResponse retry(UUID executionId) {}
+    public ExecutionResponse retry(
+            UUID notebookId,
+            UUID workflowId,
+            UUID executionId
+    ) {}
 
-    public ExecutionResponse cancel(UUID executionId) {}
+    public ExecutionResponse cancel(
+            UUID notebookId,
+            UUID workflowId,
+            UUID executionId
+    ) {}
 }
