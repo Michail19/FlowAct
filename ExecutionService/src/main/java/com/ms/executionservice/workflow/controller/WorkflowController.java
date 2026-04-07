@@ -14,7 +14,7 @@ import java.util.UUID;
 
 
 @RestController
-@RequestMapping("/api/v1/workflows")
+@RequestMapping("/api/v1/notebooks/{notebookId}/workflows")
 public class WorkflowController {
 
     private final WorkflowService workflowService;
@@ -25,35 +25,39 @@ public class WorkflowController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public WorkflowResponse create(@Valid @RequestBody CreateWorkflowRequest request) {
-        return workflowService.create(request);
+    public WorkflowResponse create(
+            @PathVariable UUID notebookId,
+            @Valid @RequestBody CreateWorkflowRequest request
+    ) {
+        return workflowService.create(notebookId, request);
     }
 
-    @GetMapping("/{id}")
-    public WorkflowResponse getById(@PathVariable UUID id) {
-        return workflowService.getById(id);
+    @GetMapping("/{workflowId}")
+    public WorkflowResponse getById(@PathVariable UUID notebookId, @PathVariable UUID workflowId) {
+        return workflowService.getById(notebookId, workflowId);
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/{workflowId}")
     public WorkflowResponse update(
-            @PathVariable UUID id,
+            @PathVariable UUID notebookId,
+            @PathVariable UUID workflowId,
             @Valid @RequestBody UpdateWorkflowRequest request
     ) {
-        return workflowService.update(id, request);
+        return workflowService.update(notebookId, workflowId, request);
     }
 
-    @PostMapping("/{id}/validate")
-    public WorkflowValidationResponse validate(@PathVariable UUID id) {
-        return workflowService.validate(id);
+    @PostMapping("/{workflowId}/validate")
+    public WorkflowValidationResponse validate(@PathVariable UUID notebookId, @PathVariable UUID workflowId) {
+        return workflowService.validate(notebookId, workflowId);
     }
 
-    @PostMapping("/{id}/activate")
-    public WorkflowResponse activate(@PathVariable UUID id) {
-        return workflowService.activate(id);
+    @PostMapping("/{workflowId}/activate")
+    public WorkflowResponse activate(@PathVariable UUID notebookId, @PathVariable UUID workflowId) {
+        return workflowService.activate(notebookId, workflowId);
     }
 
     @GetMapping
-    public List<WorkflowResponse> getAll() {
-        return workflowService.getAll();
+    public List<WorkflowResponse> getAll(@PathVariable UUID notebookId) {
+        return workflowService.getAll(notebookId);
     }
 }

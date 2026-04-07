@@ -21,7 +21,7 @@ public class ExecutionController {
         this.executionService = executionService;
     }
 
-    @PostMapping("/worflows/{workflowId}/executions")
+    @PostMapping("/workflows/{workflowId}/executions")
     @ResponseStatus(HttpStatus.CREATED)
     public ExecutionResponse run(
             @PathVariable UUID workflowId,

@@ -43,8 +43,8 @@ public class WorkflowService {
     }
 
     @Transactional
-    public WorkflowResponse create(CreateWorkflowRequest request) {
-        NotebookEntity notebook = notebookRepository.findById(request.notebookId())
+    public WorkflowResponse create(UUID notebookId, CreateWorkflowRequest request) {
+        NotebookEntity notebook = notebookRepository.findById(notebookId)
                 .orElseThrow(() -> new EntityNotFoundException("Notebook not found"));
 
         if (request.blocks() == null || request.blocks().isEmpty()) {
@@ -156,15 +156,25 @@ public class WorkflowService {
                 .build();
     }
 
-    public WorkflowResponse getById(UUID workflowId) {}
+    public WorkflowResponse getById(UUID notebookId, UUID workflowId) {
+        WorkflowEntity workflow = workflowRepository
+                .findByIdAndNotebook_Id(workflowId, notebookId)
+                .orElseThrow(() -> new EntityNotFoundException("Workflow not found"));
 
-    public List<WorkflowResponse> getAll() {}
+        return map(workflow);
+    }
 
-    public WorkflowResponse update(UUID workflowId, UpdateWorkflowRequest request) {}
+    public List<WorkflowResponse> getAll(UUID notebookId) {}
 
-    public WorkflowValidationResponse validate(UUID workflowId) {}
+    public WorkflowResponse update(
+            UUID notebookId,
+            UUID workflowId,
+            UpdateWorkflowRequest request
+    ) {}
 
-    public WorkflowResponse activate(UUID workflowId) {}
+    public WorkflowValidationResponse validate(UUID notebookId, UUID workflowId) {}
 
-    public WorkflowResponse archive(UUID workflowId) {}
+    public WorkflowResponse activate(UUID notebookId, UUID workflowId) {}
+
+    public WorkflowResponse archive(UUID notebookId, UUID workflowId) {}
 }
