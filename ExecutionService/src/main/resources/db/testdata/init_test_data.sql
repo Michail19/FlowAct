@@ -84,7 +84,7 @@ INSERT INTO workflow_blocks (
       (
           '40000000-0000-0000-0000-000000000003',
           '30000000-0000-0000-0000-000000000001',
-          'LLM',
+          'LLM_REQUEST',
           'Суммаризация',
           '{"x":500,"y":120}'::jsonb,
           '{"provider":"openrouter","model":"gpt-4o-mini","prompt":"Сделай краткое резюме текста"}'::jsonb,
@@ -128,7 +128,7 @@ INSERT INTO workflow_blocks (
       (
           '40000000-0000-0000-0000-000000000006',
           '30000000-0000-0000-0000-000000000002',
-          'CONDITION',
+          'IF',
           'Проверка длины текста',
           '{"x":340,"y":300}'::jsonb,
           '{"expression":"text_length > 100"}'::jsonb,
