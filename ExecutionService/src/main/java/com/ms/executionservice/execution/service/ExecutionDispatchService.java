@@ -1,6 +1,7 @@
 package com.ms.executionservice.execution.service;
 
 import com.ms.executionservice.config.properties.ExecutionKafkaProperties;
+import com.ms.executionservice.execution.event.ExecutionRetryRequestedEvent;
 import com.ms.executionservice.execution.event.ExecutionRunRequestedEvent;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
@@ -10,10 +11,6 @@ import java.util.UUID;
 
 @Service
 public class ExecutionDispatchService {
-
-    private static final String EVENT_TYPE = "EXECUTION_RUN_REQUESTED";
-    private static final String TRIGGER_TYPE = "MANUAL";
-
     private final KafkaTemplate<String, ExecutionRunRequestedEvent> kafkaTemplate;
     private final ExecutionKafkaProperties executionKafkaProperties;
 
@@ -33,17 +30,43 @@ public class ExecutionDispatchService {
     ) {
         ExecutionRunRequestedEvent event = ExecutionRunRequestedEvent.builder()
                 .eventId(UUID.randomUUID())
-                .eventType(EVENT_TYPE)
+                .eventType("EXECUTION_RUN_REQUESTED")
                 .executionId(executionId)
                 .workflowId(workflowId)
                 .notebookId(notebookId)
                 .startedByUserId(startedByUserId)
-                .triggerType(TRIGGER_TYPE)
+                .triggerType("MANUAL")
                 .createdAt(OffsetDateTime.now())
                 .build();
 
         kafkaTemplate.send(
                 executionKafkaProperties.runRequestedTopic(),
+                executionId.toString(),
+                event
+        );
+    }
+
+    public void publishRetryRequested(
+            UUID sourceExecutionId,
+            UUID executionId,
+            UUID workflowId,
+            UUID notebookId,
+            UUID startedByUserId
+    ) {
+        ExecutionRetryRequestedEvent event = ExecutionRetryRequestedEvent.builder()
+                .eventId(UUID.randomUUID())
+                .eventType("EXECUTION_RETRY_REQUESTED")
+                .sourceExecutionId(sourceExecutionId)
+                .executionId(executionId)
+                .workflowId(workflowId)
+                .notebookId(notebookId)
+                .startedByUserId(startedByUserId)
+                .triggerType("RETRY")
+                .createdAt(OffsetDateTime.now())
+                .build();
+
+        kafkaTemplate.send(
+                executionKafkaProperties.retryRequestedTopic(),
                 executionId.toString(),
                 event
         );

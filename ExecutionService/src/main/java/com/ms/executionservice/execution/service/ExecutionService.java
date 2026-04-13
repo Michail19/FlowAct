@@ -142,11 +142,45 @@ public class ExecutionService {
             UUID workflowId
     ) {}
 
+    @Transactional
     public ExecutionResponse retry(
             UUID notebookId,
             UUID workflowId,
             UUID executionId
-    ) {}
+    ) {
+        ExecutionEntity oldExecution = executionRepository
+                .findByIdAndWorkflow_IdAndWorkflow_Notebook_Id(executionId, workflowId, notebookId)
+                .orElseThrow(() -> new EntityNotFoundException("Execution not found"));
+
+        if (oldExecution.getStatus() != ExecutionStatus.FAILED
+                && oldExecution.getStatus() != ExecutionStatus.CANCELLED) {
+            throw new IllegalStateException("Execution cannot be retried");
+        }
+
+        ExecutionEntity newExecution = ExecutionEntity.builder()
+                .id(UUID.randomUUID())
+                .workflow(oldExecution.getWorkflow())
+                .startedByUserId(oldExecution.getStartedByUserId())
+                .status(ExecutionStatus.PENDING)
+                .inputData(oldExecution.getInputData())
+                .outputData(null)
+                .errorMessage(null)
+                .startedAt(null)
+                .finishedAt(null)
+                .build();
+
+        newExecution = executionRepository.save(newExecution);
+
+        executionDispatchService.publishRetryRequested(
+                oldExecution.getId(),
+                newExecution.getId(),
+                oldExecution.getWorkflow().getId(),
+                notebookId,
+                oldExecution.getStartedByUserId()
+        );
+
+        return toResponse(newExecution);
+    }
 
     public ExecutionResponse cancel(
             UUID notebookId,
