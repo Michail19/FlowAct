@@ -6,7 +6,9 @@ import com.ms.executionservice.execution.dto.request.CreateExecutionRequest;
 import com.ms.executionservice.execution.dto.response.ExecutionLogResponse;
 import com.ms.executionservice.execution.dto.response.ExecutionResponse;
 import com.ms.executionservice.execution.entity.ExecutionEntity;
+import com.ms.executionservice.execution.entity.ExecutionLogEntity;
 import com.ms.executionservice.execution.enumtype.ExecutionStatus;
+import com.ms.executionservice.execution.repository.ExecutionLogRepository;
 import com.ms.executionservice.execution.repository.ExecutionRepository;
 import com.ms.executionservice.workflow.entity.WorkflowEntity;
 import com.ms.executionservice.workflow.enumtype.WorkflowStatus;
@@ -22,17 +24,20 @@ public class ExecutionService {
 
     private final WorkflowRepository workflowRepository;
     private final ExecutionRepository executionRepository;
+    private final ExecutionLogRepository executionLogRepository;
     private final JsonUtils jsonUtils;
     private final ExecutionDispatchService executionDispatchService;
 
     public ExecutionService(
             WorkflowRepository workflowRepository,
             ExecutionRepository executionRepository,
+            ExecutionLogRepository executionLogRepository,
             JsonUtils jsonUtils,
             ExecutionDispatchService executionDispatchService
     ) {
         this.workflowRepository = workflowRepository;
         this.executionRepository = executionRepository;
+        this.executionLogRepository = executionLogRepository;
         this.jsonUtils = jsonUtils;
         this.executionDispatchService = executionDispatchService;
     }
@@ -75,6 +80,35 @@ public class ExecutionService {
         return toResponse(execution);
     }
 
+    @Transactional(readOnly = true)
+    public ExecutionResponse getById(
+            UUID notebookId,
+            UUID workflowId,
+            UUID executionId
+    ) {
+        ExecutionEntity execution = executionRepository
+                .findByIdAndWorkflow_IdAndWorkflow_Notebook_Id(executionId, workflowId, notebookId)
+                .orElseThrow(() -> new EntityNotFoundException("Execution not found"));
+
+        return toResponse(execution);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ExecutionLogResponse> getLogs(
+            UUID notebookId,
+            UUID workflowId,
+            UUID executionId
+    ) {
+        ExecutionEntity execution = executionRepository
+                .findByIdAndWorkflow_IdAndWorkflow_Notebook_Id(executionId, workflowId, notebookId)
+                .orElseThrow(() -> new EntityNotFoundException("Execution not found"));
+
+        return executionLogRepository.findByExecution_IdOrderByCreatedAtAsc(execution.getId())
+                .stream()
+                .map(this::toLogResponse)
+                .toList();
+    }
+
     private ExecutionResponse toResponse(ExecutionEntity entity) {
         return ExecutionResponse.builder()
                 .id(entity.getId())
@@ -91,17 +125,17 @@ public class ExecutionService {
                 .build();
     }
 
-    public ExecutionResponse getById(
-            UUID notebookId,
-            UUID workflowId,
-            UUID executionId
-    ) {}
-
-    public List<ExecutionLogResponse> getLogs(
-            UUID notebookId,
-            UUID workflowId,
-            UUID executionId
-    ) {}
+    private ExecutionLogResponse toLogResponse(ExecutionLogEntity entity) {
+        return ExecutionLogResponse.builder()
+                .id(entity.getId())
+                .executionId(entity.getExecution().getId())
+                .blockId(entity.getBlock().getId())
+                .status(entity.getStatus())
+                .output(jsonUtils.toMap(entity.getOutput()))
+                .error(entity.getError())
+                .createdAt(entity.getCreatedAt())
+                .build();
+    }
 
     public List<ExecutionResponse> getExecutionsByWorkflow(
             UUID notebookId,
