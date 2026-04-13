@@ -1,0 +1,208 @@
+openapi: 3.0.3
+info:
+  title: FlowAct Execution Service API
+  version: 1.0.0
+  description: |
+    API сервиса исполнения рабочих процессов FlowAct.
+    Сервис отвечает за запуск workflow, отслеживание статуса выполнения,
+    получение результатов и журналов исполнения.
+
+servers:
+  - url: http://localhost:8082
+    description: Local environment
+
+tags:
+  - name: Executions
+    description: Операции с запусками рабочих процессов
+  - name: Execution Logs
+    description: Операции с журналами исполнения
+
+paths:
+  /api/v1/executions:
+    post:
+      tags:
+        - Executions
+      summary: Запуск рабочего процесса
+      description: Создаёт новый запуск workflow и возвращает информацию о нём
+      operationId: runExecution
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateExecutionRequest'
+      responses:
+        '202':
+          description: Запуск принят в обработку
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionResponse'
+        '400':
+          description: Некорректный запрос
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/executions/{executionId}:
+    get:
+      tags:
+        - Executions
+      summary: Получить информацию о запуске
+      operationId: getExecutionById
+      parameters:
+        - name: executionId
+          in: path
+          required: true
+          description: Идентификатор запуска
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Информация о запуске найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionResponse'
+        '404':
+          description: Запуск не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/executions/{executionId}/logs:
+    get:
+      tags:
+        - Execution Logs
+      summary: Получить логи выполнения
+      operationId: getExecutionLogs
+      parameters:
+        - name: executionId
+          in: path
+          required: true
+          description: Идентификатор запуска
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Логи выполнения
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ExecutionLogResponse'
+        '404':
+          description: Запуск не найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    CreateExecutionRequest:
+      type: object
+      required:
+        - workflowId
+      properties:
+        workflowId:
+          type: string
+          format: uuid
+          description: Идентификатор workflow
+        inputData:
+          type: object
+          additionalProperties: true
+          description: Входные данные для запуска процесса
+
+    ExecutionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        workflowId:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/ExecutionStatus'
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+          nullable: true
+        inputData:
+          type: object
+          additionalProperties: true
+        outputData:
+          type: object
+          additionalProperties: true
+          nullable: true
+        errorMessage:
+          type: string
+          nullable: true
+
+    ExecutionLogResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        executionId:
+          type: string
+          format: uuid
+        nodeId:
+          type: string
+          format: uuid
+          nullable: true
+        nodeType:
+          type: string
+          nullable: true
+          example: LLM
+        status:
+          $ref: '#/components/schemas/StepStatus'
+        message:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: integer
+          example: 400
+        error:
+          type: string
+          example: Bad Request
+        message:
+          type: string
+        path:
+          type: string
+
+    ExecutionStatus:
+      type: string
+      enum:
+        - PENDING
+        - RUNNING
+        - SUCCESS
+        - FAILED
+        - CANCELLED
+
+    StepStatus:
+      type: string
+      enum:
+        - PENDING
+        - RUNNING
+        - SUCCESS
+        - FAILED
