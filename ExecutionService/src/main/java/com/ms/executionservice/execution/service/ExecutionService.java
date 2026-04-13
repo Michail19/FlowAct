@@ -182,9 +182,51 @@ public class ExecutionService {
         return toResponse(newExecution);
     }
 
+    @Transactional
     public ExecutionResponse cancel(
             UUID notebookId,
             UUID workflowId,
             UUID executionId
-    ) {}
+    ) {
+        ExecutionEntity execution = executionRepository
+                .findByIdAndWorkflow_IdAndWorkflow_Notebook_Id(executionId, workflowId, notebookId)
+                .orElseThrow(() -> new EntityNotFoundException("Execution not found"));
+
+        if (execution.getStatus() == ExecutionStatus.SUCCESS
+                || execution.getStatus() == ExecutionStatus.FAILED
+                || execution.getStatus() == ExecutionStatus.CANCELLED) {
+            throw new IllegalStateException("Execution already finished");
+        }
+
+        if (execution.getStatus() == ExecutionStatus.PENDING) {
+            execution.setStatus(ExecutionStatus.CANCELLED);
+            execution.setFinishedAt(java.time.OffsetDateTime.now());
+            execution = executionRepository.save(execution);
+            return toResponse(execution);
+        }
+
+        if (execution.getStatus() == ExecutionStatus.RUNNING
+                || execution.getStatus() == ExecutionStatus.WAITING
+                || execution.getStatus() == ExecutionStatus.READY
+                || execution.getStatus() == ExecutionStatus.VALIDATING
+                || execution.getStatus() == ExecutionStatus.CREATED) {
+
+            execution.setStatus(ExecutionStatus.CANCELLING);
+            execution = executionRepository.save(execution);
+
+            executionDispatchService.publishCancelRequested(
+                    execution.getId(),
+                    execution.getWorkflow().getId(),
+                    notebookId
+            );
+
+            return toResponse(execution);
+        }
+
+        if (execution.getStatus() == ExecutionStatus.CANCELLING) {
+            return toResponse(execution);
+        }
+
+        throw new IllegalStateException("Execution cannot be cancelled");
+    }
 }

@@ -1,6 +1,7 @@
 package com.ms.executionservice.execution.service;
 
 import com.ms.executionservice.config.properties.ExecutionKafkaProperties;
+import com.ms.executionservice.execution.event.ExecutionCancelRequestedEvent;
 import com.ms.executionservice.execution.event.ExecutionRetryRequestedEvent;
 import com.ms.executionservice.execution.event.ExecutionRunRequestedEvent;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -11,11 +12,12 @@ import java.util.UUID;
 
 @Service
 public class ExecutionDispatchService {
-    private final KafkaTemplate<String, ExecutionRunRequestedEvent> kafkaTemplate;
+
+    private final KafkaTemplate<String, Object> kafkaTemplate;
     private final ExecutionKafkaProperties executionKafkaProperties;
 
     public ExecutionDispatchService(
-            KafkaTemplate<String, ExecutionRunRequestedEvent> kafkaTemplate,
+            KafkaTemplate<String, Object> kafkaTemplate,
             ExecutionKafkaProperties executionKafkaProperties
     ) {
         this.kafkaTemplate = kafkaTemplate;
@@ -67,6 +69,27 @@ public class ExecutionDispatchService {
 
         kafkaTemplate.send(
                 executionKafkaProperties.retryRequestedTopic(),
+                executionId.toString(),
+                event
+        );
+    }
+
+    public void publishCancelRequested(
+            UUID executionId,
+            UUID workflowId,
+            UUID notebookId
+    ) {
+        ExecutionCancelRequestedEvent event = ExecutionCancelRequestedEvent.builder()
+                .eventId(UUID.randomUUID())
+                .eventType("EXECUTION_CANCEL_REQUESTED")
+                .executionId(executionId)
+                .workflowId(workflowId)
+                .notebookId(notebookId)
+                .createdAt(OffsetDateTime.now())
+                .build();
+
+        kafkaTemplate.send(
+                executionKafkaProperties.cancelRequestedTopic(),
                 executionId.toString(),
                 event
         );
