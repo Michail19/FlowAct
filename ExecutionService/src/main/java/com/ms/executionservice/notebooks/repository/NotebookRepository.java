@@ -1,6 +1,6 @@
 package com.ms.executionservice.notebooks.repository;
 
-import com.ms.executionservice.workflow.entity.NotebookEntity;
+import com.ms.executionservice.notebooks.entity.NotebookEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

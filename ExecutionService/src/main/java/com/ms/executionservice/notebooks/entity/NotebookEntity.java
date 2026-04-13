@@ -1,6 +1,7 @@
 package com.ms.executionservice.notebooks.entity;
 
 import com.ms.executionservice.common.entity.BaseEntity;
+import com.ms.executionservice.workflow.entity.WorkflowEntity;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
