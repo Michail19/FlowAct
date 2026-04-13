@@ -162,6 +162,109 @@ public class WorkflowService {
                 .findByIdAndNotebook_Id(workflowId, notebookId)
                 .orElseThrow(() -> new EntityNotFoundException("Workflow not found"));
 
+        return mapToWorkflowResponse(workflow);
+    }
+
+    public List<WorkflowShortResponse> getAll(UUID notebookId) {
+        return workflowRepository.findByNotebook_Id(notebookId)
+                .stream()
+                .map(workflow -> WorkflowShortResponse.builder()
+                        .id(workflow.getId())
+                        .notebookId(workflow.getNotebook().getId())
+                        .name(workflow.getName())
+                        .description(workflow.getDescription())
+                        .status(workflow.getStatus())
+                        .createdAt(workflow.getCreatedAt())
+                        .updatedAt(workflow.getUpdatedAt())
+                        .build())
+                .toList();
+    }
+
+    @Transactional
+    public WorkflowResponse update(
+            UUID notebookId,
+            UUID workflowId,
+            UpdateWorkflowRequest request
+    ) {
+        WorkflowEntity workflow = workflowRepository
+                .findByIdAndNotebook_Id(workflowId, notebookId)
+                .orElseThrow(() -> new EntityNotFoundException("Workflow not found"));
+
+        if (request.blocks() == null || request.blocks().isEmpty()) {
+            throw new IllegalArgumentException("Workflow must contain at least one block");
+        }
+
+        workflow.setName(request.name());
+        workflow.setDescription(request.description());
+
+        workflowRepository.save(workflow);
+
+        List<WorkflowConnectionEntity> existingConnections =
+                workflowConnectionRepository.findByWorkflow_Id(workflow.getId());
+        if (!existingConnections.isEmpty()) {
+            workflowConnectionRepository.deleteAll(existingConnections);
+        }
+
+        List<WorkflowBlockEntity> existingBlocks =
+                workflowBlockRepository.findByWorkflow_Id(workflow.getId());
+        if (!existingBlocks.isEmpty()) {
+            workflowBlockRepository.deleteAll(existingBlocks);
+        }
+
+        Map<UUID, WorkflowBlockEntity> blocksById = new HashMap<>();
+        List<WorkflowBlockEntity> blockEntities = new ArrayList<>();
+
+        for (WorkflowBlockRequest blockRequest : request.blocks()) {
+            UUID blockId = blockRequest.id() != null ? blockRequest.id() : UUID.randomUUID();
+
+            WorkflowBlockEntity blockEntity = WorkflowBlockEntity.builder()
+                    .id(blockId)
+                    .workflow(workflow)
+                    .type(blockRequest.type())
+                    .name(blockRequest.name())
+                    .position(jsonUtils.toJson(blockRequest.position()))
+                    .config(jsonUtils.toJson(blockRequest.config()))
+                    .build();
+
+            blockEntities.add(blockEntity);
+            blocksById.put(blockId, blockEntity);
+        }
+
+        workflowBlockRepository.saveAll(blockEntities);
+
+        List<WorkflowConnectionEntity> connectionEntities = new ArrayList<>();
+
+        if (request.connections() != null) {
+            for (WorkflowConnectionRequest connectionRequest : request.connections()) {
+                WorkflowBlockEntity fromBlock = blocksById.get(connectionRequest.fromBlockId());
+                WorkflowBlockEntity toBlock = blocksById.get(connectionRequest.toBlockId());
+
+                if (fromBlock == null || toBlock == null) {
+                    throw new IllegalArgumentException(
+                            "Connection references non-existent block: fromBlockId=%s, toBlockId=%s"
+                                    .formatted(connectionRequest.fromBlockId(), connectionRequest.toBlockId())
+                    );
+                }
+
+                WorkflowConnectionEntity connectionEntity = WorkflowConnectionEntity.builder()
+                        .id(connectionRequest.id() != null ? connectionRequest.id() : UUID.randomUUID())
+                        .workflow(workflow)
+                        .fromBlock(fromBlock)
+                        .toBlock(toBlock)
+                        .condition(connectionRequest.condition())
+                        .createdAt(java.time.OffsetDateTime.now())
+                        .build();
+
+                connectionEntities.add(connectionEntity);
+            }
+        }
+
+        workflowConnectionRepository.saveAll(connectionEntities);
+
+        return mapToWorkflowResponse(workflow);
+    }
+
+    private WorkflowResponse mapToWorkflowResponse(WorkflowEntity workflow) {
         List<WorkflowBlockDTO> blocks = workflowBlockRepository.findByWorkflow_Id(workflow.getId())
                 .stream()
                 .map(this::toBlockResponse)
@@ -184,27 +287,6 @@ public class WorkflowService {
                 .updatedAt(workflow.getUpdatedAt())
                 .build();
     }
-
-    public List<WorkflowShortResponse> getAll(UUID notebookId) {
-        return workflowRepository.findByNotebook_Id(notebookId)
-                .stream()
-                .map(workflow -> WorkflowShortResponse.builder()
-                        .id(workflow.getId())
-                        .notebookId(workflow.getNotebook().getId())
-                        .name(workflow.getName())
-                        .description(workflow.getDescription())
-                        .status(workflow.getStatus())
-                        .createdAt(workflow.getCreatedAt())
-                        .updatedAt(workflow.getUpdatedAt())
-                        .build())
-                .toList();
-    }
-
-    public WorkflowResponse update(
-            UUID notebookId,
-            UUID workflowId,
-            UpdateWorkflowRequest request
-    ) {}
 
     public WorkflowValidationResponse validate(UUID notebookId, UUID workflowId) {}
 
