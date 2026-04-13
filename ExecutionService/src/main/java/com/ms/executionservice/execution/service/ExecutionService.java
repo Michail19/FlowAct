@@ -1,9 +1,18 @@
 package com.ms.executionservice.execution.service;
 
+import com.ms.executionservice.common.exception.EntityNotFoundException;
+import com.ms.executionservice.common.util.JsonUtils;
 import com.ms.executionservice.execution.dto.request.CreateExecutionRequest;
 import com.ms.executionservice.execution.dto.response.ExecutionLogResponse;
 import com.ms.executionservice.execution.dto.response.ExecutionResponse;
+import com.ms.executionservice.execution.entity.ExecutionEntity;
+import com.ms.executionservice.execution.enumtype.ExecutionStatus;
+import com.ms.executionservice.execution.repository.ExecutionRepository;
+import com.ms.executionservice.workflow.entity.WorkflowEntity;
+import com.ms.executionservice.workflow.enumtype.WorkflowStatus;
+import com.ms.executionservice.workflow.repository.WorkflowRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
@@ -11,11 +20,76 @@ import java.util.UUID;
 @Service
 public class ExecutionService {
 
+    private final WorkflowRepository workflowRepository;
+    private final ExecutionRepository executionRepository;
+    private final JsonUtils jsonUtils;
+    private final ExecutionDispatchService executionDispatchService;
+
+    public ExecutionService(
+            WorkflowRepository workflowRepository,
+            ExecutionRepository executionRepository,
+            JsonUtils jsonUtils,
+            ExecutionDispatchService executionDispatchService
+    ) {
+        this.workflowRepository = workflowRepository;
+        this.executionRepository = executionRepository;
+        this.jsonUtils = jsonUtils;
+        this.executionDispatchService = executionDispatchService;
+    }
+
+    @Transactional
     public ExecutionResponse run(
             UUID notebookId,
             UUID workflowId,
-            CreateExecutionRequest request
-    ) {}
+            CreateExecutionRequest request,
+            UUID currentUserId
+    ) {
+        WorkflowEntity workflow = workflowRepository.findByIdAndNotebook_Id(workflowId, notebookId)
+                .orElseThrow(() -> new EntityNotFoundException("Workflow not found"));
+
+        if (workflow.getStatus() != WorkflowStatus.ACTIVE) {
+            throw new IllegalStateException("Workflow is not active");
+        }
+
+        ExecutionEntity execution = ExecutionEntity.builder()
+                .id(UUID.randomUUID())
+                .workflow(workflow)
+                .startedByUserId(currentUserId)
+                .status(ExecutionStatus.PENDING)
+                .inputData(jsonUtils.toJson(request.inputData()))
+                .outputData(null)
+                .errorMessage(null)
+                .startedAt(null)
+                .finishedAt(null)
+                .build();
+
+        execution = executionRepository.save(execution);
+
+        executionDispatchService.publishRunRequested(
+                execution.getId(),
+                workflow.getId(),
+                notebookId,
+                currentUserId
+        );
+
+        return toResponse(execution);
+    }
+
+    private ExecutionResponse toResponse(ExecutionEntity entity) {
+        return ExecutionResponse.builder()
+                .id(entity.getId())
+                .workflowId(entity.getWorkflow().getId())
+                .startedByUserId(entity.getStartedByUserId())
+                .status(entity.getStatus())
+                .inputData(jsonUtils.toMap(entity.getInputData()))
+                .outputData(jsonUtils.toMap(entity.getOutputData()))
+                .errorMessage(entity.getErrorMessage())
+                .startedAt(entity.getStartedAt())
+                .finishedAt(entity.getFinishedAt())
+                .createdAt(entity.getCreatedAt())
+                .updatedAt(entity.getUpdatedAt())
+                .build();
+    }
 
     public ExecutionResponse getById(
             UUID notebookId,
