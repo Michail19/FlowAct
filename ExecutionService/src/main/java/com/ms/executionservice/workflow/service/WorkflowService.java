@@ -7,6 +7,7 @@ import com.ms.executionservice.workflow.dto.WorkflowConnectionDTO;
 import com.ms.executionservice.workflow.dto.request.CreateWorkflowRequest;
 import com.ms.executionservice.workflow.dto.request.UpdateWorkflowRequest;
 import com.ms.executionservice.workflow.dto.response.WorkflowResponse;
+import com.ms.executionservice.workflow.dto.response.WorkflowShortResponse;
 import com.ms.executionservice.workflow.dto.response.WorkflowValidationResponse;
 import com.ms.executionservice.workflow.entity.NotebookEntity;
 import com.ms.executionservice.workflow.entity.WorkflowBlockEntity;
@@ -161,10 +162,43 @@ public class WorkflowService {
                 .findByIdAndNotebook_Id(workflowId, notebookId)
                 .orElseThrow(() -> new EntityNotFoundException("Workflow not found"));
 
-        return map(workflow);
+        List<WorkflowBlockDTO> blocks = workflowBlockRepository.findByWorkflow_Id(workflow.getId())
+                .stream()
+                .map(this::toBlockResponse)
+                .toList();
+
+        List<WorkflowConnectionDTO> connections = workflowConnectionRepository.findByWorkflow_Id(workflow.getId())
+                .stream()
+                .map(this::toConnectionResponse)
+                .toList();
+
+        return WorkflowResponse.builder()
+                .id(workflow.getId())
+                .notebookId(workflow.getNotebook().getId())
+                .name(workflow.getName())
+                .description(workflow.getDescription())
+                .status(workflow.getStatus())
+                .blocks(blocks)
+                .connections(connections)
+                .createdAt(workflow.getCreatedAt())
+                .updatedAt(workflow.getUpdatedAt())
+                .build();
     }
 
-    public List<WorkflowResponse> getAll(UUID notebookId) {}
+    public List<WorkflowShortResponse> getAll(UUID notebookId) {
+        return workflowRepository.findByNotebook_Id(notebookId)
+                .stream()
+                .map(workflow -> WorkflowShortResponse.builder()
+                        .id(workflow.getId())
+                        .notebookId(workflow.getNotebook().getId())
+                        .name(workflow.getName())
+                        .description(workflow.getDescription())
+                        .status(workflow.getStatus())
+                        .createdAt(workflow.getCreatedAt())
+                        .updatedAt(workflow.getUpdatedAt())
+                        .build())
+                .toList();
+    }
 
     public WorkflowResponse update(
             UUID notebookId,

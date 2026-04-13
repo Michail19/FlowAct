@@ -3,6 +3,7 @@ package com.ms.executionservice.workflow.controller;
 import com.ms.executionservice.workflow.dto.request.CreateWorkflowRequest;
 import com.ms.executionservice.workflow.dto.request.UpdateWorkflowRequest;
 import com.ms.executionservice.workflow.dto.response.WorkflowResponse;
+import com.ms.executionservice.workflow.dto.response.WorkflowShortResponse;
 import com.ms.executionservice.workflow.dto.response.WorkflowValidationResponse;
 import com.ms.executionservice.workflow.service.WorkflowService;
 import jakarta.validation.Valid;
@@ -57,7 +58,7 @@ public class WorkflowController {
     }
 
     @GetMapping
-    public List<WorkflowResponse> getAll(@PathVariable UUID notebookId) {
+    public List<WorkflowShortResponse> getAll(@PathVariable UUID notebookId) {
         return workflowService.getAll(notebookId);
     }
 }
