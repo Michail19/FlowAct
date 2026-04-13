@@ -1,9 +1,9 @@
 package com.ms.executionservice.execution.service;
 
 import com.ms.executionservice.config.properties.ExecutionKafkaProperties;
-import com.ms.executionservice.execution.event.ExecutionCancelRequestedEvent;
-import com.ms.executionservice.execution.event.ExecutionRetryRequestedEvent;
-import com.ms.executionservice.execution.event.ExecutionRunRequestedEvent;
+import com.ms.executionservice.execution.dto.event.ExecutionCancelRequestedEvent;
+import com.ms.executionservice.execution.dto.event.ExecutionRetryRequestedEvent;
+import com.ms.executionservice.execution.dto.event.ExecutionRunRequestedEvent;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 

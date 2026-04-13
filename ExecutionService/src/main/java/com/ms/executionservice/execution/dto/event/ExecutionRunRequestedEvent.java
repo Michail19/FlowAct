@@ -1,4 +1,4 @@
-package com.ms.executionservice.execution.event;
+package com.ms.executionservice.execution.dto.event;
 
 import lombok.Builder;
 
