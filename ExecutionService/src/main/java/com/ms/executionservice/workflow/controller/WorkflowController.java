@@ -57,6 +57,11 @@ public class WorkflowController {
         return workflowService.activate(notebookId, workflowId);
     }
 
+    @PostMapping("/{workflowId}/archive")
+    public WorkflowResponse archive(@PathVariable UUID notebookId, @PathVariable UUID workflowId) {
+        return workflowService.archive(notebookId, workflowId);
+    }
+
     @GetMapping
     public List<WorkflowShortResponse> getAll(@PathVariable UUID notebookId) {
         return workflowService.getAll(notebookId);

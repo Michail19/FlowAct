@@ -17,4 +17,5 @@ public interface ExecutionRepository extends JpaRepository<ExecutionEntity, UUID
             UUID workflowId,
             UUID notebookId
     );
+    List<ExecutionEntity> findByWorkflow_IdOrderByCreatedAtDesc(UUID workflowId);
 }

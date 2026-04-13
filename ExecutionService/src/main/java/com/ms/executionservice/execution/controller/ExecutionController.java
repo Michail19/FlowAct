@@ -32,6 +32,14 @@ public class ExecutionController {
         return executionService.run(notebookId, workflowId, request, currentUserId);
     }
 
+    @GetMapping("/executions")
+    public List<ExecutionResponse> getExecutionsByWorkflow(
+            @PathVariable UUID notebookId,
+            @PathVariable UUID workflowId
+    ) {
+        return executionService.getExecutionsByWorkflow(notebookId, workflowId);
+    }
+
     @GetMapping("/executions/{executionId}")
     public ExecutionResponse getById(
             @PathVariable UUID notebookId,

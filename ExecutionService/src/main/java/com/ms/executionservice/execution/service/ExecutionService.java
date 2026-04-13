@@ -109,38 +109,19 @@ public class ExecutionService {
                 .toList();
     }
 
-    private ExecutionResponse toResponse(ExecutionEntity entity) {
-        return ExecutionResponse.builder()
-                .id(entity.getId())
-                .workflowId(entity.getWorkflow().getId())
-                .startedByUserId(entity.getStartedByUserId())
-                .status(entity.getStatus())
-                .inputData(jsonUtils.toMap(entity.getInputData()))
-                .outputData(jsonUtils.toMap(entity.getOutputData()))
-                .errorMessage(entity.getErrorMessage())
-                .startedAt(entity.getStartedAt())
-                .finishedAt(entity.getFinishedAt())
-                .createdAt(entity.getCreatedAt())
-                .updatedAt(entity.getUpdatedAt())
-                .build();
-    }
-
-    private ExecutionLogResponse toLogResponse(ExecutionLogEntity entity) {
-        return ExecutionLogResponse.builder()
-                .id(entity.getId())
-                .executionId(entity.getExecution().getId())
-                .blockId(entity.getBlock().getId())
-                .status(entity.getStatus())
-                .output(jsonUtils.toMap(entity.getOutput()))
-                .error(entity.getError())
-                .createdAt(entity.getCreatedAt())
-                .build();
-    }
-
+    @Transactional(readOnly = true)
     public List<ExecutionResponse> getExecutionsByWorkflow(
             UUID notebookId,
             UUID workflowId
-    ) {}
+    ) {
+        workflowRepository.findByIdAndNotebook_Id(workflowId, notebookId)
+                .orElseThrow(() -> new EntityNotFoundException("Workflow not found"));
+
+        return executionRepository.findByWorkflow_IdOrderByCreatedAtDesc(workflowId)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
 
     @Transactional
     public ExecutionResponse retry(
@@ -228,5 +209,33 @@ public class ExecutionService {
         }
 
         throw new IllegalStateException("Execution cannot be cancelled");
+    }
+
+    private ExecutionResponse toResponse(ExecutionEntity entity) {
+        return ExecutionResponse.builder()
+                .id(entity.getId())
+                .workflowId(entity.getWorkflow().getId())
+                .startedByUserId(entity.getStartedByUserId())
+                .status(entity.getStatus())
+                .inputData(jsonUtils.toMap(entity.getInputData()))
+                .outputData(jsonUtils.toMap(entity.getOutputData()))
+                .errorMessage(entity.getErrorMessage())
+                .startedAt(entity.getStartedAt())
+                .finishedAt(entity.getFinishedAt())
+                .createdAt(entity.getCreatedAt())
+                .updatedAt(entity.getUpdatedAt())
+                .build();
+    }
+
+    private ExecutionLogResponse toLogResponse(ExecutionLogEntity entity) {
+        return ExecutionLogResponse.builder()
+                .id(entity.getId())
+                .executionId(entity.getExecution().getId())
+                .blockId(entity.getBlock().getId())
+                .status(entity.getStatus())
+                .output(jsonUtils.toMap(entity.getOutput()))
+                .error(entity.getError())
+                .createdAt(entity.getCreatedAt())
+                .build();
     }
 }
