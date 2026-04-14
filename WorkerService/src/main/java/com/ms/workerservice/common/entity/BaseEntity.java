@@ -1,4 +1,4 @@
-package com.ms.executionservice.common.entity;
+package com.ms.workerservice.common.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.MappedSuperclass;

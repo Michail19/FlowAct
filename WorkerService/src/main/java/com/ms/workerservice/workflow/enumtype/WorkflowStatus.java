@@ -1,4 +1,4 @@
-package com.ms.executionservice.workflow.enumtype;
+package com.ms.workerservice.workflow.enumtype;
 
 public enum WorkflowStatus {
     DRAFT,

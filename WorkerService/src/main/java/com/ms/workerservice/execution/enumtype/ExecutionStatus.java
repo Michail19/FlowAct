@@ -1,4 +1,4 @@
-package com.ms.executionservice.execution.enumtype;
+package com.ms.workerservice.execution.enumtype;
 
 public enum ExecutionStatus {
     CREATED,
