@@ -1,7 +1,7 @@
-package com.ms.executionservice.execution.entity;
+package com.ms.workerservice.execution.entity;
 
-import com.ms.executionservice.execution.enumtype.ExecutionLogStatus;
-import com.ms.executionservice.workflow.entity.WorkflowBlockEntity;
+import com.ms.workerservice.execution.enumtype.ExecutionLogStatus;
+import com.ms.workerservice.workflow.entity.WorkflowBlockEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

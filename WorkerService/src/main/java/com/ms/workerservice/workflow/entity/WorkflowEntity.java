@@ -1,8 +1,8 @@
-package com.ms.executionservice.workflow.entity;
+package com.ms.workerservice.workflow.entity;
 
-import com.ms.executionservice.common.entity.BaseEntity;
-import com.ms.executionservice.execution.entity.ExecutionEntity;
-import com.ms.executionservice.workflow.enumtype.WorkflowStatus;
+import com.ms.workerservice.common.entity.BaseEntity;
+import com.ms.workerservice.execution.entity.ExecutionEntity;
+import com.ms.workerservice.workflow.enumtype.WorkflowStatus;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

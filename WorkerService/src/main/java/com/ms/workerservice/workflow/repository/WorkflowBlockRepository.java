@@ -1,7 +1,7 @@
-package com.ms.executionservice.workflow.repository;
+package com.ms.workerservice.workflow.repository;
 
-import com.ms.executionservice.workflow.entity.WorkflowBlockEntity;
-import com.ms.executionservice.workflow.enumtype.BlockType;
+import com.ms.workerservice.workflow.entity.WorkflowBlockEntity;
+import com.ms.workerservice.workflow.enumtype.BlockType;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

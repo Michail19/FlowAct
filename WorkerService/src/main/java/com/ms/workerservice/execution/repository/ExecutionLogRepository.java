@@ -1,7 +1,7 @@
-package com.ms.executionservice.execution.repository;
+package com.ms.workerservice.execution.repository;
 
-import com.ms.executionservice.execution.entity.ExecutionLogEntity;
-import com.ms.executionservice.execution.enumtype.ExecutionLogStatus;
+import com.ms.workerservice.execution.entity.ExecutionLogEntity;
+import com.ms.workerservice.execution.enumtype.ExecutionLogStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

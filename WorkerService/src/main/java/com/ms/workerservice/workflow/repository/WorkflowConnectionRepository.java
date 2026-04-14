@@ -1,6 +1,6 @@
-package com.ms.executionservice.workflow.repository;
+package com.ms.workerservice.workflow.repository;
 
-import com.ms.executionservice.workflow.entity.WorkflowConnectionEntity;
+import com.ms.workerservice.workflow.entity.WorkflowConnectionEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
