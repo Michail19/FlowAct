@@ -12,6 +12,7 @@ import com.ms.workerservice.execution.repository.ExecutionRepository;
 import com.ms.workerservice.workflow.entity.WorkflowBlockEntity;
 import com.ms.workerservice.workflow.entity.WorkflowConnectionEntity;
 import com.ms.workerservice.workflow.entity.WorkflowEntity;
+import com.ms.workerservice.workflow.enumtype.BlockType;
 import com.ms.workerservice.workflow.repository.WorkflowBlockRepository;
 import com.ms.workerservice.workflow.repository.WorkflowConnectionRepository;
 import com.ms.workerservice.workflow.repository.WorkflowRepository;
@@ -19,8 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 public class ExecutionWorkerService {
@@ -86,7 +86,11 @@ public class ExecutionWorkerService {
         executionRepository.save(execution);
 
         try {
-            runWorkflow(execution, workflow, blocks, connections);
+            boolean completed = runWorkflow(execution, workflow, blocks, connections);
+
+            if (!completed) {
+                return;
+            }
 
             execution.setStatus(ExecutionStatus.SUCCESS);
             execution.setFinishedAt(OffsetDateTime.now());
@@ -148,47 +152,111 @@ public class ExecutionWorkerService {
         }
     }
 
-    private void runWorkflow(
+    private boolean runWorkflow(
             ExecutionEntity execution,
             WorkflowEntity workflow,
             List<WorkflowBlockEntity> blocks,
             List<WorkflowConnectionEntity> connections
     ) {
-        // Временная минимальная заглушка.
-        // Позже сюда перенесём полноценный runner:
-        // - buildGraph(...)
-        // - validateGraph(...)
-        // - resolve start node
-        // - execute block handlers
-        // - write logs
-        // - compute next node
+        Map<UUID, WorkflowBlockEntity> blocksById = new HashMap<>();
+        Map<UUID, List<WorkflowConnectionEntity>> outgoingConnections = new HashMap<>();
 
         for (WorkflowBlockEntity block : blocks) {
+            blocksById.put(block.getId(), block);
+        }
+
+        for (WorkflowConnectionEntity connection : connections) {
+            UUID fromBlockId = connection.getFromBlock().getId();
+            outgoingConnections
+                    .computeIfAbsent(fromBlockId, key -> new ArrayList<>())
+                    .add(connection);
+        }
+
+        WorkflowBlockEntity currentBlock = findStartBlock(blocks);
+
+        if (currentBlock == null) {
+            throw new IllegalStateException("Workflow has no START block");
+        }
+
+        Set<UUID> visitedBlocks = new HashSet<>();
+
+        while (currentBlock != null) {
             ExecutionEntity freshExecution = executionRepository.findById(execution.getId())
                     .orElse(null);
 
             if (freshExecution == null) {
-                return;
+                return false;
             }
 
             if (freshExecution.getStatus() == ExecutionStatus.CANCELLING) {
                 freshExecution.setStatus(ExecutionStatus.CANCELLED);
                 freshExecution.setFinishedAt(OffsetDateTime.now());
                 executionRepository.save(freshExecution);
-                return;
+                return false;
             }
 
-            ExecutionLogEntity logEntity = ExecutionLogEntity.builder()
-                    .id(UUID.randomUUID())
-                    .execution(execution)
-                    .block(block)
-                    .status(ExecutionLogStatus.SUCCESS)
-                    .output(null)
-                    .error(null)
-                    .createdAt(OffsetDateTime.now())
-                    .build();
+            if (visitedBlocks.contains(currentBlock.getId())) {
+                throw new IllegalStateException("Cycle detected near block: " + currentBlock.getId());
+            }
 
-            executionLogRepository.save(logEntity);
+            visitedBlocks.add(currentBlock.getId());
+
+            createSuccessLog(execution, currentBlock);
+
+            if (currentBlock.getType() == BlockType.END) {
+                return true;
+            }
+
+            List<WorkflowConnectionEntity> nextConnections =
+                    outgoingConnections.getOrDefault(currentBlock.getId(), List.of());
+
+            if (nextConnections.isEmpty()) {
+                throw new IllegalStateException("Block has no outgoing connection: " + currentBlock.getId());
+            }
+
+            WorkflowConnectionEntity nextConnection = nextConnections.get(0);
+            UUID nextBlockId = nextConnection.getToBlock().getId();
+
+            currentBlock = blocksById.get(nextBlockId);
+
+            if (currentBlock == null) {
+                throw new IllegalStateException("Connection points to missing block: " + nextBlockId);
+            }
         }
+
+        return false;
+    }
+
+    private WorkflowBlockEntity findStartBlock(List<WorkflowBlockEntity> blocks) {
+        List<WorkflowBlockEntity> startBlocks = blocks.stream()
+                .filter(block -> block.getType() == BlockType.START)
+                .toList();
+
+        if (startBlocks.size() > 1) {
+            throw new IllegalStateException("Workflow has more than one START block");
+        }
+
+        if (startBlocks.isEmpty()) {
+            return null;
+        }
+
+        return startBlocks.getFirst();
+    }
+
+    private void createSuccessLog(
+            ExecutionEntity execution,
+            WorkflowBlockEntity block
+    ) {
+        ExecutionLogEntity logEntity = ExecutionLogEntity.builder()
+                .id(UUID.randomUUID())
+                .execution(execution)
+                .block(block)
+                .status(ExecutionLogStatus.SUCCESS)
+                .output(null)
+                .error(null)
+                .createdAt(OffsetDateTime.now())
+                .build();
+
+        executionLogRepository.save(logEntity);
     }
 }
