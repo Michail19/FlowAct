@@ -9,6 +9,7 @@ import com.ms.workerservice.execution.event.ExecutionRetryRequestedEvent;
 import com.ms.workerservice.execution.event.ExecutionRunRequestedEvent;
 import com.ms.workerservice.execution.graph.ExecutionGraph;
 import com.ms.workerservice.execution.graph.ExecutionGraphBuilder;
+import com.ms.workerservice.execution.graph.ExecutionGraphValidator;
 import com.ms.workerservice.execution.repository.ExecutionLogRepository;
 import com.ms.workerservice.execution.repository.ExecutionRepository;
 import com.ms.workerservice.workflow.entity.WorkflowBlockEntity;
@@ -33,6 +34,7 @@ public class ExecutionWorkerService {
     private final WorkflowBlockRepository workflowBlockRepository;
     private final WorkflowConnectionRepository workflowConnectionRepository;
     private final ExecutionGraphBuilder executionGraphBuilder;
+    private final ExecutionGraphValidator executionGraphValidator;
 
     public ExecutionWorkerService(
             ExecutionRepository executionRepository,
@@ -40,7 +42,8 @@ public class ExecutionWorkerService {
             WorkflowRepository workflowRepository,
             WorkflowBlockRepository workflowBlockRepository,
             WorkflowConnectionRepository workflowConnectionRepository,
-            ExecutionGraphBuilder executionGraphBuilder
+            ExecutionGraphBuilder executionGraphBuilder,
+            ExecutionGraphValidator executionGraphValidator
     ) {
         this.executionRepository = executionRepository;
         this.executionLogRepository = executionLogRepository;
@@ -48,6 +51,7 @@ public class ExecutionWorkerService {
         this.workflowBlockRepository = workflowBlockRepository;
         this.workflowConnectionRepository = workflowConnectionRepository;
         this.executionGraphBuilder = executionGraphBuilder;
+        this.executionGraphValidator = executionGraphValidator;
     }
 
     @Transactional
@@ -164,6 +168,7 @@ public class ExecutionWorkerService {
             List<WorkflowConnectionEntity> connections
     ) {
         ExecutionGraph graph = executionGraphBuilder.build(blocks, connections);
+        executionGraphValidator.validate(graph);
 
         WorkflowBlockEntity currentBlock = graph.getStartBlock();
 

@@ -26,11 +26,15 @@ public class ExecutionGraphBuilder {
         Map<UUID, List<WorkflowConnectionEntity>> outgoingConnections =
                 buildOutgoingConnections(connections, blocksById);
 
+        Map<UUID, List<WorkflowConnectionEntity>> incomingConnections =
+                buildIncomingConnections(connections, blocksById);
+
         WorkflowBlockEntity startBlock = findStartBlock(blocks);
 
         return new ExecutionGraph(
                 blocksById,
                 outgoingConnections,
+                incomingConnections,
                 startBlock
         );
     }
@@ -93,5 +97,35 @@ public class ExecutionGraphBuilder {
         }
 
         return startBlocks.getFirst();
+    }
+
+    private Map<UUID, List<WorkflowConnectionEntity>> buildIncomingConnections(
+            List<WorkflowConnectionEntity> connections,
+            Map<UUID, WorkflowBlockEntity> blocksById
+    ) {
+        Map<UUID, List<WorkflowConnectionEntity>> incomingConnections = new HashMap<>();
+
+        if (connections == null) {
+            return incomingConnections;
+        }
+
+        for (WorkflowConnectionEntity connection : connections) {
+            UUID fromBlockId = connection.getFromBlock().getId();
+            UUID toBlockId = connection.getToBlock().getId();
+
+            if (!blocksById.containsKey(fromBlockId)) {
+                throw new IllegalStateException("Connection references missing fromBlock: " + fromBlockId);
+            }
+
+            if (!blocksById.containsKey(toBlockId)) {
+                throw new IllegalStateException("Connection references missing toBlock: " + toBlockId);
+            }
+
+            incomingConnections
+                    .computeIfAbsent(toBlockId, key -> new ArrayList<>())
+                    .add(connection);
+        }
+
+        return incomingConnections;
     }
 }
