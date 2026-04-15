@@ -4,6 +4,8 @@ import com.ms.workerservice.execution.entity.ExecutionEntity;
 import com.ms.workerservice.execution.entity.ExecutionLogEntity;
 import com.ms.workerservice.execution.enumtype.ExecutionLogStatus;
 import com.ms.workerservice.execution.enumtype.ExecutionStatus;
+import com.ms.workerservice.execution.event.ExecutionCancelRequestedEvent;
+import com.ms.workerservice.execution.event.ExecutionRetryRequestedEvent;
 import com.ms.workerservice.execution.event.ExecutionRunRequestedEvent;
 import com.ms.workerservice.execution.repository.ExecutionLogRepository;
 import com.ms.workerservice.execution.repository.ExecutionRepository;
@@ -98,6 +100,54 @@ public class ExecutionWorkerService {
         }
     }
 
+    @Transactional
+    public void handleRetryRequested(ExecutionRetryRequestedEvent event) {
+        handleRunRequested(
+                ExecutionRunRequestedEvent.builder()
+                        .eventId(event.eventId())
+                        .eventType(event.eventType())
+                        .executionId(event.executionId())
+                        .workflowId(event.workflowId())
+                        .notebookId(event.notebookId())
+                        .startedByUserId(event.startedByUserId())
+                        .triggerType(event.triggerType())
+                        .createdAt(event.createdAt())
+                        .build()
+        );
+    }
+
+    @Transactional
+    public void handleCancelRequested(ExecutionCancelRequestedEvent event) {
+        ExecutionEntity execution = executionRepository.findById(event.executionId())
+                .orElse(null);
+
+        if (execution == null) {
+            return;
+        }
+
+        if (execution.getStatus() == ExecutionStatus.SUCCESS
+                || execution.getStatus() == ExecutionStatus.FAILED
+                || execution.getStatus() == ExecutionStatus.CANCELLED) {
+            return;
+        }
+
+        if (execution.getStatus() == ExecutionStatus.PENDING) {
+            execution.setStatus(ExecutionStatus.CANCELLED);
+            execution.setFinishedAt(OffsetDateTime.now());
+            executionRepository.save(execution);
+            return;
+        }
+
+        if (execution.getStatus() == ExecutionStatus.RUNNING
+                || execution.getStatus() == ExecutionStatus.WAITING
+                || execution.getStatus() == ExecutionStatus.READY
+                || execution.getStatus() == ExecutionStatus.VALIDATING
+                || execution.getStatus() == ExecutionStatus.CREATED) {
+            execution.setStatus(ExecutionStatus.CANCELLING);
+            executionRepository.save(execution);
+        }
+    }
+
     private void runWorkflow(
             ExecutionEntity execution,
             WorkflowEntity workflow,
@@ -114,6 +164,20 @@ public class ExecutionWorkerService {
         // - compute next node
 
         for (WorkflowBlockEntity block : blocks) {
+            ExecutionEntity freshExecution = executionRepository.findById(execution.getId())
+                    .orElse(null);
+
+            if (freshExecution == null) {
+                return;
+            }
+
+            if (freshExecution.getStatus() == ExecutionStatus.CANCELLING) {
+                freshExecution.setStatus(ExecutionStatus.CANCELLED);
+                freshExecution.setFinishedAt(OffsetDateTime.now());
+                executionRepository.save(freshExecution);
+                return;
+            }
+
             ExecutionLogEntity logEntity = ExecutionLogEntity.builder()
                     .id(UUID.randomUUID())
                     .execution(execution)
