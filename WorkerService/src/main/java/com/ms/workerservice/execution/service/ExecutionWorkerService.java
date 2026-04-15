@@ -46,15 +46,26 @@ public class ExecutionWorkerService {
     @Transactional
     public void handleRunRequested(ExecutionRunRequestedEvent event) {
         ExecutionEntity execution = executionRepository.findById(event.executionId())
-                .orElseThrow(() -> new IllegalStateException("Execution not found: " + event.executionId()));
+                .orElse(null);
 
-        // Идемпотентность: если execution уже обработан или взят в работу, второй раз не запускаем
+        if (execution == null) {
+            return;
+        }
+
         if (execution.getStatus() != ExecutionStatus.PENDING) {
             return;
         }
 
         WorkflowEntity workflow = workflowRepository.findById(event.workflowId())
-                .orElseThrow(() -> new IllegalStateException("Workflow not found: " + event.workflowId()));
+                .orElse(null);
+
+        if (workflow == null) {
+            execution.setStatus(ExecutionStatus.FAILED);
+            execution.setErrorMessage("Workflow not found: " + event.workflowId());
+            execution.setFinishedAt(OffsetDateTime.now());
+            executionRepository.save(execution);
+            return;
+        }
 
         List<WorkflowBlockEntity> blocks = workflowBlockRepository.findByWorkflow_Id(workflow.getId());
         List<WorkflowConnectionEntity> connections = workflowConnectionRepository.findByWorkflow_Id(workflow.getId());
