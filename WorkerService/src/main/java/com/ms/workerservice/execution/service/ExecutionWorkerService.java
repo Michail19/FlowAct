@@ -7,6 +7,8 @@ import com.ms.workerservice.execution.enumtype.ExecutionStatus;
 import com.ms.workerservice.execution.event.ExecutionCancelRequestedEvent;
 import com.ms.workerservice.execution.event.ExecutionRetryRequestedEvent;
 import com.ms.workerservice.execution.event.ExecutionRunRequestedEvent;
+import com.ms.workerservice.execution.graph.ExecutionGraph;
+import com.ms.workerservice.execution.graph.ExecutionGraphBuilder;
 import com.ms.workerservice.execution.repository.ExecutionLogRepository;
 import com.ms.workerservice.execution.repository.ExecutionRepository;
 import com.ms.workerservice.workflow.entity.WorkflowBlockEntity;
@@ -30,19 +32,22 @@ public class ExecutionWorkerService {
     private final WorkflowRepository workflowRepository;
     private final WorkflowBlockRepository workflowBlockRepository;
     private final WorkflowConnectionRepository workflowConnectionRepository;
+    private final ExecutionGraphBuilder executionGraphBuilder;
 
     public ExecutionWorkerService(
             ExecutionRepository executionRepository,
             ExecutionLogRepository executionLogRepository,
             WorkflowRepository workflowRepository,
             WorkflowBlockRepository workflowBlockRepository,
-            WorkflowConnectionRepository workflowConnectionRepository
+            WorkflowConnectionRepository workflowConnectionRepository,
+            ExecutionGraphBuilder executionGraphBuilder
     ) {
         this.executionRepository = executionRepository;
         this.executionLogRepository = executionLogRepository;
         this.workflowRepository = workflowRepository;
         this.workflowBlockRepository = workflowBlockRepository;
         this.workflowConnectionRepository = workflowConnectionRepository;
+        this.executionGraphBuilder = executionGraphBuilder;
     }
 
     @Transactional
@@ -158,25 +163,9 @@ public class ExecutionWorkerService {
             List<WorkflowBlockEntity> blocks,
             List<WorkflowConnectionEntity> connections
     ) {
-        Map<UUID, WorkflowBlockEntity> blocksById = new HashMap<>();
-        Map<UUID, List<WorkflowConnectionEntity>> outgoingConnections = new HashMap<>();
+        ExecutionGraph graph = executionGraphBuilder.build(blocks, connections);
 
-        for (WorkflowBlockEntity block : blocks) {
-            blocksById.put(block.getId(), block);
-        }
-
-        for (WorkflowConnectionEntity connection : connections) {
-            UUID fromBlockId = connection.getFromBlock().getId();
-            outgoingConnections
-                    .computeIfAbsent(fromBlockId, key -> new ArrayList<>())
-                    .add(connection);
-        }
-
-        WorkflowBlockEntity currentBlock = findStartBlock(blocks);
-
-        if (currentBlock == null) {
-            throw new IllegalStateException("Workflow has no START block");
-        }
+        WorkflowBlockEntity currentBlock = graph.getStartBlock();
 
         Set<UUID> visitedBlocks = new HashSet<>();
 
@@ -208,7 +197,7 @@ public class ExecutionWorkerService {
             }
 
             List<WorkflowConnectionEntity> nextConnections =
-                    outgoingConnections.getOrDefault(currentBlock.getId(), List.of());
+                    graph.getOutgoingConnections(currentBlock.getId());
 
             if (nextConnections.isEmpty()) {
                 throw new IllegalStateException("Block has no outgoing connection: " + currentBlock.getId());
@@ -217,7 +206,7 @@ public class ExecutionWorkerService {
             WorkflowConnectionEntity nextConnection = nextConnections.get(0);
             UUID nextBlockId = nextConnection.getToBlock().getId();
 
-            currentBlock = blocksById.get(nextBlockId);
+            currentBlock = graph.getBlock(nextBlockId);
 
             if (currentBlock == null) {
                 throw new IllegalStateException("Connection points to missing block: " + nextBlockId);
@@ -225,22 +214,6 @@ public class ExecutionWorkerService {
         }
 
         return false;
-    }
-
-    private WorkflowBlockEntity findStartBlock(List<WorkflowBlockEntity> blocks) {
-        List<WorkflowBlockEntity> startBlocks = blocks.stream()
-                .filter(block -> block.getType() == BlockType.START)
-                .toList();
-
-        if (startBlocks.size() > 1) {
-            throw new IllegalStateException("Workflow has more than one START block");
-        }
-
-        if (startBlocks.isEmpty()) {
-            return null;
-        }
-
-        return startBlocks.getFirst();
     }
 
     private void createSuccessLog(
