@@ -6,6 +6,7 @@ import com.ms.workerservice.workflow.entity.WorkflowConnectionEntity;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -18,7 +19,8 @@ public class InputResolver {
             WorkflowBlockEntity block,
             ExecutionContext context
     ) {
-        Map<String, Object> resolvedValues = new HashMap<>();
+        Map<String, Object> resolvedValues = new LinkedHashMap<>();
+        Map<String, Object> inputs = new LinkedHashMap<>();
 
         List<WorkflowConnectionEntity> incomingConnections =
                 graph.getIncomingConnections(block.getId());
@@ -28,8 +30,16 @@ public class InputResolver {
             Object sourceOutput = context.getBlockOutput(sourceBlockId);
 
             if (sourceOutput != null) {
-                resolvedValues.put(sourceBlockId.toString(), sourceOutput);
+                inputs.put(sourceBlockId.toString(), sourceOutput);
             }
+        }
+
+        resolvedValues.put("inputs", inputs);
+        resolvedValues.put("variables", context.getVariables());
+
+        if (inputs.size() == 1) {
+            Object singleValue = inputs.values().iterator().next();
+            resolvedValues.put("value", singleValue);
         }
 
         return new ResolvedInput(resolvedValues);
