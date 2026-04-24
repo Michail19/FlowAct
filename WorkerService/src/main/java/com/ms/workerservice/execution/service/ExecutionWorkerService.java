@@ -1,5 +1,9 @@
 package com.ms.workerservice.execution.service;
 
+import com.ms.workerservice.execution.engine.ExecutionContext;
+import com.ms.workerservice.execution.engine.NodeResult;
+import com.ms.workerservice.execution.engine.handler.NodeHandler;
+import com.ms.workerservice.execution.engine.handler.NodeHandlerRegistry;
 import com.ms.workerservice.execution.entity.ExecutionEntity;
 import com.ms.workerservice.execution.entity.ExecutionLogEntity;
 import com.ms.workerservice.execution.enumtype.ExecutionLogStatus;
@@ -37,6 +41,7 @@ public class ExecutionWorkerService {
     private final ExecutionGraphBuilder executionGraphBuilder;
     private final ExecutionGraphValidator executionGraphValidator;
     private final NextBlockResolver nextBlockResolver;
+    private final NodeHandlerRegistry nodeHandlerRegistry;
 
     public ExecutionWorkerService(
             ExecutionRepository executionRepository,
@@ -46,7 +51,8 @@ public class ExecutionWorkerService {
             WorkflowConnectionRepository workflowConnectionRepository,
             ExecutionGraphBuilder executionGraphBuilder,
             ExecutionGraphValidator executionGraphValidator,
-            NextBlockResolver nextBlockResolver
+            NextBlockResolver nextBlockResolver,
+            NodeHandlerRegistry nodeHandlerRegistry
     ) {
         this.executionRepository = executionRepository;
         this.executionLogRepository = executionLogRepository;
@@ -56,6 +62,7 @@ public class ExecutionWorkerService {
         this.executionGraphBuilder = executionGraphBuilder;
         this.executionGraphValidator = executionGraphValidator;
         this.nextBlockResolver = nextBlockResolver;
+        this.nodeHandlerRegistry = nodeHandlerRegistry;
     }
 
     @Transactional
@@ -174,9 +181,12 @@ public class ExecutionWorkerService {
         ExecutionGraph graph = executionGraphBuilder.build(blocks, connections);
         executionGraphValidator.validate(graph);
 
-        WorkflowBlockEntity currentBlock = graph.getStartBlock();
+        ExecutionContext context = new ExecutionContext(
+                execution.getId(),
+                workflow.getId()
+        );
 
-        Set<UUID> visitedBlocks = new HashSet<>();
+        WorkflowBlockEntity currentBlock = graph.getStartBlock();
 
         while (currentBlock != null) {
             ExecutionEntity freshExecution = executionRepository.findById(execution.getId())
@@ -193,19 +203,25 @@ public class ExecutionWorkerService {
                 return false;
             }
 
-            if (visitedBlocks.contains(currentBlock.getId())) {
-                throw new IllegalStateException("Cycle detected near block: " + currentBlock.getId());
+            NodeHandler handler = nodeHandlerRegistry.getHandler(currentBlock.getType());
+
+            try {
+                NodeResult result = handler.handle(currentBlock, context);
+
+                context.putBlockOutput(currentBlock.getId(), result.getOutput());
+
+                createSuccessLog(execution, currentBlock, result.getOutput());
+
+                if (currentBlock.getType() == BlockType.END) {
+                    return true;
+                }
+
+                currentBlock = nextBlockResolver.resolveNextBlock(graph, currentBlock);
+
+            } catch (Exception ex) {
+                createFailureLog(execution, currentBlock, ex.getMessage());
+                throw ex;
             }
-
-            visitedBlocks.add(currentBlock.getId());
-
-            createSuccessLog(execution, currentBlock);
-
-            if (currentBlock.getType() == BlockType.END) {
-                return true;
-            }
-
-            currentBlock = nextBlockResolver.resolveNextBlock(graph, currentBlock);
         }
 
         return false;
@@ -213,15 +229,34 @@ public class ExecutionWorkerService {
 
     private void createSuccessLog(
             ExecutionEntity execution,
-            WorkflowBlockEntity block
+            WorkflowBlockEntity block,
+            Object output
     ) {
         ExecutionLogEntity logEntity = ExecutionLogEntity.builder()
                 .id(UUID.randomUUID())
                 .execution(execution)
                 .block(block)
                 .status(ExecutionLogStatus.SUCCESS)
-                .output(null)
+                .output(output != null ? String.valueOf(output) : null)
                 .error(null)
+                .createdAt(OffsetDateTime.now())
+                .build();
+
+        executionLogRepository.save(logEntity);
+    }
+
+    private void createFailureLog(
+            ExecutionEntity execution,
+            WorkflowBlockEntity block,
+            String errorMessage
+    ) {
+        ExecutionLogEntity logEntity = ExecutionLogEntity.builder()
+                .id(UUID.randomUUID())
+                .execution(execution)
+                .block(block)
+                .status(ExecutionLogStatus.FAILED)
+                .output(null)
+                .error(errorMessage)
                 .createdAt(OffsetDateTime.now())
                 .build();
 
