@@ -40,6 +40,7 @@ public class InputResolver {
         if (inputs.size() == 1) {
             Object singleValue = inputs.values().iterator().next();
             resolvedValues.put("value", singleValue);
+            resolvedValues.put("condition", singleValue);
         }
 
         return new ResolvedInput(resolvedValues);

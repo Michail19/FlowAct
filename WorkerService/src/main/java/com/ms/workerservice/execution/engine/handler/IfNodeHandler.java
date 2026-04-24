@@ -1,5 +1,6 @@
 package com.ms.workerservice.execution.engine.handler;
 
+import com.ms.workerservice.common.util.JsonHelper;
 import com.ms.workerservice.execution.engine.ExecutionContext;
 import com.ms.workerservice.execution.engine.NodeResult;
 import com.ms.workerservice.execution.engine.ResolvedInput;
@@ -12,6 +13,12 @@ import java.util.Map;
 @Component
 public class IfNodeHandler implements NodeHandler {
 
+    private final JsonHelper jsonHelper;
+
+    public IfNodeHandler(JsonHelper jsonHelper) {
+        this.jsonHelper = jsonHelper;
+    }
+
     @Override
     public BlockType getSupportedType() {
         return BlockType.IF;
@@ -23,7 +30,9 @@ public class IfNodeHandler implements NodeHandler {
             ResolvedInput input,
             ExecutionContext context
     ) {
-        Object conditionValue = resolveConditionValue(input);
+        Map<String, Object> config = jsonHelper.toMap(block.getConfig());
+
+        Object conditionValue = resolveConditionValue(config, input, context);
 
         boolean result = toBoolean(conditionValue);
 
@@ -33,7 +42,29 @@ public class IfNodeHandler implements NodeHandler {
         );
     }
 
-    private Object resolveConditionValue(ResolvedInput input) {
+    private Object resolveConditionValue(
+            Map<String, Object> config,
+            ResolvedInput input,
+            ExecutionContext context
+    ) {
+        Object variableName = config.get("variableName");
+        if (variableName != null && !String.valueOf(variableName).isBlank()) {
+            return context.getVariable(String.valueOf(variableName));
+        }
+
+        Object inputKey = config.get("inputKey");
+        if (inputKey != null && !String.valueOf(inputKey).isBlank()) {
+            String key = String.valueOf(inputKey);
+
+            if (input.get(key) != null) {
+                return input.get(key);
+            }
+
+            if (input.getInputs().containsKey(key)) {
+                return input.getInputs().get(key);
+            }
+        }
+
         if (input.get("condition") != null) {
             return input.get("condition");
         }
