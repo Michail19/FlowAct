@@ -10,6 +10,7 @@ import com.ms.workerservice.execution.event.ExecutionRunRequestedEvent;
 import com.ms.workerservice.execution.graph.ExecutionGraph;
 import com.ms.workerservice.execution.graph.ExecutionGraphBuilder;
 import com.ms.workerservice.execution.graph.ExecutionGraphValidator;
+import com.ms.workerservice.execution.graph.NextBlockResolver;
 import com.ms.workerservice.execution.repository.ExecutionLogRepository;
 import com.ms.workerservice.execution.repository.ExecutionRepository;
 import com.ms.workerservice.workflow.entity.WorkflowBlockEntity;
@@ -35,6 +36,7 @@ public class ExecutionWorkerService {
     private final WorkflowConnectionRepository workflowConnectionRepository;
     private final ExecutionGraphBuilder executionGraphBuilder;
     private final ExecutionGraphValidator executionGraphValidator;
+    private final NextBlockResolver nextBlockResolver;
 
     public ExecutionWorkerService(
             ExecutionRepository executionRepository,
@@ -43,7 +45,8 @@ public class ExecutionWorkerService {
             WorkflowBlockRepository workflowBlockRepository,
             WorkflowConnectionRepository workflowConnectionRepository,
             ExecutionGraphBuilder executionGraphBuilder,
-            ExecutionGraphValidator executionGraphValidator
+            ExecutionGraphValidator executionGraphValidator,
+            NextBlockResolver nextBlockResolver
     ) {
         this.executionRepository = executionRepository;
         this.executionLogRepository = executionLogRepository;
@@ -52,6 +55,7 @@ public class ExecutionWorkerService {
         this.workflowConnectionRepository = workflowConnectionRepository;
         this.executionGraphBuilder = executionGraphBuilder;
         this.executionGraphValidator = executionGraphValidator;
+        this.nextBlockResolver = nextBlockResolver;
     }
 
     @Transactional
@@ -201,21 +205,7 @@ public class ExecutionWorkerService {
                 return true;
             }
 
-            List<WorkflowConnectionEntity> nextConnections =
-                    graph.getOutgoingConnections(currentBlock.getId());
-
-            if (nextConnections.isEmpty()) {
-                throw new IllegalStateException("Block has no outgoing connection: " + currentBlock.getId());
-            }
-
-            WorkflowConnectionEntity nextConnection = nextConnections.get(0);
-            UUID nextBlockId = nextConnection.getToBlock().getId();
-
-            currentBlock = graph.getBlock(nextBlockId);
-
-            if (currentBlock == null) {
-                throw new IllegalStateException("Connection points to missing block: " + nextBlockId);
-            }
+            currentBlock = nextBlockResolver.resolveNextBlock(graph, currentBlock);
         }
 
         return false;
