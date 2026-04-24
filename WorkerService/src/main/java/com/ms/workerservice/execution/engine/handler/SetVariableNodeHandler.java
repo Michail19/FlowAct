@@ -1,5 +1,6 @@
 package com.ms.workerservice.execution.engine.handler;
 
+import com.ms.workerservice.common.util.JsonHelper;
 import com.ms.workerservice.execution.engine.ExecutionContext;
 import com.ms.workerservice.execution.engine.NodeResult;
 import com.ms.workerservice.execution.engine.ResolvedInput;
@@ -12,6 +13,12 @@ import java.util.Map;
 @Component
 public class SetVariableNodeHandler implements NodeHandler {
 
+    private final JsonHelper jsonHelper;
+
+    public SetVariableNodeHandler(JsonHelper jsonHelper) {
+        this.jsonHelper = jsonHelper;
+    }
+
     @Override
     public BlockType getSupportedType() {
         return BlockType.SET_VARIABLE;
@@ -23,7 +30,7 @@ public class SetVariableNodeHandler implements NodeHandler {
             ResolvedInput input,
             ExecutionContext context
     ) {
-        Map<String, Object> config = parseConfig(block);
+        Map<String, Object> config = jsonHelper.toMap(block.getConfig());
 
         String variableName = resolveVariableName(config);
         Object value = resolveValue(input, config);
@@ -57,18 +64,5 @@ public class SetVariableNodeHandler implements NodeHandler {
         }
 
         return input.getInputs();
-    }
-
-    @SuppressWarnings("unchecked")
-    private Map<String, Object> parseConfig(WorkflowBlockEntity block) {
-        // временно, пока config у тебя хранится как JSON string
-        // позже лучше вынести в JsonUtils/ObjectMapper helper
-        Object rawConfig = block.getConfig();
-
-        if (rawConfig instanceof Map<?, ?> map) {
-            return (Map<String, Object>) map;
-        }
-
-        throw new IllegalStateException("SET_VARIABLE block config is not parsed");
     }
 }

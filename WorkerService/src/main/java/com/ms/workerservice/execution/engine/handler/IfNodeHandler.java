@@ -23,7 +23,7 @@ public class IfNodeHandler implements NodeHandler {
             ResolvedInput input,
             ExecutionContext context
     ) {
-        Object conditionValue = resolveConditionValue(input.getValues());
+        Object conditionValue = resolveConditionValue(input);
 
         boolean result = toBoolean(conditionValue);
 
@@ -33,17 +33,17 @@ public class IfNodeHandler implements NodeHandler {
         );
     }
 
-    private Object resolveConditionValue(Map<String, Object> values) {
-        if (values.containsKey("condition")) {
-            return values.get("condition");
+    private Object resolveConditionValue(ResolvedInput input) {
+        if (input.get("condition") != null) {
+            return input.get("condition");
         }
 
-        if (values.containsKey("value")) {
-            return values.get("value");
+        if (input.getValue() != null) {
+            return input.getValue();
         }
 
-        if (!values.isEmpty()) {
-            return values.values().iterator().next();
+        if (!input.getInputs().isEmpty()) {
+            return input.getInputs().values().iterator().next();
         }
 
         return null;
