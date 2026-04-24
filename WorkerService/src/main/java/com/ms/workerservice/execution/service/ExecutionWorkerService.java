@@ -1,7 +1,9 @@
 package com.ms.workerservice.execution.service;
 
 import com.ms.workerservice.execution.engine.ExecutionContext;
+import com.ms.workerservice.execution.engine.InputResolver;
 import com.ms.workerservice.execution.engine.NodeResult;
+import com.ms.workerservice.execution.engine.ResolvedInput;
 import com.ms.workerservice.execution.engine.handler.NodeHandler;
 import com.ms.workerservice.execution.engine.handler.NodeHandlerRegistry;
 import com.ms.workerservice.execution.entity.ExecutionEntity;
@@ -42,6 +44,7 @@ public class ExecutionWorkerService {
     private final ExecutionGraphValidator executionGraphValidator;
     private final NextBlockResolver nextBlockResolver;
     private final NodeHandlerRegistry nodeHandlerRegistry;
+    private final InputResolver inputResolver;
 
     public ExecutionWorkerService(
             ExecutionRepository executionRepository,
@@ -52,7 +55,8 @@ public class ExecutionWorkerService {
             ExecutionGraphBuilder executionGraphBuilder,
             ExecutionGraphValidator executionGraphValidator,
             NextBlockResolver nextBlockResolver,
-            NodeHandlerRegistry nodeHandlerRegistry
+            NodeHandlerRegistry nodeHandlerRegistry,
+            InputResolver inputResolver
     ) {
         this.executionRepository = executionRepository;
         this.executionLogRepository = executionLogRepository;
@@ -63,6 +67,7 @@ public class ExecutionWorkerService {
         this.executionGraphValidator = executionGraphValidator;
         this.nextBlockResolver = nextBlockResolver;
         this.nodeHandlerRegistry = nodeHandlerRegistry;
+        this.inputResolver = inputResolver;
     }
 
     @Transactional
@@ -206,7 +211,9 @@ public class ExecutionWorkerService {
             NodeHandler handler = nodeHandlerRegistry.getHandler(currentBlock.getType());
 
             try {
-                NodeResult result = handler.handle(currentBlock, context);
+                ResolvedInput resolvedInput = inputResolver.resolve(graph, currentBlock, context);
+
+                NodeResult result = handler.handle(currentBlock, resolvedInput, context);
 
                 context.putBlockOutput(currentBlock.getId(), result.getOutput());
 
