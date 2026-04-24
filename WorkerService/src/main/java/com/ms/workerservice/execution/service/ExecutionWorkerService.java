@@ -223,7 +223,7 @@ public class ExecutionWorkerService {
                     return true;
                 }
 
-                currentBlock = nextBlockResolver.resolveNextBlock(graph, currentBlock);
+                currentBlock = nextBlockResolver.resolveNextBlock(graph, currentBlock, result);
 
             } catch (Exception ex) {
                 createFailureLog(execution, currentBlock, ex.getMessage());

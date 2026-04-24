@@ -1,5 +1,6 @@
 package com.ms.workerservice.execution.graph;
 
+import com.ms.workerservice.execution.engine.NodeResult;
 import com.ms.workerservice.workflow.entity.WorkflowBlockEntity;
 import com.ms.workerservice.workflow.entity.WorkflowConnectionEntity;
 import com.ms.workerservice.workflow.enumtype.BlockType;
@@ -13,7 +14,8 @@ public class NextBlockResolver {
 
     public WorkflowBlockEntity resolveNextBlock(
             ExecutionGraph graph,
-            WorkflowBlockEntity currentBlock
+            WorkflowBlockEntity currentBlock,
+            NodeResult result
     ) {
         if (currentBlock.getType() == BlockType.END) {
             return null;
@@ -26,14 +28,21 @@ public class NextBlockResolver {
             throw new IllegalStateException("Block has no outgoing connection: " + currentBlock.getId());
         }
 
-        if (requiresSingleOutgoing(currentBlock) && nextConnections.size() > 1) {
-            throw new IllegalStateException(
-                    "Block has more than one outgoing connection but current resolver supports only one: "
-                            + currentBlock.getId()
-            );
+        WorkflowConnectionEntity nextConnection;
+
+        if (currentBlock.getType() == BlockType.IF) {
+            nextConnection = resolveIfConnection(currentBlock, nextConnections, result);
+        } else {
+            if (requiresSingleOutgoing(currentBlock) && nextConnections.size() > 1) {
+                throw new IllegalStateException(
+                        "Block has more than one outgoing connection but current resolver supports only one: "
+                                + currentBlock.getId()
+                );
+            }
+
+            nextConnection = nextConnections.get(0);
         }
 
-        WorkflowConnectionEntity nextConnection = nextConnections.get(0);
         UUID nextBlockId = nextConnection.getToBlock().getId();
 
         WorkflowBlockEntity nextBlock = graph.getBlock(nextBlockId);
@@ -43,6 +52,33 @@ public class NextBlockResolver {
         }
 
         return nextBlock;
+    }
+
+    private WorkflowConnectionEntity resolveIfConnection(
+            WorkflowBlockEntity currentBlock,
+            List<WorkflowConnectionEntity> nextConnections,
+            NodeResult result
+    ) {
+        String selectedBranch = result != null ? result.getSelectedBranch() : null;
+
+        if (selectedBranch == null || selectedBranch.isBlank()) {
+            throw new IllegalStateException("IF block did not provide selected branch: " + currentBlock.getId());
+        }
+
+        return nextConnections.stream()
+                .filter(connection -> selectedBranch.equalsIgnoreCase(normalizeCondition(connection.getCondition())))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException(
+                        "No outgoing connection matches IF branch '" + selectedBranch
+                                + "' for block: " + currentBlock.getId()
+                ));
+    }
+
+    private String normalizeCondition(String condition) {
+        if (condition == null) {
+            return "";
+        }
+        return condition.trim().toLowerCase();
     }
 
     private boolean requiresSingleOutgoing(WorkflowBlockEntity block) {
