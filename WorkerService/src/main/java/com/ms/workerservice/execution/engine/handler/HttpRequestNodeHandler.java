@@ -6,13 +6,12 @@ import com.ms.workerservice.execution.engine.NodeResult;
 import com.ms.workerservice.execution.engine.ResolvedInput;
 import com.ms.workerservice.workflow.entity.WorkflowBlockEntity;
 import com.ms.workerservice.workflow.enumtype.BlockType;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -48,14 +47,36 @@ public class HttpRequestNodeHandler implements NodeHandler {
         Map<String, String> headers = extractHeaders(config);
         Object body = resolveBody(config, input);
 
-        ResponseEntity<String> response = executeRequest(url, method, headers, body);
+        try {
+            ResponseEntity<String> response = executeRequest(url, method, headers, body);
 
-        Map<String, Object> output = new LinkedHashMap<>();
-        output.put("status", response.getStatusCode().value());
-        output.put("headers", response.getHeaders().toSingleValueMap());
-        output.put("body", response.getBody());
+            Object parsedBody = parseResponseBody(response.getBody());
 
-        return NodeResult.of(output);
+            Map<String, Object> output = new LinkedHashMap<>();
+            output.put("status", response.getStatusCode().value());
+            output.put("headers", response.getHeaders().toSingleValueMap());
+            output.put("body", parsedBody);
+
+            return NodeResult.of(output);
+
+        } catch (RestClientResponseException ex) {
+            Map<String, Object> errorOutput = new LinkedHashMap<>();
+            errorOutput.put("status", ex.getStatusCode().value());
+            errorOutput.put("headers", ex.getResponseHeaders() != null
+                    ? ex.getResponseHeaders().toSingleValueMap()
+                    : Map.of());
+            errorOutput.put("body", parseResponseBody(ex.getResponseBodyAsString()));
+            errorOutput.put("error", ex.getMessage());
+
+            throw new IllegalStateException(
+                    "HTTP request failed with status " + ex.getStatusCode().value()
+                            + ": " + jsonHelper.toJson(errorOutput),
+                    ex
+            );
+
+        } catch (Exception ex) {
+            throw new IllegalStateException("HTTP request failed: " + ex.getMessage(), ex);
+        }
     }
 
     private ResponseEntity<String> executeRequest(
@@ -101,6 +122,21 @@ public class HttpRequestNodeHandler implements NodeHandler {
         }
 
         return null;
+    }
+
+    private Object parseResponseBody(String rawBody) {
+        if (rawBody == null || rawBody.isBlank()) {
+            return null;
+        }
+
+        if (jsonHelper.looksLikeJson(rawBody)) {
+            try {
+                return jsonHelper.toObject(rawBody);
+            } catch (Exception ignored) {
+            }
+        }
+
+        return rawBody;
     }
 
     @SuppressWarnings("unchecked")

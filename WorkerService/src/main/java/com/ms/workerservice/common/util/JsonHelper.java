@@ -26,6 +26,17 @@ public class JsonHelper {
         }
     }
 
+    public Object toObject(String json) {
+        try {
+            if (json == null || json.isBlank()) {
+                return null;
+            }
+            return objectMapper.readValue(json, Object.class);
+        } catch (Exception ex) {
+            throw new IllegalStateException("Failed to parse json body", ex);
+        }
+    }
+
     public String toJson(Object value) {
         try {
             if (value == null) {
@@ -35,5 +46,15 @@ public class JsonHelper {
         } catch (Exception ex) {
             throw new IllegalStateException("Failed to serialize object to json", ex);
         }
+    }
+
+    public boolean looksLikeJson(String raw) {
+        if (raw == null) {
+            return false;
+        }
+
+        String trimmed = raw.trim();
+        return (trimmed.startsWith("{") && trimmed.endsWith("}"))
+                || (trimmed.startsWith("[") && trimmed.endsWith("]"));
     }
 }
