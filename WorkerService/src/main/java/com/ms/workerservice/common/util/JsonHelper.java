@@ -25,4 +25,15 @@ public class JsonHelper {
             throw new IllegalStateException("Failed to parse json: " + json, ex);
         }
     }
+
+    public String toJson(Object value) {
+        try {
+            if (value == null) {
+                return null;
+            }
+            return objectMapper.writeValueAsString(value);
+        } catch (Exception ex) {
+            throw new IllegalStateException("Failed to serialize object to json", ex);
+        }
+    }
 }

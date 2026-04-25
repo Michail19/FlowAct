@@ -1,5 +1,6 @@
 package com.ms.workerservice.execution.service;
 
+import com.ms.workerservice.common.util.JsonHelper;
 import com.ms.workerservice.execution.engine.ExecutionContext;
 import com.ms.workerservice.execution.engine.InputResolver;
 import com.ms.workerservice.execution.engine.NodeResult;
@@ -45,6 +46,7 @@ public class ExecutionWorkerService {
     private final NextBlockResolver nextBlockResolver;
     private final NodeHandlerRegistry nodeHandlerRegistry;
     private final InputResolver inputResolver;
+    private final JsonHelper jsonHelper;
 
     public ExecutionWorkerService(
             ExecutionRepository executionRepository,
@@ -56,7 +58,8 @@ public class ExecutionWorkerService {
             ExecutionGraphValidator executionGraphValidator,
             NextBlockResolver nextBlockResolver,
             NodeHandlerRegistry nodeHandlerRegistry,
-            InputResolver inputResolver
+            InputResolver inputResolver,
+            JsonHelper jsonHelper
     ) {
         this.executionRepository = executionRepository;
         this.executionLogRepository = executionLogRepository;
@@ -68,6 +71,7 @@ public class ExecutionWorkerService {
         this.nextBlockResolver = nextBlockResolver;
         this.nodeHandlerRegistry = nodeHandlerRegistry;
         this.inputResolver = inputResolver;
+        this.jsonHelper = jsonHelper;
     }
 
     @Transactional
@@ -244,7 +248,7 @@ public class ExecutionWorkerService {
                 .execution(execution)
                 .block(block)
                 .status(ExecutionLogStatus.SUCCESS)
-                .output(output != null ? String.valueOf(output) : null)
+                .output(jsonHelper.toJson(output))
                 .error(null)
                 .createdAt(OffsetDateTime.now())
                 .build();
@@ -263,7 +267,7 @@ public class ExecutionWorkerService {
                 .block(block)
                 .status(ExecutionLogStatus.FAILED)
                 .output(null)
-                .error(errorMessage)
+                .error(errorMessage != null ? errorMessage : "Unknown execution error")
                 .createdAt(OffsetDateTime.now())
                 .build();
 
