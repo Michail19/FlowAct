@@ -21,6 +21,14 @@ public class EndNodeHandler implements NodeHandler {
             ResolvedInput input,
             ExecutionContext context
     ) {
+        if (input.getValue() != null) {
+            return NodeResult.of(input.getValue());
+        }
+
+        if (!input.getInputs().isEmpty()) {
+            return NodeResult.of(input.getInputs());
+        }
+
         return NodeResult.empty();
     }
 }

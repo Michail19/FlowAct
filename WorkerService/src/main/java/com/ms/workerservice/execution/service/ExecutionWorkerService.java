@@ -115,16 +115,16 @@ public class ExecutionWorkerService {
         executionRepository.save(execution);
 
         try {
-            boolean completed = runWorkflow(execution, workflow, blocks, connections);
+            NodeResult finalResult = runWorkflow(execution, workflow, blocks, connections);
 
-            if (!completed) {
+            if (finalResult == null) {
                 return;
             }
 
+            execution.setOutputData(jsonHelper.toJson(finalResult.getOutput()));
             execution.setStatus(ExecutionStatus.SUCCESS);
             execution.setFinishedAt(OffsetDateTime.now());
             executionRepository.save(execution);
-
         } catch (Exception ex) {
             execution.setStatus(ExecutionStatus.FAILED);
             execution.setErrorMessage(ex.getMessage());
@@ -181,7 +181,7 @@ public class ExecutionWorkerService {
         }
     }
 
-    private boolean runWorkflow(
+    private NodeResult runWorkflow(
             ExecutionEntity execution,
             WorkflowEntity workflow,
             List<WorkflowBlockEntity> blocks,
@@ -202,14 +202,14 @@ public class ExecutionWorkerService {
                     .orElse(null);
 
             if (freshExecution == null) {
-                return false;
+                return null;
             }
 
             if (freshExecution.getStatus() == ExecutionStatus.CANCELLING) {
                 freshExecution.setStatus(ExecutionStatus.CANCELLED);
                 freshExecution.setFinishedAt(OffsetDateTime.now());
                 executionRepository.save(freshExecution);
-                return false;
+                return null;
             }
 
             NodeHandler handler = nodeHandlerRegistry.getHandler(currentBlock.getType());
@@ -224,7 +224,7 @@ public class ExecutionWorkerService {
                 createSuccessLog(execution, currentBlock, result.getOutput());
 
                 if (currentBlock.getType() == BlockType.END) {
-                    return true;
+                    return result;
                 }
 
                 currentBlock = nextBlockResolver.resolveNextBlock(graph, currentBlock, result);
@@ -235,7 +235,7 @@ public class ExecutionWorkerService {
             }
         }
 
-        return false;
+        return null;
     }
 
     private void createSuccessLog(
