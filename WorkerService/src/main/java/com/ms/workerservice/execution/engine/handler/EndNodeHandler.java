@@ -22,13 +22,13 @@ public class EndNodeHandler implements NodeHandler {
             ExecutionContext context
     ) {
         if (input.getValue() != null) {
-            return NodeResult.of(input.getValue());
+            return NodeResult.complete(input.getValue());
         }
 
         if (!input.getInputs().isEmpty()) {
-            return NodeResult.of(input.getInputs());
+            return NodeResult.complete(input.getInputs());
         }
 
-        return NodeResult.empty();
+        return NodeResult.complete(null);
     }
 }

@@ -225,7 +225,14 @@ public class ExecutionWorkerService {
 
                 markLogSuccess(logEntity, result.getOutput());
 
-                if (currentBlock.getType() == BlockType.END) {
+                if (result.getAction() == com.ms.workerservice.execution.engine.NodeAction.WAIT) {
+                    execution.setStatus(ExecutionStatus.WAITING);
+                    execution.setOutputData(jsonHelper.toJson(result.getOutput()));
+                    executionRepository.save(execution);
+                    return null;
+                }
+
+                if (result.getAction() == com.ms.workerservice.execution.engine.NodeAction.COMPLETE) {
                     return result;
                 }
 
