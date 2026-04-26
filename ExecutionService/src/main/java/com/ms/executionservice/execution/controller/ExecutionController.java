@@ -1,6 +1,7 @@
 package com.ms.executionservice.execution.controller;
 
 import com.ms.executionservice.execution.dto.request.CreateExecutionRequest;
+import com.ms.executionservice.execution.dto.request.ResumeExecutionRequest;
 import com.ms.executionservice.execution.dto.response.ExecutionLogResponse;
 import com.ms.executionservice.execution.dto.response.ExecutionResponse;
 import com.ms.executionservice.execution.service.ExecutionService;
@@ -65,6 +66,21 @@ public class ExecutionController {
             @PathVariable UUID executionId
     ) {
         return executionService.retry(notebookId, workflowId, executionId);
+    }
+
+    @PostMapping("/executions/{executionId}/resume")
+    public ExecutionResponse resume(
+            @PathVariable UUID notebookId,
+            @PathVariable UUID workflowId,
+            @PathVariable UUID executionId,
+            @RequestBody ResumeExecutionRequest request
+    ) {
+        return executionService.resume(
+                notebookId,
+                workflowId,
+                executionId,
+                request != null ? request.resumePayload() : null
+        );
     }
 
     @PostMapping("/executions/{executionId}/cancel")

@@ -2,6 +2,7 @@ package com.ms.executionservice.execution.service;
 
 import com.ms.executionservice.config.properties.ExecutionKafkaProperties;
 import com.ms.executionservice.execution.dto.event.ExecutionCancelRequestedEvent;
+import com.ms.executionservice.execution.dto.event.ExecutionResumeRequestedEvent;
 import com.ms.executionservice.execution.dto.event.ExecutionRetryRequestedEvent;
 import com.ms.executionservice.execution.dto.event.ExecutionRunRequestedEvent;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -90,6 +91,29 @@ public class ExecutionDispatchService {
 
         kafkaTemplate.send(
                 executionKafkaProperties.cancelRequestedTopic(),
+                executionId.toString(),
+                event
+        );
+    }
+
+    public void publishResumeRequested(
+            UUID executionId,
+            UUID workflowId,
+            UUID notebookId,
+            Object resumePayload
+    ) {
+        ExecutionResumeRequestedEvent event = ExecutionResumeRequestedEvent.builder()
+                .eventId(UUID.randomUUID())
+                .eventType("EXECUTION_RESUME_REQUESTED")
+                .executionId(executionId)
+                .workflowId(workflowId)
+                .notebookId(notebookId)
+                .resumePayload(resumePayload)
+                .createdAt(OffsetDateTime.now())
+                .build();
+
+        kafkaTemplate.send(
+                executionKafkaProperties.resumeRequestedTopic(),
                 executionId.toString(),
                 event
         );
