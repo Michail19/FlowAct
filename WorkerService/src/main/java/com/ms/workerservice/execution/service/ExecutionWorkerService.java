@@ -280,6 +280,11 @@ public class ExecutionWorkerService {
             execution.setFinishedAt(OffsetDateTime.now());
             executionRepository.save(execution);
         }
+
+        // TODO:
+        // Current resume implementation restores only WAIT block output via resumePayload/waitState.input.
+        // ExecutionContext state before WAIT (variables, prior block outputs) is not persisted yet.
+        // Later this should be replaced with checkpoint/context snapshot persistence.
     }
 
     private NodeResult continueWorkflowFromBlock(
@@ -390,42 +395,6 @@ public class ExecutionWorkerService {
         logEntity.setStatus(ExecutionLogStatus.FAILED);
         logEntity.setOutput(null);
         logEntity.setError(errorMessage != null ? errorMessage : "Unknown execution error");
-
-        executionLogRepository.save(logEntity);
-    }
-
-    private void createSuccessLog(
-            ExecutionEntity execution,
-            WorkflowBlockEntity block,
-            Object output
-    ) {
-        ExecutionLogEntity logEntity = ExecutionLogEntity.builder()
-                .id(UUID.randomUUID())
-                .execution(execution)
-                .block(block)
-                .status(ExecutionLogStatus.SUCCESS)
-                .output(jsonHelper.toJson(output))
-                .error(null)
-                .createdAt(OffsetDateTime.now())
-                .build();
-
-        executionLogRepository.save(logEntity);
-    }
-
-    private void createFailureLog(
-            ExecutionEntity execution,
-            WorkflowBlockEntity block,
-            String errorMessage
-    ) {
-        ExecutionLogEntity logEntity = ExecutionLogEntity.builder()
-                .id(UUID.randomUUID())
-                .execution(execution)
-                .block(block)
-                .status(ExecutionLogStatus.FAILED)
-                .output(null)
-                .error(errorMessage != null ? errorMessage : "Unknown execution error")
-                .createdAt(OffsetDateTime.now())
-                .build();
 
         executionLogRepository.save(logEntity);
     }
