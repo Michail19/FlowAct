@@ -235,6 +235,10 @@ public class ExecutionWorkerService {
             }
         }
 
+        if (context.getLastSuccessfulOutput() != null) {
+            return NodeResult.of(context.getLastSuccessfulOutput());
+        }
+
         return null;
     }
 

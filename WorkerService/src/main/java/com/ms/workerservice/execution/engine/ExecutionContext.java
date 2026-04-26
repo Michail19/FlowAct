@@ -1,6 +1,7 @@
 package com.ms.workerservice.execution.engine;
 
 import lombok.Getter;
+import lombok.Setter;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -16,6 +17,10 @@ public class ExecutionContext {
     private final Map<UUID, Object> blockOutputs = new HashMap<>();
     private final Map<String, Object> variables = new HashMap<>();
 
+    @Setter
+    @Getter
+    private Object lastSuccessfulOutput;
+
     public ExecutionContext(UUID executionId, UUID workflowId) {
         this.executionId = executionId;
         this.workflowId = workflowId;
@@ -23,6 +28,7 @@ public class ExecutionContext {
 
     public void putBlockOutput(UUID blockId, Object output) {
         blockOutputs.put(blockId, output);
+        lastSuccessfulOutput = output;
     }
 
     public Object getBlockOutput(UUID blockId) {
