@@ -32,6 +32,8 @@ public class NextBlockResolver {
 
         if (currentBlock.getType() == BlockType.IF) {
             nextConnection = resolveIfConnection(currentBlock, nextConnections, result);
+        } else if (currentBlock.getType() == BlockType.SWITCH) {
+            nextConnection = resolveSwitchConnection(currentBlock, nextConnections, result);
         } else {
             if (requiresSingleOutgoing(currentBlock) && nextConnections.size() > 1) {
                 throw new IllegalStateException(
@@ -71,6 +73,31 @@ public class NextBlockResolver {
                 .orElseThrow(() -> new IllegalStateException(
                         "No outgoing connection matches IF branch '" + selectedBranch
                                 + "' for block: " + currentBlock.getId()
+                ));
+    }
+
+    private WorkflowConnectionEntity resolveSwitchConnection(
+            WorkflowBlockEntity currentBlock,
+            List<WorkflowConnectionEntity> nextConnections,
+            NodeResult result
+    ) {
+        String selectedBranch = result != null ? result.getSelectedBranch() : null;
+
+        if (selectedBranch == null || selectedBranch.isBlank()) {
+            selectedBranch = "default";
+        }
+
+        String finalSelectedBranch = selectedBranch;
+
+        return nextConnections.stream()
+                .filter(connection -> finalSelectedBranch.equalsIgnoreCase(normalizeCondition(connection.getCondition())))
+                .findFirst()
+                .or(() -> nextConnections.stream()
+                        .filter(connection -> "default".equalsIgnoreCase(normalizeCondition(connection.getCondition())))
+                        .findFirst())
+                .orElseThrow(() -> new IllegalStateException(
+                        "No outgoing connection matches SWITCH branch '" + finalSelectedBranch
+                                + "' and no 'default' branch found for block: " + currentBlock.getId()
                 ));
     }
 
