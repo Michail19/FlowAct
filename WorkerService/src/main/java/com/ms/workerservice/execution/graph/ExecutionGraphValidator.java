@@ -17,6 +17,7 @@ public class ExecutionGraphValidator {
         validateStartBlock(graph);
         validateEndBlocks(graph);
         validateRequiredOutgoingConnections(graph);
+        validateBlockTypeRules(graph);
         validateReachabilityAndCycles(graph);
     }
 
@@ -72,6 +73,85 @@ public class ExecutionGraphValidator {
         if (visited.size() != graph.getBlocks().size()) {
             throw new IllegalStateException("Workflow contains unreachable blocks");
         }
+    }
+
+    private void validateBlockTypeRules(ExecutionGraph graph) {
+        for (WorkflowBlockEntity block : graph.getBlocks()) {
+            switch (block.getType()) {
+                case IF -> validateIfBlock(graph, block);
+                case SWITCH -> validateSwitchBlock(graph, block);
+                case MERGE -> validateMergeBlock(graph, block);
+                default -> {
+                }
+            }
+        }
+    }
+
+    private void validateIfBlock(ExecutionGraph graph, WorkflowBlockEntity block) {
+        List<WorkflowConnectionEntity> outgoing = graph.getOutgoingConnections(block.getId());
+
+        if (outgoing.size() < 2) {
+            throw new IllegalStateException("IF block must have at least 2 outgoing connections: " + block.getId());
+        }
+
+        boolean hasTrue = outgoing.stream()
+                .anyMatch(connection -> "true".equalsIgnoreCase(normalizeCondition(connection.getCondition())));
+
+        boolean hasFalse = outgoing.stream()
+                .anyMatch(connection -> "false".equalsIgnoreCase(normalizeCondition(connection.getCondition())));
+
+        if (!hasTrue || !hasFalse) {
+            throw new IllegalStateException(
+                    "IF block must have outgoing branches with conditions 'true' and 'false': " + block.getId()
+            );
+        }
+    }
+
+    private void validateSwitchBlock(ExecutionGraph graph, WorkflowBlockEntity block) {
+        List<WorkflowConnectionEntity> outgoing = graph.getOutgoingConnections(block.getId());
+
+        if (outgoing.size() < 2) {
+            throw new IllegalStateException("SWITCH block must have at least 2 outgoing connections: " + block.getId());
+        }
+
+        boolean hasDefault = outgoing.stream()
+                .anyMatch(connection -> "default".equalsIgnoreCase(normalizeCondition(connection.getCondition())));
+
+        if (!hasDefault) {
+            throw new IllegalStateException(
+                    "SWITCH block should have a 'default' outgoing branch: " + block.getId()
+            );
+        }
+
+        long blankConditions = outgoing.stream()
+                .filter(connection -> normalizeCondition(connection.getCondition()).isBlank())
+                .count();
+
+        if (blankConditions > 0) {
+            throw new IllegalStateException(
+                    "SWITCH block must not have blank conditions on outgoing connections: " + block.getId()
+            );
+        }
+    }
+
+    private void validateMergeBlock(ExecutionGraph graph, WorkflowBlockEntity block) {
+        List<WorkflowConnectionEntity> incoming = graph.getIncomingConnections(block.getId());
+        List<WorkflowConnectionEntity> outgoing = graph.getOutgoingConnections(block.getId());
+
+        if (incoming.size() < 2) {
+            throw new IllegalStateException("MERGE block must have at least 2 incoming connections: " + block.getId());
+        }
+
+        if (outgoing.size() != 1) {
+            throw new IllegalStateException("MERGE block must have exactly 1 outgoing connection: " + block.getId());
+        }
+    }
+
+    private String normalizeCondition(String condition) {
+        if (condition == null) {
+            return "";
+        }
+        return condition.trim().toLowerCase();
     }
 
     private boolean dfs(
