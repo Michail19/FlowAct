@@ -9,6 +9,7 @@ import com.ms.workerservice.execution.entity.ExecutionLogEntity;
 import com.ms.workerservice.execution.enumtype.ExecutionLogStatus;
 import com.ms.workerservice.execution.enumtype.ExecutionStatus;
 import com.ms.workerservice.execution.event.ExecutionCancelRequestedEvent;
+import com.ms.workerservice.execution.event.ExecutionResumeRequestedEvent;
 import com.ms.workerservice.execution.event.ExecutionRetryRequestedEvent;
 import com.ms.workerservice.execution.event.ExecutionRunRequestedEvent;
 import com.ms.workerservice.execution.graph.ExecutionGraph;
@@ -176,6 +177,22 @@ public class ExecutionWorkerService {
             execution.setStatus(ExecutionStatus.CANCELLING);
             executionRepository.save(execution);
         }
+    }
+
+    @Transactional
+    public void handleResumeRequested(ExecutionResumeRequestedEvent event) {
+        ExecutionEntity execution = executionRepository.findById(event.executionId())
+                .orElse(null);
+
+        if (execution == null) {
+            return;
+        }
+
+        if (execution.getStatus() != ExecutionStatus.WAITING) {
+            return;
+        }
+
+        resumeWaitingExecution(execution, event.resumePayload());
     }
 
     private NodeResult runWorkflow(
