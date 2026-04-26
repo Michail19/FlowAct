@@ -57,4 +57,15 @@ public class JsonHelper {
         return (trimmed.startsWith("{") && trimmed.endsWith("}"))
                 || (trimmed.startsWith("[") && trimmed.endsWith("]"));
     }
+
+    public <T> T fromJson(String json, Class<T> clazz) {
+        try {
+            if (json == null || json.isBlank()) {
+                return null;
+            }
+            return objectMapper.readValue(json, clazz);
+        } catch (Exception ex) {
+            throw new IllegalStateException("Failed to deserialize json", ex);
+        }
+    }
 }

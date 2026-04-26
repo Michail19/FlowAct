@@ -1,10 +1,7 @@
 package com.ms.workerservice.execution.service;
 
 import com.ms.workerservice.common.util.JsonHelper;
-import com.ms.workerservice.execution.engine.ExecutionContext;
-import com.ms.workerservice.execution.engine.InputResolver;
-import com.ms.workerservice.execution.engine.NodeResult;
-import com.ms.workerservice.execution.engine.ResolvedInput;
+import com.ms.workerservice.execution.engine.*;
 import com.ms.workerservice.execution.engine.handler.NodeHandler;
 import com.ms.workerservice.execution.engine.handler.NodeHandlerRegistry;
 import com.ms.workerservice.execution.entity.ExecutionEntity;
@@ -190,12 +187,102 @@ public class ExecutionWorkerService {
         ExecutionGraph graph = executionGraphBuilder.build(blocks, connections);
         executionGraphValidator.validate(graph);
 
+        return continueWorkflowFromBlock(
+                execution,
+                workflow,
+                graph,
+                graph.getStartBlock(),
+                null,
+                null
+        );
+    }
+
+    @Transactional
+    public void resumeWaitingExecution(
+            ExecutionEntity execution,
+            Object resumePayload
+    ) {
+        if (execution.getStatus() != ExecutionStatus.WAITING) {
+            throw new IllegalStateException("Execution is not in WAITING state");
+        }
+
+        WaitState waitState = jsonHelper.fromJson(execution.getOutputData(), WaitState.class);
+        if (waitState == null || waitState.waitingBlockId() == null || waitState.waitingBlockId().isBlank()) {
+            throw new IllegalStateException("Execution has no valid wait state");
+        }
+
+        WorkflowEntity workflow = execution.getWorkflow();
+
+        List<WorkflowBlockEntity> blocks = workflowBlockRepository.findByWorkflow_Id(workflow.getId());
+        List<WorkflowConnectionEntity> connections = workflowConnectionRepository.findByWorkflow_Id(workflow.getId());
+
+        ExecutionGraph graph = executionGraphBuilder.build(blocks, connections);
+        executionGraphValidator.validate(graph);
+
+        WorkflowBlockEntity waitingBlock = graph.getBlock(java.util.UUID.fromString(waitState.waitingBlockId()));
+        if (waitingBlock == null) {
+            throw new IllegalStateException("Waiting block not found: " + waitState.waitingBlockId());
+        }
+
+        WorkflowBlockEntity nextBlock = nextBlockResolver.resolveNextBlock(
+                graph,
+                waitingBlock,
+                NodeResult.waitResult(waitState)
+        );
+
+        if (nextBlock == null) {
+            throw new IllegalStateException("No block to resume after WAIT");
+        }
+
+        execution.setStatus(ExecutionStatus.RUNNING);
+        execution.setOutputData(null);
+        executionRepository.save(execution);
+
+        try {
+            NodeResult finalResult = continueWorkflowFromBlock(
+                    execution,
+                    workflow,
+                    graph,
+                    nextBlock,
+                    waitingBlock.getId(),
+                    resumePayload != null ? resumePayload : waitState.input()
+            );
+
+            if (finalResult == null) {
+                return;
+            }
+
+            execution.setOutputData(jsonHelper.toJson(finalResult.getOutput()));
+            execution.setStatus(ExecutionStatus.SUCCESS);
+            execution.setFinishedAt(OffsetDateTime.now());
+            executionRepository.save(execution);
+
+        } catch (Exception ex) {
+            execution.setStatus(ExecutionStatus.FAILED);
+            execution.setErrorMessage(ex.getMessage());
+            execution.setFinishedAt(OffsetDateTime.now());
+            executionRepository.save(execution);
+        }
+    }
+
+    private NodeResult continueWorkflowFromBlock(
+            ExecutionEntity execution,
+            WorkflowEntity workflow,
+            ExecutionGraph graph,
+            WorkflowBlockEntity startBlock,
+            java.util.UUID resumedFromWaitBlockId,
+            Object resumePayload
+    ) {
         ExecutionContext context = new ExecutionContext(
                 execution.getId(),
                 workflow.getId()
         );
 
-        WorkflowBlockEntity currentBlock = graph.getStartBlock();
+        if (resumedFromWaitBlockId != null) {
+            context.putBlockOutput(resumedFromWaitBlockId, resumePayload);
+        }
+
+        WorkflowBlockEntity currentBlock = startBlock;
 
         while (currentBlock != null) {
             ExecutionEntity freshExecution = executionRepository.findById(execution.getId())
