@@ -214,6 +214,8 @@ public class ExecutionWorkerService {
 
             NodeHandler handler = nodeHandlerRegistry.getHandler(currentBlock.getType());
 
+            ExecutionLogEntity logEntity = createRunningLog(execution, currentBlock);
+
             try {
                 ResolvedInput resolvedInput = inputResolver.resolve(graph, currentBlock, context);
 
@@ -221,7 +223,7 @@ public class ExecutionWorkerService {
 
                 context.putBlockOutput(currentBlock.getId(), result.getOutput());
 
-                createSuccessLog(execution, currentBlock, result.getOutput());
+                markLogSuccess(logEntity, result.getOutput());
 
                 if (currentBlock.getType() == BlockType.END) {
                     return result;
@@ -230,7 +232,7 @@ public class ExecutionWorkerService {
                 currentBlock = nextBlockResolver.resolveNextBlock(graph, currentBlock, result);
 
             } catch (Exception ex) {
-                createFailureLog(execution, currentBlock, ex.getMessage());
+                markLogFailed(logEntity, ex.getMessage());
                 throw ex;
             }
         }
@@ -240,6 +242,45 @@ public class ExecutionWorkerService {
         }
 
         return null;
+    }
+
+    private ExecutionLogEntity createRunningLog(
+            ExecutionEntity execution,
+            WorkflowBlockEntity block
+    ) {
+        ExecutionLogEntity logEntity = ExecutionLogEntity.builder()
+                .id(UUID.randomUUID())
+                .execution(execution)
+                .block(block)
+                .status(ExecutionLogStatus.RUNNING)
+                .output(null)
+                .error(null)
+                .createdAt(OffsetDateTime.now())
+                .build();
+
+        return executionLogRepository.save(logEntity);
+    }
+
+    private void markLogSuccess(
+            ExecutionLogEntity logEntity,
+            Object output
+    ) {
+        logEntity.setStatus(ExecutionLogStatus.SUCCESS);
+        logEntity.setOutput(jsonHelper.toJson(output));
+        logEntity.setError(null);
+
+        executionLogRepository.save(logEntity);
+    }
+
+    private void markLogFailed(
+            ExecutionLogEntity logEntity,
+            String errorMessage
+    ) {
+        logEntity.setStatus(ExecutionLogStatus.FAILED);
+        logEntity.setOutput(null);
+        logEntity.setError(errorMessage != null ? errorMessage : "Unknown execution error");
+
+        executionLogRepository.save(logEntity);
     }
 
     private void createSuccessLog(
