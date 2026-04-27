@@ -1,13 +1,13 @@
-package com.ms.executionservice;
+package com.ms.workerservice;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class ExecutionServiceApplicationTests {
+class WorkerServiceApplicationTests {
 
-//	@Test
-//	void contextLoads() {
-//	}
+//    @Test
+//    void contextLoads() {
+//    }
 
 }

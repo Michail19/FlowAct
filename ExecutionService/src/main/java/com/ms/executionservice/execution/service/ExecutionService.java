@@ -164,6 +164,31 @@ public class ExecutionService {
     }
 
     @Transactional
+    public ExecutionResponse resume(
+            UUID notebookId,
+            UUID workflowId,
+            UUID executionId,
+            Object resumePayload
+    ) {
+        ExecutionEntity execution = executionRepository
+                .findByIdAndWorkflow_IdAndWorkflow_Notebook_Id(executionId, workflowId, notebookId)
+                .orElseThrow(() -> new EntityNotFoundException("Execution not found"));
+
+        if (execution.getStatus() != ExecutionStatus.WAITING) {
+            throw new IllegalStateException("Execution is not in WAITING state");
+        }
+
+        executionDispatchService.publishResumeRequested(
+                execution.getId(),
+                workflowId,
+                notebookId,
+                resumePayload
+        );
+
+        return toResponse(execution);
+    }
+
+    @Transactional
     public ExecutionResponse cancel(
             UUID notebookId,
             UUID workflowId,
