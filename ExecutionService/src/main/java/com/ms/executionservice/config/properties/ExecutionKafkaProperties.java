@@ -6,6 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record ExecutionKafkaProperties(
         String runRequestedTopic,
         String retryRequestedTopic,
-        String cancelRequestedTopic
+        String cancelRequestedTopic,
+        String resumeRequestedTopic
 ) {
 }

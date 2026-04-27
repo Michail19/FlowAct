@@ -1,0 +1,71 @@
+package com.ms.workerservice.common.util;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.stereotype.Component;
+
+import java.util.Map;
+
+@Component
+public class JsonHelper {
+
+    private final ObjectMapper objectMapper;
+
+    public JsonHelper(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
+
+    public Map<String, Object> toMap(String json) {
+        try {
+            if (json == null || json.isBlank()) {
+                return Map.of();
+            }
+            return objectMapper.readValue(json, new TypeReference<>() {});
+        } catch (Exception ex) {
+            throw new IllegalStateException("Failed to parse json: " + json, ex);
+        }
+    }
+
+    public Object toObject(String json) {
+        try {
+            if (json == null || json.isBlank()) {
+                return null;
+            }
+            return objectMapper.readValue(json, Object.class);
+        } catch (Exception ex) {
+            throw new IllegalStateException("Failed to parse json body", ex);
+        }
+    }
+
+    public String toJson(Object value) {
+        try {
+            if (value == null) {
+                return null;
+            }
+            return objectMapper.writeValueAsString(value);
+        } catch (Exception ex) {
+            throw new IllegalStateException("Failed to serialize object to json", ex);
+        }
+    }
+
+    public boolean looksLikeJson(String raw) {
+        if (raw == null) {
+            return false;
+        }
+
+        String trimmed = raw.trim();
+        return (trimmed.startsWith("{") && trimmed.endsWith("}"))
+                || (trimmed.startsWith("[") && trimmed.endsWith("]"));
+    }
+
+    public <T> T fromJson(String json, Class<T> clazz) {
+        try {
+            if (json == null || json.isBlank()) {
+                return null;
+            }
+            return objectMapper.readValue(json, clazz);
+        } catch (Exception ex) {
+            throw new IllegalStateException("Failed to deserialize json", ex);
+        }
+    }
+}
