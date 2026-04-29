@@ -1,0 +1,41 @@
+.notebook-editor {
+    display: flex;
+    min-height: 100vh;
+    height: 100vh;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--color-bg);
+    color: var(--color-text);
+}
+
+.notebook-editor__body {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+}
+
+.notebook-editor__workspace {
+    position: relative;
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+    background: #f8f7f3;
+}
+
+@media (max-width: 767px) {
+    .notebook-editor {
+        max-width: 430px;
+        margin: 0 auto;
+        border-right: 1px solid var(--color-border);
+        border-left: 1px solid var(--color-border);
+    }
+
+    .notebook-editor__body {
+        display: block;
+    }
+
+    .notebook-editor__workspace {
+        height: calc(100vh - var(--header-height));
+        border-radius: 0 0 8px 8px;
+    }
+}
