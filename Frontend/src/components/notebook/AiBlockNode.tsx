@@ -1,37 +1,45 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 
 import { getAiModelName } from './aiModels';
-import type { NotebookNode } from './notebookTypes';
+import type { NotebookNode, NotebookBlockStatus } from './notebookTypes';
 
 import './AiBlockNode.css';
 
 type AiBlockNodeProps = NodeProps<NotebookNode>;
 
+const statusLabels: Record<NotebookBlockStatus, string> = {
+    idle: 'Ожидает',
+    running: 'Выполняется',
+    success: 'Успешно',
+    error: 'Ошибка',
+};
+
 function getPromptPreview(prompt?: string): string {
     if (!prompt?.trim()) {
-        return '<Текст запроса не задан>';
+        return 'Текст запроса не задан';
     }
 
     const normalizedPrompt = prompt.trim().replace(/\s+/g, ' ');
 
-    if (normalizedPrompt.length <= 72) {
+    if (normalizedPrompt.length <= 80) {
         return normalizedPrompt;
     }
 
-    return `${normalizedPrompt.slice(0, 72)}...`;
+    return `${normalizedPrompt.slice(0, 80)}...`;
 }
 
 function AiBlockNode({ id, data, selected }: AiBlockNodeProps) {
+    const status = data.status ?? 'idle';
+    const selectedModels = data.aiConfig?.models ?? [];
+    const promptPreview = getPromptPreview(data.aiConfig?.prompt);
+
     const nodeClassName = [
         'ai-block-node',
+        `ai-block-node--${status}`,
         selected ? 'ai-block-node--selected' : '',
-        data.status ? `ai-block-node--${data.status}` : '',
     ]
         .filter(Boolean)
         .join(' ');
-
-    const selectedModels = data.aiConfig?.models ?? [];
-    const promptPreview = getPromptPreview(data.aiConfig?.prompt);
 
     return (
         <article className={nodeClassName}>
@@ -52,7 +60,12 @@ function AiBlockNode({ id, data, selected }: AiBlockNodeProps) {
                     ▶
                 </button>
 
-                <h3 className="ai-block-node__title">{data.title}</h3>
+                <div className="ai-block-node__heading">
+                    <span className="ai-block-node__icon" aria-hidden="true">
+                        🤖
+                    </span>
+                    <h3 className="ai-block-node__title">{data.title}</h3>
+                </div>
 
                 <div className="ai-block-node__actions">
                     <button
@@ -72,7 +85,7 @@ function AiBlockNode({ id, data, selected }: AiBlockNodeProps) {
                         data-node-action="delete"
                         data-node-id={id}
                     >
-                        🗑
+                        ×
                     </button>
                 </div>
             </header>
@@ -102,8 +115,8 @@ function AiBlockNode({ id, data, selected }: AiBlockNodeProps) {
             </div>
 
             <footer className="ai-block-node__footer">
-                <span>Input</span>
-                <span>Output</span>
+                <span className="ai-block-node__type">AI</span>
+                <span className="ai-block-node__status">{statusLabels[status]}</span>
             </footer>
 
             <Handle

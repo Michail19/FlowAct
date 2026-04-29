@@ -302,7 +302,7 @@ function NotebookCanvas({ readonly = false }: NotebookCanvasProps) {
         [readonly, setEdges, setNodes],
     );
 
-    const handleSaveAiConfig = (config: AiBlockConfig) => {
+    const handleSaveAiBlock = (title: string, config: AiBlockConfig) => {
         if (!editingNodeId) {
             return;
         }
@@ -314,6 +314,7 @@ function NotebookCanvas({ readonly = false }: NotebookCanvasProps) {
                         ...node,
                         data: {
                             ...node.data,
+                            title,
                             aiConfig: config,
                         },
                     }
@@ -348,8 +349,9 @@ function NotebookCanvas({ readonly = false }: NotebookCanvasProps) {
 
             {editingNode && editingNode.data.blockType === 'ai' && (
                 <AiBlockModal
+                    initialTitle={editingNode.data.title}
                     initialConfig={editingConfig}
-                    onSave={handleSaveAiConfig}
+                    onSave={handleSaveAiBlock}
                     onClose={() => setEditingNodeId(null)}
                 />
             )}

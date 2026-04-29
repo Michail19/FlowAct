@@ -10,8 +10,9 @@ import type { AiBlockConfig } from './notebookTypes';
 import './AiBlockModal.css';
 
 type AiBlockModalProps = {
+    initialTitle: string;
     initialConfig: AiBlockConfig;
-    onSave: (config: AiBlockConfig) => void;
+    onSave: (title: string, config: AiBlockConfig) => void;
     onClose: () => void;
 };
 
@@ -25,7 +26,8 @@ function normalizeModels(models: string[]): string[] {
     return [DEFAULT_AI_MODEL_ID];
 }
 
-function AiBlockModal({ initialConfig, onSave, onClose }: AiBlockModalProps) {
+function AiBlockModal({ initialTitle, initialConfig, onSave, onClose }: AiBlockModalProps) {
+    const [title, setTitle] = useState(initialTitle);
     const [prompt, setPrompt] = useState(initialConfig.prompt);
     const [selectedModels, setSelectedModels] = useState<string[]>(
         normalizeModels(initialConfig.models),
@@ -72,7 +74,9 @@ function AiBlockModal({ initialConfig, onSave, onClose }: AiBlockModalProps) {
     };
 
     const handleSave = () => {
-        onSave({
+        const normalizedTitle = title.trim() || 'AI-функция';
+
+        onSave(normalizedTitle, {
             prompt,
             models: normalizeModels(selectedModels),
         });
@@ -90,9 +94,19 @@ function AiBlockModal({ initialConfig, onSave, onClose }: AiBlockModalProps) {
                     </button>
                 </header>
 
+                <label className="ai-block-modal__title-field">
+                    <span className="ai-block-modal__visible-label">Название блока</span>
+                    <input
+                        className="ai-block-modal__title-input"
+                        value={title}
+                        onChange={(event) => setTitle(event.target.value)}
+                        placeholder="Название блока"
+                    />
+                </label>
+
                 <div className="ai-block-modal__body">
                     <label className="ai-block-modal__prompt">
-                        <span className="ai-block-modal__label">Текст запроса</span>
+                        <span className="ai-block-modal__visible-label">Текст запроса</span>
                         <textarea
                             className="ai-block-modal__textarea"
                             value={prompt}
