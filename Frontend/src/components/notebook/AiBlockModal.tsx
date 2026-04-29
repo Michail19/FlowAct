@@ -1,5 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
+import {
+    AI_MODEL_OPTIONS,
+    DEFAULT_AI_MODEL_ID,
+    getAiModelOption,
+} from './aiModels';
 import type { AiBlockConfig } from './notebookTypes';
 
 import './AiBlockModal.css';
@@ -10,11 +15,27 @@ type AiBlockModalProps = {
     onClose: () => void;
 };
 
+function normalizeModels(models: string[]): string[] {
+    const uniqueModels = Array.from(new Set(models.filter(Boolean)));
+
+    if (uniqueModels.length > 0) {
+        return uniqueModels;
+    }
+
+    return [DEFAULT_AI_MODEL_ID];
+}
+
 function AiBlockModal({ initialConfig, onSave, onClose }: AiBlockModalProps) {
     const [prompt, setPrompt] = useState(initialConfig.prompt);
-    const [model, setModel] = useState(initialConfig.model);
-    const [additionalModel, setAdditionalModel] = useState(initialConfig.additionalModel);
-    const [meta, setMeta] = useState(initialConfig.meta);
+    const [selectedModels, setSelectedModels] = useState<string[]>(
+        normalizeModels(initialConfig.models),
+    );
+
+    const selectedModelSet = useMemo(() => new Set(selectedModels), [selectedModels]);
+
+    const availableModels = AI_MODEL_OPTIONS.filter(
+        (model) => !selectedModelSet.has(model.id),
+    );
 
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
@@ -30,12 +51,30 @@ function AiBlockModal({ initialConfig, onSave, onClose }: AiBlockModalProps) {
         };
     }, [onClose]);
 
+    const handleAddModel = (modelId: string) => {
+        setSelectedModels((currentModels) => {
+            if (currentModels.includes(modelId)) {
+                return currentModels;
+            }
+
+            return [...currentModels, modelId];
+        });
+    };
+
+    const handleRemoveModel = (modelId: string) => {
+        setSelectedModels((currentModels) => {
+            if (currentModels.length <= 1) {
+                return currentModels;
+            }
+
+            return currentModels.filter((currentModelId) => currentModelId !== modelId);
+        });
+    };
+
     const handleSave = () => {
         onSave({
             prompt,
-            model,
-            additionalModel,
-            meta,
+            models: normalizeModels(selectedModels),
         });
     };
 
@@ -62,45 +101,81 @@ function AiBlockModal({ initialConfig, onSave, onClose }: AiBlockModalProps) {
                         />
                     </label>
 
-                    <div className="ai-block-modal__settings">
-                        <label className="ai-block-modal__field">
-                            <span className="ai-block-modal__label">Основная модель</span>
-                            <select
-                                className="ai-block-modal__select"
-                                value={model}
-                                onChange={(event) => setModel(event.target.value)}
-                            >
-                                <option value="Chat-gpt-4o">Chat-gpt-4o</option>
-                                <option value="Chat-gpt-4o-mini">Chat-gpt-4o-mini</option>
-                                <option value="Claude 3.5 Sonnet">Claude 3.5 Sonnet</option>
-                                <option value="Gemini 1.5 Pro">Gemini 1.5 Pro</option>
-                            </select>
-                        </label>
+                    <aside className="ai-block-modal__models-panel">
+                        <section className="ai-block-modal__section">
+                            <h3 className="ai-block-modal__section-title">Выбранные нейросети</h3>
 
-                        <label className="ai-block-modal__field">
-                            <span className="ai-block-modal__label">Дополнительная модель</span>
-                            <select
-                                className="ai-block-modal__select"
-                                value={additionalModel}
-                                onChange={(event) => setAdditionalModel(event.target.value)}
-                            >
-                                <option value="">Добавить модель</option>
-                                <option value="Chat-gpt-4o-mini">Chat-gpt-4o-mini</option>
-                                <option value="Claude 3 Haiku">Claude 3 Haiku</option>
-                                <option value="Gemini 1.5 Flash">Gemini 1.5 Flash</option>
-                            </select>
-                        </label>
+                            <div className="ai-block-modal__selected-list">
+                                {selectedModels.map((modelId) => {
+                                    const model = getAiModelOption(modelId);
 
-                        <label className="ai-block-modal__field ai-block-modal__field--meta">
-                            <span className="ai-block-modal__label">Краткая информация на блоке</span>
-                            <textarea
-                                className="ai-block-modal__meta"
-                                value={meta}
-                                onChange={(event) => setMeta(event.target.value)}
-                                placeholder="<Краткая мета-информация>"
-                            />
-                        </label>
-                    </div>
+                                    return (
+                                        <article className="ai-block-modal__selected-model" key={modelId}>
+                                            <div>
+                                                <strong className="ai-block-modal__model-name">
+                                                    {model?.name ?? modelId}
+                                                </strong>
+                                                <span className="ai-block-modal__model-provider">
+                                                    {model?.provider ?? 'Custom'}
+                                                </span>
+                                            </div>
+
+                                            <button
+                                                className="ai-block-modal__remove-model"
+                                                type="button"
+                                                onClick={() => handleRemoveModel(modelId)}
+                                                disabled={selectedModels.length <= 1}
+                                                title={
+                                                    selectedModels.length <= 1
+                                                        ? 'Нужна хотя бы одна нейросеть'
+                                                        : 'Убрать нейросеть'
+                                                }
+                                            >
+                                                −
+                                            </button>
+                                        </article>
+                                    );
+                                })}
+                            </div>
+                        </section>
+
+                        <section className="ai-block-modal__section ai-block-modal__section--available">
+                            <h3 className="ai-block-modal__section-title">Доступные нейросети</h3>
+
+                            <div className="ai-block-modal__available-list">
+                                {availableModels.length > 0 ? (
+                                    availableModels.map((model) => (
+                                        <article className="ai-block-modal__available-model" key={model.id}>
+                                            <div className="ai-block-modal__available-info">
+                                                <strong className="ai-block-modal__model-name">
+                                                    {model.name}
+                                                </strong>
+                                                <span className="ai-block-modal__model-provider">
+                                                    {model.provider}
+                                                </span>
+                                                <p className="ai-block-modal__model-description">
+                                                    {model.description}
+                                                </p>
+                                            </div>
+
+                                            <button
+                                                className="ai-block-modal__add-model"
+                                                type="button"
+                                                onClick={() => handleAddModel(model.id)}
+                                                aria-label={`Добавить ${model.name}`}
+                                            >
+                                                +
+                                            </button>
+                                        </article>
+                                    ))
+                                ) : (
+                                    <p className="ai-block-modal__empty">
+                                        Все доступные нейросети уже добавлены.
+                                    </p>
+                                )}
+                            </div>
+                        </section>
+                    </aside>
                 </div>
 
                 <footer className="ai-block-modal__footer">

@@ -14,9 +14,7 @@ export type NotebookBlockStatus = 'idle' | 'running' | 'success' | 'error';
 
 export type AiBlockConfig = {
     prompt: string;
-    model: string;
-    additionalModel: string;
-    meta: string;
+    models: string[];
 };
 
 export type NotebookBlockData = {

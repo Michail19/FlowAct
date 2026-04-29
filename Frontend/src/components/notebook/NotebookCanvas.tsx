@@ -14,6 +14,7 @@ import {
 
 import AiBlockModal from './AiBlockModal';
 import AiBlockNode from './AiBlockNode';
+import { DEFAULT_AI_MODEL_ID } from './aiModels';
 import type { AiBlockConfig, NotebookNode } from './notebookTypes';
 
 import '@xyflow/react/dist/style.css';
@@ -25,9 +26,7 @@ type NotebookCanvasProps = {
 
 const defaultAiConfig: AiBlockConfig = {
     prompt: '',
-    model: 'Chat-gpt-4o',
-    additionalModel: '',
-    meta: '<Краткая мета-информация>',
+    models: [DEFAULT_AI_MODEL_ID],
 };
 
 const initialNodes: NotebookNode[] = [
@@ -153,7 +152,6 @@ function NotebookCanvas({ readonly = false }: NotebookCanvasProps) {
                         data: {
                             ...node.data,
                             aiConfig: config,
-                            meta: config.meta,
                         },
                     }
                     : node,
