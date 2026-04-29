@@ -1,0 +1,84 @@
+.notebook-suggestion {
+    position: absolute;
+    z-index: 8;
+    right: 0;
+    bottom: 0;
+    width: min(300px, 42vw);
+    padding: 28px 18px 14px;
+    border-radius: 16px 0 0 0;
+    background: var(--color-panel-light);
+    color: var(--color-text);
+    box-shadow: 0 -10px 30px rgba(15, 23, 42, 0.2);
+}
+
+.notebook-suggestion__close {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--color-muted);
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+}
+
+.notebook-suggestion__close:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--color-text);
+}
+
+.notebook-suggestion__text {
+    margin: 0 0 16px;
+    font-size: 16px;
+    line-height: 1.35;
+}
+
+.notebook-suggestion__actions {
+    display: flex;
+    gap: 16px;
+}
+
+.notebook-suggestion__button {
+    padding: 9px 16px;
+    border: 0;
+    border-radius: 6px;
+    color: #ffffff;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.notebook-suggestion__button--accept {
+    background: var(--color-success);
+}
+
+.notebook-suggestion__button--decline {
+    background: var(--color-danger);
+}
+
+.notebook-suggestion--mobile {
+    right: 8px;
+    bottom: 58px;
+    left: 8px;
+    width: auto;
+    padding: 30px 14px 12px;
+    border-radius: 14px;
+}
+
+.notebook-suggestion--mobile .notebook-suggestion__text {
+    font-size: 14px;
+}
+
+.notebook-suggestion--mobile .notebook-suggestion__actions {
+    gap: 8px;
+}
+
+.notebook-suggestion--mobile .notebook-suggestion__button {
+    flex: 1;
+    padding: 8px;
+    font-size: 13px;
+}
