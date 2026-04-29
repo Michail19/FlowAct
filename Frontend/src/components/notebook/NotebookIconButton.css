@@ -1,0 +1,58 @@
+.notebook-icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 2px solid transparent;
+    background: var(--color-panel-light);
+    color: var(--color-text);
+    cursor: pointer;
+    transition: border-color 0.15s ease, transform 0.15s ease, background 0.15s ease;
+}
+
+.notebook-icon-button:hover {
+    border-color: var(--color-primary);
+    transform: translateY(-1px);
+}
+
+.notebook-icon-button:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.notebook-icon-button--square {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-sm);
+}
+
+.notebook-icon-button--circle {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+}
+
+.notebook-icon-button--active {
+    background: var(--color-primary);
+    color: var(--color-bg);
+}
+
+.notebook-icon-button__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    line-height: 1;
+}
+
+@media (max-width: 767px) {
+    .notebook-icon-button--square,
+    .notebook-icon-button--circle {
+        width: 34px;
+        height: 34px;
+    }
+
+    .notebook-icon-button__icon {
+        font-size: 21px;
+    }
+}
