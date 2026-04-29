@@ -1,7 +1,7 @@
 .custom-block-node {
     position: relative;
-    min-width: 190px;
-    max-width: 240px;
+    min-width: 230px;
+    max-width: 280px;
     padding: 12px;
     border: 2px solid rgba(15, 23, 42, 0.18);
     border-radius: 14px;
@@ -14,131 +14,72 @@
             transform 0.15s ease;
 }
 
-.custom-block-node:hover {
-    border-color: var(--color-primary);
-    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.24);
-}
-
-.custom-block-node--selected {
-    border-color: var(--color-primary);
-    box-shadow:
-            0 0 0 4px rgba(34, 211, 238, 0.16),
-            0 14px 30px rgba(15, 23, 42, 0.24);
-}
-
 .custom-block-node__header {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) 24px;
+    align-items: start;
+    gap: 8px;
+}
+
+.custom-block-node__run {
+    display: inline-flex;
+    width: 28px;
+    height: 28px;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 50%;
+    background: var(--color-success);
+    color: #ffffff;
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+}
+
+.custom-block-node__heading {
     display: flex;
+    min-width: 0;
     align-items: center;
     gap: 10px;
 }
 
-.custom-block-node__icon {
+.custom-block-node__actions {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    align-items: flex-end;
+}
+
+.custom-block-node__action {
     display: inline-flex;
-    width: 42px;
-    height: 42px;
-    flex: 0 0 42px;
+    width: 19px;
+    height: 19px;
     align-items: center;
     justify-content: center;
-    border-radius: 12px;
-    background: rgba(255, 255, 255, 0.08);
-    font-size: 22px;
-}
-
-.custom-block-node__text {
-    min-width: 0;
-}
-
-.custom-block-node__title {
-    display: block;
-    overflow: hidden;
-    color: var(--color-text);
-    font-size: 15px;
-    line-height: 1.25;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.custom-block-node__subtitle {
-    display: block;
-    overflow: hidden;
-    margin-top: 3px;
-    color: var(--color-muted);
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    color: #ffffff;
+    cursor: pointer;
     font-size: 12px;
-    line-height: 1.25;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.custom-block-node__footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    margin-top: 12px;
-    padding-top: 10px;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.custom-block-node__type,
-.custom-block-node__status {
-    font-size: 11px;
     line-height: 1;
 }
 
-.custom-block-node__type {
+.custom-block-node__action--edit {
+    background: #0ea5e9;
+}
+
+.custom-block-node__action--delete {
+    background: var(--color-danger);
+}
+
+.custom-block-node__description {
+    display: -webkit-box;
+    margin: 12px 0 0;
+    overflow: hidden;
     color: var(--color-muted);
-    text-transform: uppercase;
-}
-
-.custom-block-node__status {
-    padding: 5px 7px;
-    border-radius: 999px;
-    background: rgba(148, 163, 184, 0.18);
-    color: var(--color-muted);
-}
-
-.custom-block-node--running .custom-block-node__status {
-    background: rgba(34, 211, 238, 0.18);
-    color: var(--color-primary);
-}
-
-.custom-block-node--success .custom-block-node__status {
-    background: rgba(34, 197, 94, 0.18);
-    color: var(--color-success);
-}
-
-.custom-block-node--error .custom-block-node__status {
-    background: rgba(239, 68, 68, 0.18);
-    color: var(--color-danger);
-}
-
-.custom-block-node--start .custom-block-node__icon {
-    background: rgba(34, 197, 94, 0.18);
-}
-
-.custom-block-node--end .custom-block-node__icon {
-    background: rgba(239, 68, 68, 0.18);
-}
-
-.custom-block-node--ai .custom-block-node__icon {
-    background: rgba(34, 211, 238, 0.18);
-}
-
-.custom-block-node--condition .custom-block-node__icon {
-    background: rgba(250, 204, 21, 0.18);
-}
-
-.custom-block-node__handle {
-    width: 12px;
-    height: 12px;
-    border: 2px solid #ffffff;
-    background: var(--color-primary);
-}
-
-.custom-block-node__handle--target {
-    left: -7px;
-}
-
-.custom-block-node__handle--source {
-    right: -7px;
+    font-size: 12px;
+    line-height: 1.35;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
 }

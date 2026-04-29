@@ -20,11 +20,16 @@ export type AiBlockConfig = {
 export type NotebookBlockData = {
     title: string;
     subtitle?: string;
+    description?: string;
     blockType: NotebookBlockType;
     status?: NotebookBlockStatus;
     icon?: string;
     meta?: string;
     aiConfig?: AiBlockConfig;
+
+    onRun?: (nodeId: string) => void;
+    onEdit?: (nodeId: string) => void;
+    onDelete?: (nodeId: string) => void;
 };
 
 export type NotebookNode = Node<NotebookBlockData>;

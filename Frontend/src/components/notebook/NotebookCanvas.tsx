@@ -15,6 +15,7 @@ import {
 import AiBlockModal from './AiBlockModal';
 import AiBlockNode from './AiBlockNode';
 import CustomBlockNode from './CustomBlockNode';
+import BlockSettingsModal from "./BlockSettingsModal";
 import { DEFAULT_AI_MODEL_ID } from './aiModels';
 import type { AiBlockConfig, NotebookNode } from './notebookTypes';
 
@@ -238,70 +239,6 @@ function NotebookCanvas({ readonly = false }: NotebookCanvasProps) {
         [readonly, setEdges],
     );
 
-    const handleNodeClick = useCallback(
-        (event: React.MouseEvent, node: NotebookNode) => {
-            const target = event.target as HTMLElement;
-            const actionElement = target.closest<HTMLElement>('[data-node-action]');
-            const action = actionElement?.dataset.nodeAction;
-
-            if (!action) {
-                return;
-            }
-
-            event.stopPropagation();
-
-            if (action === 'edit' && node.data.blockType === 'ai') {
-                setEditingNodeId(node.id);
-                return;
-            }
-
-            if (action === 'delete' && !readonly) {
-                setNodes((currentNodes) =>
-                    currentNodes.filter((currentNode) => currentNode.id !== node.id),
-                );
-
-                setEdges((currentEdges) =>
-                    currentEdges.filter((edge) => edge.source !== node.id && edge.target !== node.id),
-                );
-
-                return;
-            }
-
-            if (action === 'run') {
-                setNodes((currentNodes) =>
-                    currentNodes.map((currentNode) =>
-                        currentNode.id === node.id
-                            ? {
-                                ...currentNode,
-                                data: {
-                                    ...currentNode.data,
-                                    status: 'running',
-                                },
-                            }
-                            : currentNode,
-                    ),
-                );
-
-                window.setTimeout(() => {
-                    setNodes((currentNodes) =>
-                        currentNodes.map((currentNode) =>
-                            currentNode.id === node.id
-                                ? {
-                                    ...currentNode,
-                                    data: {
-                                        ...currentNode.data,
-                                        status: 'success',
-                                    },
-                                }
-                                : currentNode,
-                        ),
-                    );
-                }, 900);
-            }
-        },
-        [readonly, setEdges, setNodes],
-    );
-
     const handleSaveAiBlock = (title: string, config: AiBlockConfig) => {
         if (!editingNodeId) {
             return;
@@ -325,16 +262,109 @@ function NotebookCanvas({ readonly = false }: NotebookCanvasProps) {
         setEditingNodeId(null);
     };
 
+    const handleEditNode = useCallback((nodeId: string) => {
+        setEditingNodeId(nodeId);
+    }, []);
+
+    const handleDeleteNode = useCallback(
+        (nodeId: string) => {
+            if (readonly) {
+                return;
+            }
+
+            setNodes((currentNodes) =>
+                currentNodes.filter((node) => node.id !== nodeId),
+            );
+
+            setEdges((currentEdges) =>
+                currentEdges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId),
+            );
+        },
+        [readonly, setEdges, setNodes],
+    );
+
+    const handleRunNode = useCallback(
+        (nodeId: string) => {
+            setNodes((currentNodes) =>
+                currentNodes.map((node) =>
+                    node.id === nodeId
+                        ? {
+                            ...node,
+                            data: {
+                                ...node.data,
+                                status: 'running',
+                            },
+                        }
+                        : node,
+                ),
+            );
+
+            window.setTimeout(() => {
+                setNodes((currentNodes) =>
+                    currentNodes.map((node) =>
+                        node.id === nodeId
+                            ? {
+                                ...node,
+                                data: {
+                                    ...node.data,
+                                    status: 'success',
+                                },
+                            }
+                            : node,
+                    ),
+                );
+            }, 900);
+        },
+        [setNodes],
+    );
+
+    const visibleNodes = useMemo(
+        () =>
+            nodes.map((node) => ({
+                ...node,
+                data: {
+                    ...node.data,
+                    onEdit: handleEditNode,
+                    onDelete: handleDeleteNode,
+                    onRun: handleRunNode,
+                },
+            })),
+        [handleDeleteNode, handleEditNode, handleRunNode, nodes],
+    );
+
+    const handleSaveGenericBlock = (title: string, subtitle: string, description: string) => {
+        if (!editingNodeId) {
+            return;
+        }
+
+        setNodes((currentNodes) =>
+            currentNodes.map((node) =>
+                node.id === editingNodeId
+                    ? {
+                        ...node,
+                        data: {
+                            ...node.data,
+                            title,
+                            subtitle,
+                            description,
+                        },
+                    }
+                    : node,
+            ),
+        );
+
+        setEditingNodeId(null);
+    };
+
     return (
         <div className="notebook-canvas">
             <ReactFlow
-                nodes={nodes}
+                nodes={visibleNodes}
                 edges={edges}
                 nodeTypes={nodeTypes}
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnect}
-                onNodeClick={handleNodeClick}
                 nodesDraggable={!readonly}
                 nodesConnectable={!readonly}
                 elementsSelectable
@@ -352,6 +382,16 @@ function NotebookCanvas({ readonly = false }: NotebookCanvasProps) {
                     initialTitle={editingNode.data.title}
                     initialConfig={editingConfig}
                     onSave={handleSaveAiBlock}
+                    onClose={() => setEditingNodeId(null)}
+                />
+            )}
+
+            {editingNode && editingNode.data.blockType !== 'ai' && (
+                <BlockSettingsModal
+                    initialTitle={editingNode.data.title}
+                    initialSubtitle={editingNode.data.subtitle}
+                    initialDescription={editingNode.data.description}
+                    onSave={handleSaveGenericBlock}
                     onClose={() => setEditingNodeId(null)}
                 />
             )}

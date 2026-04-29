@@ -1,7 +1,7 @@
 .ai-block-node {
     position: relative;
-    width: 250px;
-    min-height: 160px;
+    width: 330px;
+    min-height: 170px;
     padding: 12px;
     border: 2px solid rgba(15, 23, 42, 0.18);
     border-radius: 14px;
@@ -109,7 +109,7 @@
 }
 
 .ai-block-node__content {
-    min-height: 74px;
+    min-height: 84px;
     margin-top: 12px;
     padding: 10px;
     overflow: hidden;

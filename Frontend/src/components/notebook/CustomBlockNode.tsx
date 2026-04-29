@@ -1,17 +1,17 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 
-import type { NotebookNode } from './notebookTypes';
+import type { NotebookBlockStatus, NotebookNode } from './notebookTypes';
 
 import './CustomBlockNode.css';
 
-const statusLabels = {
+const statusLabels: Record<NotebookBlockStatus, string> = {
     idle: 'Ожидает',
     running: 'Выполняется',
     success: 'Успешно',
     error: 'Ошибка',
 };
 
-function CustomBlockNode({ data, selected }: NodeProps<NotebookNode>) {
+function CustomBlockNode({ id, data, selected }: NodeProps<NotebookNode>) {
     const status = data.status ?? 'idle';
 
     const nodeClassName = [
@@ -26,6 +26,21 @@ function CustomBlockNode({ data, selected }: NodeProps<NotebookNode>) {
     const canHaveInput = data.blockType !== 'start';
     const canHaveOutput = data.blockType !== 'end';
 
+    const handleRun = (event: React.MouseEvent<HTMLButtonElement>) => {
+        event.stopPropagation();
+        data.onRun?.(id);
+    };
+
+    const handleEdit = (event: React.MouseEvent<HTMLButtonElement>) => {
+        event.stopPropagation();
+        data.onEdit?.(id);
+    };
+
+    const handleDelete = (event: React.MouseEvent<HTMLButtonElement>) => {
+        event.stopPropagation();
+        data.onDelete?.(id);
+    };
+
     return (
         <article className={nodeClassName}>
             {canHaveInput && (
@@ -36,23 +51,58 @@ function CustomBlockNode({ data, selected }: NodeProps<NotebookNode>) {
                 />
             )}
 
-            <div className="custom-block-node__header">
-                <span className="custom-block-node__icon" aria-hidden="true">
-                    {data.icon}
-                </span>
+            <header className="custom-block-node__header">
+                <button
+                    className="custom-block-node__run nodrag nopan"
+                    type="button"
+                    aria-label="Запустить блок"
+                    onClick={handleRun}
+                >
+                    ▶
+                </button>
 
-                <div className="custom-block-node__text">
-                    <strong className="custom-block-node__title">{data.title}</strong>
-                    {data.subtitle && (
-                        <span className="custom-block-node__subtitle">{data.subtitle}</span>
-                    )}
+                <div className="custom-block-node__heading">
+                    <span className="custom-block-node__icon" aria-hidden="true">
+                        {data.icon}
+                    </span>
+
+                    <div className="custom-block-node__text">
+                        <strong className="custom-block-node__title">{data.title}</strong>
+                        {data.subtitle && (
+                            <span className="custom-block-node__subtitle">{data.subtitle}</span>
+                        )}
+                    </div>
                 </div>
-            </div>
 
-            <div className="custom-block-node__footer">
+                <div className="custom-block-node__actions">
+                    <button
+                        className="custom-block-node__action custom-block-node__action--edit nodrag nopan"
+                        type="button"
+                        aria-label="Редактировать блок"
+                        onClick={handleEdit}
+                    >
+                        ✎
+                    </button>
+
+                    <button
+                        className="custom-block-node__action custom-block-node__action--delete nodrag nopan"
+                        type="button"
+                        aria-label="Удалить блок"
+                        onClick={handleDelete}
+                    >
+                        ×
+                    </button>
+                </div>
+            </header>
+
+            {data.description && (
+                <p className="custom-block-node__description">{data.description}</p>
+            )}
+
+            <footer className="custom-block-node__footer">
                 <span className="custom-block-node__type">{data.blockType}</span>
                 <span className="custom-block-node__status">{statusLabels[status]}</span>
-            </div>
+            </footer>
 
             {canHaveOutput && (
                 <Handle

@@ -1,7 +1,7 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 
 import { getAiModelName } from './aiModels';
-import type { NotebookNode, NotebookBlockStatus } from './notebookTypes';
+import type { NotebookBlockStatus, NotebookNode } from './notebookTypes';
 
 import './AiBlockNode.css';
 
@@ -21,11 +21,11 @@ function getPromptPreview(prompt?: string): string {
 
     const normalizedPrompt = prompt.trim().replace(/\s+/g, ' ');
 
-    if (normalizedPrompt.length <= 80) {
+    if (normalizedPrompt.length <= 90) {
         return normalizedPrompt;
     }
 
-    return `${normalizedPrompt.slice(0, 80)}...`;
+    return `${normalizedPrompt.slice(0, 90)}...`;
 }
 
 function AiBlockNode({ id, data, selected }: AiBlockNodeProps) {
@@ -41,6 +41,21 @@ function AiBlockNode({ id, data, selected }: AiBlockNodeProps) {
         .filter(Boolean)
         .join(' ');
 
+    const handleRun = (event: React.MouseEvent<HTMLButtonElement>) => {
+        event.stopPropagation();
+        data.onRun?.(id);
+    };
+
+    const handleEdit = (event: React.MouseEvent<HTMLButtonElement>) => {
+        event.stopPropagation();
+        data.onEdit?.(id);
+    };
+
+    const handleDelete = (event: React.MouseEvent<HTMLButtonElement>) => {
+        event.stopPropagation();
+        data.onDelete?.(id);
+    };
+
     return (
         <article className={nodeClassName}>
             <Handle
@@ -51,11 +66,10 @@ function AiBlockNode({ id, data, selected }: AiBlockNodeProps) {
 
             <header className="ai-block-node__header">
                 <button
-                    className="ai-block-node__run"
+                    className="ai-block-node__run nodrag nopan"
                     type="button"
                     aria-label="Запустить AI-блок"
-                    data-node-action="run"
-                    data-node-id={id}
+                    onClick={handleRun}
                 >
                     ▶
                 </button>
@@ -69,21 +83,19 @@ function AiBlockNode({ id, data, selected }: AiBlockNodeProps) {
 
                 <div className="ai-block-node__actions">
                     <button
-                        className="ai-block-node__action ai-block-node__action--edit"
+                        className="ai-block-node__action ai-block-node__action--edit nodrag nopan"
                         type="button"
                         aria-label="Редактировать AI-блок"
-                        data-node-action="edit"
-                        data-node-id={id}
+                        onClick={handleEdit}
                     >
                         ✎
                     </button>
 
                     <button
-                        className="ai-block-node__action ai-block-node__action--delete"
+                        className="ai-block-node__action ai-block-node__action--delete nodrag nopan"
                         type="button"
                         aria-label="Удалить AI-блок"
-                        data-node-action="delete"
-                        data-node-id={id}
+                        onClick={handleDelete}
                     >
                         ×
                     </button>
@@ -95,7 +107,7 @@ function AiBlockNode({ id, data, selected }: AiBlockNodeProps) {
 
                 <div className="ai-block-node__models" aria-label="Выбранные нейросети">
                     {selectedModels.length > 0 ? (
-                        selectedModels.slice(0, 3).map((modelId) => (
+                        selectedModels.slice(0, 4).map((modelId) => (
                             <span className="ai-block-node__model" key={modelId}>
                                 {getAiModelName(modelId)}
                             </span>
@@ -106,9 +118,9 @@ function AiBlockNode({ id, data, selected }: AiBlockNodeProps) {
                         </span>
                     )}
 
-                    {selectedModels.length > 3 && (
+                    {selectedModels.length > 4 && (
                         <span className="ai-block-node__model ai-block-node__model--more">
-                            +{selectedModels.length - 3}
+                            +{selectedModels.length - 4}
                         </span>
                     )}
                 </div>
