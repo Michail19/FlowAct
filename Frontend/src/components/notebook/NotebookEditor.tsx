@@ -7,7 +7,7 @@ import NotebookSearch from './NotebookSearch';
 import NotebookSuggestion from './NotebookSuggestion';
 import NotebookMobileActions from './NotebookMobileActions';
 
-import './notebook.css';
+import './NotebookEditor.css';
 
 function NotebookEditor() {
     const isMobile = useMediaQuery('(max-width: 767px)');
