@@ -20,23 +20,3 @@ a {
     color: inherit;
     text-decoration: none;
 }
-
-/* можно временно положить в global.css */
-.notebook-page {
-    display: flex;
-    min-height: 100vh;
-}
-
-.notebook-sidebar {
-    width: 280px;
-    padding: 16px;
-    background: var(--color-panel);
-    border-left: 1px solid var(--color-border);
-}
-
-.block-panel {
-    width: 56px;
-    padding: 8px;
-    background: var(--color-panel);
-    border-right: 1px solid var(--color-border);
-}
