@@ -1,0 +1,79 @@
+import { Handle, Position, type NodeProps } from '@xyflow/react';
+
+import type { NotebookNode } from './notebookTypes';
+
+import './AiBlockNode.css';
+
+type AiBlockNodeProps = NodeProps<NotebookNode>;
+
+function AiBlockNode({ id, data, selected }: AiBlockNodeProps) {
+    const nodeClassName = [
+        'ai-block-node',
+        selected ? 'ai-block-node--selected' : '',
+    ]
+        .filter(Boolean)
+        .join(' ');
+
+    const metaText = data.aiConfig?.meta || data.meta || '<Краткая мета-информация>';
+
+    return (
+        <article className={nodeClassName}>
+            <Handle
+                className="ai-block-node__handle ai-block-node__handle--target"
+                type="target"
+                position={Position.Left}
+            />
+
+            <header className="ai-block-node__header">
+                <button
+                    className="ai-block-node__run"
+                    type="button"
+                    aria-label="Запустить AI-блок"
+                    data-node-action="run"
+                    data-node-id={id}
+                >
+                    ▶
+                </button>
+
+                <h3 className="ai-block-node__title">{data.title}</h3>
+
+                <div className="ai-block-node__actions">
+                    <button
+                        className="ai-block-node__action ai-block-node__action--edit"
+                        type="button"
+                        aria-label="Редактировать AI-блок"
+                        data-node-action="edit"
+                        data-node-id={id}
+                    >
+                        ✎
+                    </button>
+
+                    <button
+                        className="ai-block-node__action ai-block-node__action--delete"
+                        type="button"
+                        aria-label="Удалить AI-блок"
+                        data-node-action="delete"
+                        data-node-id={id}
+                    >
+                        🗑
+                    </button>
+                </div>
+            </header>
+
+            <div className="ai-block-node__meta">{metaText}</div>
+
+            <footer className="ai-block-node__footer">
+                <span>Input</span>
+                <span>Output</span>
+            </footer>
+
+            <Handle
+                className="ai-block-node__handle ai-block-node__handle--source"
+                type="source"
+                position={Position.Right}
+            />
+        </article>
+    );
+}
+
+export default AiBlockNode;

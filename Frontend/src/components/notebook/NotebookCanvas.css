@@ -5,28 +5,47 @@
 }
 
 .notebook-canvas .react-flow__node {
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    background: var(--color-panel);
-    color: var(--color-text);
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.notebook-canvas .react-flow__edge-path {
+    stroke: var(--color-panel-light);
+    stroke-width: 2.5;
+}
+
+.notebook-canvas .react-flow__edge.selected .react-flow__edge-path {
+    stroke: var(--color-primary);
+}
+
+.notebook-canvas .react-flow__connection-path {
+    stroke: var(--color-primary);
+    stroke-width: 2.5;
 }
 
 .notebook-canvas .react-flow__controls {
+    overflow: hidden;
+    border-radius: 10px;
     box-shadow: 0 8px 20px rgba(15, 23, 42, 0.16);
 }
 
+.notebook-canvas .react-flow__controls-button {
+    border-bottom: 1px solid rgba(15, 23, 42, 0.12);
+}
+
 .notebook-canvas .react-flow__minimap {
+    overflow: hidden;
     border: 1px solid rgba(15, 23, 42, 0.16);
     border-radius: 10px;
-    overflow: hidden;
 }
 
 @media (max-width: 767px) {
     .notebook-canvas {
         inset: 34px 0 0;
+        overflow: hidden;
         border: 1px solid rgba(15, 23, 42, 0.55);
         border-radius: 8px;
-        overflow: hidden;
     }
 
     .notebook-canvas .react-flow__controls {
