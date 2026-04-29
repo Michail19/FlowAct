@@ -14,6 +14,7 @@ import {
 
 import AiBlockModal from './AiBlockModal';
 import AiBlockNode from './AiBlockNode';
+import CustomBlockNode from './CustomBlockNode';
 import { DEFAULT_AI_MODEL_ID } from './aiModels';
 import type { AiBlockConfig, NotebookNode } from './notebookTypes';
 
@@ -25,15 +26,32 @@ type NotebookCanvasProps = {
 };
 
 const defaultAiConfig: AiBlockConfig = {
-    prompt: '',
+    prompt: 'Проанализируй входящий текст пользователя и подготовь структурированный ответ.',
+    models: [DEFAULT_AI_MODEL_ID],
+};
+
+const retryAiConfig: AiBlockConfig = {
+    prompt: 'Повтори обработку результата, исправь ошибки и подготовь новый вариант ответа.',
     models: [DEFAULT_AI_MODEL_ID],
 };
 
 const initialNodes: NotebookNode[] = [
     {
-        id: 'ai-1',
+        id: 'start',
+        type: 'customBlock',
+        position: { x: 80, y: 180 },
+        data: {
+            title: 'Старт',
+            subtitle: 'Запуск рабочего процесса',
+            icon: '▶',
+            blockType: 'start',
+            status: 'success',
+        },
+    },
+    {
+        id: 'ai-main',
         type: 'aiBlock',
-        position: { x: 120, y: 120 },
+        position: { x: 360, y: 160 },
         data: {
             title: 'AI-функция',
             blockType: 'ai',
@@ -41,9 +59,149 @@ const initialNodes: NotebookNode[] = [
             aiConfig: defaultAiConfig,
         },
     },
+    {
+        id: 'condition-check',
+        type: 'customBlock',
+        position: { x: 720, y: 180 },
+        data: {
+            title: 'Проверка результата',
+            subtitle: 'Если ответ корректный',
+            icon: '◇',
+            blockType: 'condition',
+            status: 'idle',
+        },
+    },
+    {
+        id: 'database-save',
+        type: 'customBlock',
+        position: { x: 1080, y: 70 },
+        data: {
+            title: 'Сохранить в БД',
+            subtitle: 'Запись результата выполнения',
+            icon: 'DB',
+            blockType: 'database',
+            status: 'idle',
+        },
+    },
+    {
+        id: 'email-send',
+        type: 'customBlock',
+        position: { x: 1370, y: 70 },
+        data: {
+            title: 'Отправить Email',
+            subtitle: 'Уведомить пользователя',
+            icon: '✉',
+            blockType: 'email',
+            status: 'idle',
+        },
+    },
+    {
+        id: 'ai-retry',
+        type: 'aiBlock',
+        position: { x: 1080, y: 330 },
+        data: {
+            title: 'Повторная AI-функция',
+            blockType: 'ai',
+            status: 'idle',
+            aiConfig: retryAiConfig,
+        },
+    },
+    {
+        id: 'action-format',
+        type: 'customBlock',
+        position: { x: 1370, y: 330 },
+        data: {
+            title: 'Форматирование',
+            subtitle: 'Подготовка результата',
+            icon: '▰',
+            blockType: 'action',
+            status: 'idle',
+        },
+    },
+    {
+        id: 'log-result',
+        type: 'customBlock',
+        position: { x: 1660, y: 200 },
+        data: {
+            title: 'Логирование',
+            subtitle: 'Сохранение истории выполнения',
+            icon: 'LOG',
+            blockType: 'log',
+            status: 'idle',
+        },
+    },
+    {
+        id: 'end',
+        type: 'customBlock',
+        position: { x: 1950, y: 200 },
+        data: {
+            title: 'Конец',
+            subtitle: 'Рабочий процесс завершён',
+            icon: '■',
+            blockType: 'end',
+            status: 'idle',
+        },
+    },
 ];
 
-const initialEdges: Edge[] = [];
+const initialEdges: Edge[] = [
+    {
+        id: 'start-ai-main',
+        source: 'start',
+        target: 'ai-main',
+        type: 'smoothstep',
+    },
+    {
+        id: 'ai-main-condition-check',
+        source: 'ai-main',
+        target: 'condition-check',
+        type: 'smoothstep',
+    },
+    {
+        id: 'condition-database-save',
+        source: 'condition-check',
+        target: 'database-save',
+        type: 'smoothstep',
+        label: 'Да',
+    },
+    {
+        id: 'database-save-email-send',
+        source: 'database-save',
+        target: 'email-send',
+        type: 'smoothstep',
+    },
+    {
+        id: 'email-send-log-result',
+        source: 'email-send',
+        target: 'log-result',
+        type: 'smoothstep',
+    },
+    {
+        id: 'condition-ai-retry',
+        source: 'condition-check',
+        target: 'ai-retry',
+        type: 'smoothstep',
+        label: 'Нет',
+    },
+    {
+        id: 'ai-retry-action-format',
+        source: 'ai-retry',
+        target: 'action-format',
+        type: 'smoothstep',
+    },
+    {
+        id: 'action-format-log-result',
+        source: 'action-format',
+        target: 'log-result',
+        type: 'smoothstep',
+    },
+    {
+        id: 'log-result-end',
+        source: 'log-result',
+        target: 'end',
+        type: 'smoothstep',
+    },
+];
 
 function NotebookCanvas({ readonly = false }: NotebookCanvasProps) {
     const [nodes, setNodes, onNodesChange] = useNodesState<NotebookNode>(initialNodes);
@@ -53,6 +211,7 @@ function NotebookCanvas({ readonly = false }: NotebookCanvasProps) {
     const nodeTypes = useMemo<NodeTypes>(
         () => ({
             aiBlock: AiBlockNode,
+            customBlock: CustomBlockNode,
         }),
         [],
     );
@@ -91,16 +250,20 @@ function NotebookCanvas({ readonly = false }: NotebookCanvasProps) {
 
             event.stopPropagation();
 
-            if (action === 'edit') {
+            if (action === 'edit' && node.data.blockType === 'ai') {
                 setEditingNodeId(node.id);
                 return;
             }
 
             if (action === 'delete' && !readonly) {
-                setNodes((currentNodes) => currentNodes.filter((currentNode) => currentNode.id !== node.id));
+                setNodes((currentNodes) =>
+                    currentNodes.filter((currentNode) => currentNode.id !== node.id),
+                );
+
                 setEdges((currentEdges) =>
                     currentEdges.filter((edge) => edge.source !== node.id && edge.target !== node.id),
                 );
+
                 return;
             }
 
@@ -183,7 +346,7 @@ function NotebookCanvas({ readonly = false }: NotebookCanvasProps) {
                 {!readonly && <MiniMap pannable zoomable />}
             </ReactFlow>
 
-            {editingNode && (
+            {editingNode && editingNode.data.blockType === 'ai' && (
                 <AiBlockModal
                     initialConfig={editingConfig}
                     onSave={handleSaveAiConfig}

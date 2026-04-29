@@ -40,6 +40,16 @@
     border-radius: 10px;
 }
 
+.notebook-canvas .react-flow__edge-textbg {
+    fill: #f8f7f3;
+}
+
+.notebook-canvas .react-flow__edge-text {
+    fill: var(--color-panel-light);
+    font-size: 12px;
+    font-weight: 700;
+}
+
 @media (max-width: 767px) {
     .notebook-canvas {
         inset: 34px 0 0;
