@@ -6,12 +6,15 @@ import {
     addEdge,
     useEdgesState,
     useNodesState,
+    type Connection,
+    type Edge,
+    type Node,
 } from '@xyflow/react';
 
 import '@xyflow/react/dist/style.css';
 import './FlowCanvas.css';
 
-const initialNodes = [
+const initialNodes: Node[] = [
     {
         id: 'start',
         type: 'input',
@@ -26,14 +29,14 @@ const initialNodes = [
     },
 ];
 
-const initialEdges = [];
+const initialEdges: Edge[] = [];
 
 function FlowCanvas() {
-    const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+    const [nodes, , onNodesChange] = useNodesState(initialNodes);
     const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
     const onConnect = useCallback(
-        (connection) => {
+        (connection: Connection) => {
             setEdges((currentEdges) => addEdge(connection, currentEdges));
         },
         [setEdges],
