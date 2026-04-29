@@ -14,6 +14,10 @@ const statusLabels: Record<NotebookBlockStatus, string> = {
     error: 'Ошибка',
 };
 
+function stopReactFlowEvent(event: React.SyntheticEvent) {
+    event.stopPropagation();
+}
+
 function getPromptPreview(prompt?: string): string {
     if (!prompt?.trim()) {
         return 'Текст запроса не задан';
@@ -69,6 +73,7 @@ function AiBlockNode({ id, data, selected }: AiBlockNodeProps) {
                     className="ai-block-node__run nodrag nopan"
                     type="button"
                     aria-label="Запустить AI-блок"
+                    onPointerDown={stopReactFlowEvent}
                     onClick={handleRun}
                 >
                     ▶
@@ -86,6 +91,7 @@ function AiBlockNode({ id, data, selected }: AiBlockNodeProps) {
                         className="ai-block-node__action ai-block-node__action--edit nodrag nopan"
                         type="button"
                         aria-label="Редактировать AI-блок"
+                        onPointerDown={stopReactFlowEvent}
                         onClick={handleEdit}
                     >
                         ✎
@@ -95,6 +101,7 @@ function AiBlockNode({ id, data, selected }: AiBlockNodeProps) {
                         className="ai-block-node__action ai-block-node__action--delete nodrag nopan"
                         type="button"
                         aria-label="Удалить AI-блок"
+                        onPointerDown={stopReactFlowEvent}
                         onClick={handleDelete}
                     >
                         ×

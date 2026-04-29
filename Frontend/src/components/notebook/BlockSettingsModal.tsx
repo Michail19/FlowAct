@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import './BlockSettingsModal.css';
 
@@ -43,8 +44,13 @@ function BlockSettingsModal({
         );
     };
 
-    return (
-        <div className="block-settings-modal" role="dialog" aria-modal="true">
+    return createPortal(
+        <div
+            className="block-settings-modal"
+            role="dialog"
+            aria-modal="true"
+            onPointerDown={(event) => event.stopPropagation()}
+        >
             <div className="block-settings-modal__content">
                 <header className="block-settings-modal__header">
                     <h2 className="block-settings-modal__title">Настройки блока</h2>
@@ -103,7 +109,8 @@ function BlockSettingsModal({
                     </button>
                 </footer>
             </div>
-        </div>
+        </div>,
+        document.body,
     );
 }
 

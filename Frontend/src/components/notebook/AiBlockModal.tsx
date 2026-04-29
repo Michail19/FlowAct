@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import {
     AI_MODEL_OPTIONS,
@@ -82,8 +83,14 @@ function AiBlockModal({ initialTitle, initialConfig, onSave, onClose }: AiBlockM
         });
     };
 
-    return (
-        <div className="ai-block-modal" role="dialog" aria-modal="true" aria-labelledby="ai-block-modal-title">
+    return createPortal(
+        <div
+            className="ai-block-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ai-block-modal-title"
+            onPointerDown={(event) => event.stopPropagation()}
+        >
             <div className="ai-block-modal__content">
                 <header className="ai-block-modal__header">
                     <h2 className="ai-block-modal__title" id="ai-block-modal-title">
@@ -125,7 +132,7 @@ function AiBlockModal({ initialTitle, initialConfig, onSave, onClose }: AiBlockM
 
                                     return (
                                         <article className="ai-block-modal__selected-model" key={modelId}>
-                                            <div>
+                                            <div className="ai-block-modal__model-info">
                                                 <strong className="ai-block-modal__model-name">
                                                     {model?.name ?? modelId}
                                                 </strong>
@@ -160,7 +167,7 @@ function AiBlockModal({ initialTitle, initialConfig, onSave, onClose }: AiBlockM
                                 {availableModels.length > 0 ? (
                                     availableModels.map((model) => (
                                         <article className="ai-block-modal__available-model" key={model.id}>
-                                            <div className="ai-block-modal__available-info">
+                                            <div className="ai-block-modal__model-info">
                                                 <strong className="ai-block-modal__model-name">
                                                     {model.name}
                                                 </strong>
@@ -210,7 +217,8 @@ function AiBlockModal({ initialTitle, initialConfig, onSave, onClose }: AiBlockM
                     </button>
                 </footer>
             </div>
-        </div>
+        </div>,
+        document.body,
     );
 }
 

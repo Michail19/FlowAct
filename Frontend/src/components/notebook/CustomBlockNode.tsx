@@ -11,6 +11,21 @@ const statusLabels: Record<NotebookBlockStatus, string> = {
     error: 'Ошибка',
 };
 
+const blockTypeLabels: Record<string, string> = {
+    start: 'START',
+    end: 'END',
+    ai: 'AI',
+    condition: 'CONDITION',
+    action: 'ACTION',
+    database: 'DATABASE',
+    email: 'EMAIL',
+    log: 'LOG',
+};
+
+function stopReactFlowEvent(event: React.SyntheticEvent) {
+    event.stopPropagation();
+}
+
 function CustomBlockNode({ id, data, selected }: NodeProps<NotebookNode>) {
     const status = data.status ?? 'idle';
 
@@ -56,6 +71,7 @@ function CustomBlockNode({ id, data, selected }: NodeProps<NotebookNode>) {
                     className="custom-block-node__run nodrag nopan"
                     type="button"
                     aria-label="Запустить блок"
+                    onPointerDown={stopReactFlowEvent}
                     onClick={handleRun}
                 >
                     ▶
@@ -68,6 +84,7 @@ function CustomBlockNode({ id, data, selected }: NodeProps<NotebookNode>) {
 
                     <div className="custom-block-node__text">
                         <strong className="custom-block-node__title">{data.title}</strong>
+
                         {data.subtitle && (
                             <span className="custom-block-node__subtitle">{data.subtitle}</span>
                         )}
@@ -79,6 +96,7 @@ function CustomBlockNode({ id, data, selected }: NodeProps<NotebookNode>) {
                         className="custom-block-node__action custom-block-node__action--edit nodrag nopan"
                         type="button"
                         aria-label="Редактировать блок"
+                        onPointerDown={stopReactFlowEvent}
                         onClick={handleEdit}
                     >
                         ✎
@@ -88,6 +106,7 @@ function CustomBlockNode({ id, data, selected }: NodeProps<NotebookNode>) {
                         className="custom-block-node__action custom-block-node__action--delete nodrag nopan"
                         type="button"
                         aria-label="Удалить блок"
+                        onPointerDown={stopReactFlowEvent}
                         onClick={handleDelete}
                     >
                         ×
@@ -100,7 +119,9 @@ function CustomBlockNode({ id, data, selected }: NodeProps<NotebookNode>) {
             )}
 
             <footer className="custom-block-node__footer">
-                <span className="custom-block-node__type">{data.blockType}</span>
+                <span className="custom-block-node__type">
+                    {blockTypeLabels[data.blockType] ?? data.blockType}
+                </span>
                 <span className="custom-block-node__status">{statusLabels[status]}</span>
             </footer>
 

@@ -1,7 +1,7 @@
 .ai-block-node {
     position: relative;
-    width: 330px;
-    min-height: 170px;
+    width: 360px;
+    min-height: 176px;
     padding: 12px;
     border: 2px solid rgba(15, 23, 42, 0.18);
     border-radius: 14px;
@@ -28,7 +28,7 @@
 
 .ai-block-node__header {
     display: grid;
-    grid-template-columns: 34px minmax(0, 1fr) 24px;
+    grid-template-columns: 32px minmax(0, 1fr) 22px;
     align-items: start;
     gap: 8px;
 }
@@ -52,7 +52,7 @@
     display: flex;
     min-width: 0;
     align-items: center;
-    gap: 8px;
+    gap: 9px;
 }
 
 .ai-block-node__icon {
@@ -72,7 +72,7 @@
     overflow: hidden;
     color: var(--color-text);
     font-size: 15px;
-    font-weight: 600;
+    font-weight: 700;
     line-height: 1.25;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -109,7 +109,7 @@
 }
 
 .ai-block-node__content {
-    min-height: 84px;
+    min-height: 88px;
     margin-top: 12px;
     padding: 10px;
     overflow: hidden;
