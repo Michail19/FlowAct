@@ -38,3 +38,10 @@ export type NotebookBlockRequest = {
     requestId: number;
     blockType: NotebookBlockType;
 };
+
+export type NotebookAutoLayoutMode = 'arrange' | 'connect' | 'arrange-connect';
+
+export type NotebookAutoLayoutRequest = {
+    requestId: number;
+    mode: NotebookAutoLayoutMode;
+};

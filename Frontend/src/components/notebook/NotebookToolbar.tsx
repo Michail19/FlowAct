@@ -8,6 +8,7 @@ type NotebookToolbarProps = {
     onAddBlock: (blockType: NotebookBlockType) => void;
     onRunWorkflow: () => void;
     onOpenRunPanel: () => void;
+    onAutoLayout: () => void;
     isWorkflowRunning: boolean;
 };
 
@@ -15,6 +16,7 @@ function NotebookToolbar({
                              onAddBlock,
                              onRunWorkflow,
                              onOpenRunPanel,
+                             onAutoLayout,
                              isWorkflowRunning,
                          }: NotebookToolbarProps) {
     return (
@@ -31,6 +33,13 @@ function NotebookToolbar({
             </div>
 
             <div className="notebook-toolbar__actions">
+                <NotebookIconButton
+                    icon="✦"
+                    label="Автосборка схемы"
+                    variant="circle"
+                    onClick={onAutoLayout}
+                />
+
                 <NotebookIconButton
                     icon="🧾"
                     label="Показать логи выполнения"

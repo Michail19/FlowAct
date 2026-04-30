@@ -23,6 +23,7 @@ import { DEFAULT_AI_MODEL_ID } from './aiModels';
 import { getBlockDefinition } from './blockLibrary';
 import type {
     AiBlockConfig,
+    NotebookAutoLayoutRequest,
     NotebookBlockRequest,
     NotebookNode,
 } from './notebookTypes';
@@ -34,6 +35,7 @@ import type {
 import type { NotebookPayloadDto } from './notebookBackendTypes';
 import { fromNotebookPayload, toNotebookPayload } from './notebookMapper';
 import { validateWorkflow } from './workflowValidation';
+import { autoLayoutWorkflow } from './workflowAutoLayout';
 
 import '@xyflow/react/dist/style.css';
 import './NotebookCanvas.css';
@@ -50,6 +52,8 @@ type NotebookCanvasProps = {
     onRunRequestHandled?: (requestId: number) => void;
     onExecutionStatusChange?: (status: WorkflowExecutionStatus) => void;
     onExecutionLogsChange?: (logs: NotebookExecutionLog[]) => void;
+    autoLayoutRequest?: NotebookAutoLayoutRequest | null;
+    onAutoLayoutRequestHandled?: (requestId: number) => void;
 };
 
 const defaultAiConfig: AiBlockConfig = {
@@ -333,6 +337,8 @@ function NotebookCanvas({
                             onRunRequestHandled,
                             onExecutionStatusChange,
                             onExecutionLogsChange,
+                            autoLayoutRequest = null,
+                            onAutoLayoutRequestHandled,
                         }: NotebookCanvasProps) {
     const canvasRef = useRef<HTMLDivElement | null>(null);
     const nodeCounterRef = useRef(initialNodes.length);
@@ -484,6 +490,50 @@ function NotebookCanvas({
             });
         }
     }, [initialPayload, reactFlowInstance, setEdges, setNodes]);
+
+    useEffect(() => {
+        if (!autoLayoutRequest) {
+            return;
+        }
+
+        if (readonly) {
+            onAutoLayoutRequestHandled?.(autoLayoutRequest.requestId);
+            return;
+        }
+
+        const result = autoLayoutWorkflow({
+            nodes,
+            edges,
+            mode: autoLayoutRequest.mode,
+        });
+
+        setNodes(result.nodes);
+        setEdges(result.edges);
+
+        onExecutionLogsChange?.([
+            createExecutionLog({
+                level: 'info',
+                status: 'idle',
+                message:
+                    `Автосборка схемы завершена. ` +
+                    `Перемещено блоков: ${result.movedNodesCount}. ` +
+                    `Добавлено связей: ${result.createdEdgesCount}.`,
+            }),
+        ]);
+
+        onExecutionStatusChange?.('idle');
+        onAutoLayoutRequestHandled?.(autoLayoutRequest.requestId);
+    }, [
+        autoLayoutRequest,
+        edges,
+        nodes,
+        onAutoLayoutRequestHandled,
+        onExecutionLogsChange,
+        onExecutionStatusChange,
+        readonly,
+        setEdges,
+        setNodes,
+    ]);
 
     const onConnect = useCallback(
         (connection: Connection) => {

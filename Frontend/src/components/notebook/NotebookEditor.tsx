@@ -8,7 +8,12 @@ import NotebookCanvas from './NotebookCanvas';
 import NotebookSearch from './NotebookSearch';
 import NotebookSuggestion from './NotebookSuggestion';
 import NotebookMobileActions from './NotebookMobileActions';
-import type { NotebookBlockRequest, NotebookBlockType } from './notebookTypes';
+import type {
+    NotebookAutoLayoutMode,
+    NotebookAutoLayoutRequest,
+    NotebookBlockRequest,
+    NotebookBlockType,
+} from './notebookTypes';
 import type { NotebookPayloadDto } from './notebookBackendTypes';
 import { notebookApi } from '../../services/notebookApi';
 import {
@@ -32,6 +37,7 @@ function NotebookEditor() {
 
     const requestIdRef = useRef(0);
     const runRequestIdRef = useRef(0);
+    const autoLayoutRequestIdRef = useRef(0);
 
     const [blockRequest, setBlockRequest] = useState<NotebookBlockRequest | null>(null);
     const [dismissedSuggestionIds, setDismissedSuggestionIds] = useState<string[]>([]);
@@ -44,6 +50,8 @@ function NotebookEditor() {
     const [executionStatus, setExecutionStatus] = useState<WorkflowExecutionStatus>('idle');
     const [executionLogs, setExecutionLogs] = useState<NotebookExecutionLog[]>([]);
     const [isRunPanelOpen, setIsRunPanelOpen] = useState(false);
+    const [autoLayoutRequest, setAutoLayoutRequest] =
+        useState<NotebookAutoLayoutRequest | null>(null);
 
     const suggestion = useMemo(
         () => ({
@@ -144,6 +152,22 @@ function NotebookEditor() {
         setExecutionStatus('idle');
     }, []);
 
+    const handleAutoLayout = useCallback((mode: NotebookAutoLayoutMode = 'arrange-connect') => {
+        autoLayoutRequestIdRef.current += 1;
+
+        setIsRunPanelOpen(true);
+        setAutoLayoutRequest({
+            requestId: autoLayoutRequestIdRef.current,
+            mode,
+        });
+    }, []);
+
+    const handleAutoLayoutRequestHandled = useCallback((requestId: number) => {
+        setAutoLayoutRequest((currentRequest) =>
+            currentRequest?.requestId === requestId ? null : currentRequest,
+        );
+    }, []);
+
     return (
         <main className="notebook-editor">
             <NotebookHeader
@@ -158,6 +182,7 @@ function NotebookEditor() {
                         onAddBlock={handleAddBlock}
                         onRunWorkflow={handleRunWorkflow}
                         onOpenRunPanel={handleOpenRunPanel}
+                        onAutoLayout={() => handleAutoLayout('arrange-connect')}
                         isWorkflowRunning={executionStatus === 'running'}
                     />
                 )}
@@ -177,6 +202,8 @@ function NotebookEditor() {
                         onRunRequestHandled={handleRunRequestHandled}
                         onExecutionStatusChange={setExecutionStatus}
                         onExecutionLogsChange={setExecutionLogs}
+                        autoLayoutRequest={autoLayoutRequest}
+                        onAutoLayoutRequestHandled={handleAutoLayoutRequestHandled}
                     />
 
                     <NotebookRunPanel
