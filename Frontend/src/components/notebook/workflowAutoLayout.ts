@@ -31,12 +31,12 @@ function sortNodesByCanvasPosition(nodes: NotebookNode[]): NotebookNode[] {
             return priorityDifference;
         }
 
-        if (firstNode.position.y !== secondNode.position.y) {
-            return firstNode.position.y - secondNode.position.y;
-        }
-
         if (firstNode.position.x !== secondNode.position.x) {
             return firstNode.position.x - secondNode.position.x;
+        }
+
+        if (firstNode.position.y !== secondNode.position.y) {
+            return firstNode.position.y - secondNode.position.y;
         }
 
         return firstNode.id.localeCompare(secondNode.id);
@@ -54,28 +54,155 @@ function getValidEdges(nodes: NotebookNode[], edges: Edge[]): Edge[] {
     );
 }
 
-function getStartNode(nodes: NotebookNode[]): NotebookNode | undefined {
-    return (
-        nodes.find((node) => node.data.blockType === 'start') ??
-        [...nodes].sort((firstNode, secondNode) => {
-            if (firstNode.position.x !== secondNode.position.x) {
-                return firstNode.position.x - secondNode.position.x;
+function removeOldAutoEdges(edges: Edge[]): Edge[] {
+    return edges.filter((edge) => !edge.id.startsWith('auto-'));
+}
+
+function hasEdgeBetween(edges: Edge[], source: string, target: string): boolean {
+    return edges.some((edge) => edge.source === source && edge.target === target);
+}
+
+function hasOutgoingEdge(edges: Edge[], nodeId: string): boolean {
+    return edges.some((edge) => edge.source === nodeId);
+}
+
+function hasIncomingEdge(edges: Edge[], nodeId: string): boolean {
+    return edges.some((edge) => edge.target === nodeId);
+}
+
+function createAutoEdge(source: NotebookNode, target: NotebookNode): Edge {
+    return {
+        id: `auto-${source.id}-${target.id}`,
+        source: source.id,
+        target: target.id,
+        type: 'smoothstep',
+    };
+}
+
+function wouldCreateCycle(sourceId: string, targetId: string, edges: Edge[]): boolean {
+    const stack = [targetId];
+    const visitedNodeIds = new Set<string>();
+
+    while (stack.length > 0) {
+        const currentNodeId = stack.pop();
+
+        if (!currentNodeId || visitedNodeIds.has(currentNodeId)) {
+            continue;
+        }
+
+        if (currentNodeId === sourceId) {
+            return true;
+        }
+
+        visitedNodeIds.add(currentNodeId);
+
+        edges
+            .filter((edge) => edge.source === currentNodeId)
+            .forEach((edge) => {
+                stack.push(edge.target);
+            });
+    }
+
+    return false;
+}
+
+function getDistanceBetweenNodes(source: NotebookNode, target: NotebookNode): number {
+    const dx = target.position.x - source.position.x;
+    const dy = target.position.y - source.position.y;
+
+    const leftToRightBonus = dx >= 0 ? -500 : 500;
+
+    return Math.abs(dx) + Math.abs(dy) + leftToRightBonus;
+}
+
+function findBestTargetForSource(
+    source: NotebookNode,
+    targetCandidates: NotebookNode[],
+    edges: Edge[],
+): NotebookNode | undefined {
+    return [...targetCandidates]
+        .filter((target) => target.id !== source.id)
+        .filter((target) => target.data.blockType !== 'start')
+        .filter((target) => !hasEdgeBetween(edges, source.id, target.id))
+        .filter((target) => !wouldCreateCycle(source.id, target.id, edges))
+        .sort((firstTarget, secondTarget) => {
+            const firstDistance = getDistanceBetweenNodes(source, firstTarget);
+            const secondDistance = getDistanceBetweenNodes(source, secondTarget);
+
+            if (firstDistance !== secondDistance) {
+                return firstDistance - secondDistance;
             }
 
-            return firstNode.position.y - secondNode.position.y;
-        })[0]
+            return firstTarget.id.localeCompare(secondTarget.id);
+        })[0];
+}
+
+function connectMissingEdges(nodes: NotebookNode[], edges: Edge[]): Edge[] {
+    const validEdges = getValidEdges(nodes, edges);
+    const nextEdges = [...validEdges];
+
+    if (nodes.length < 2) {
+        return nextEdges;
+    }
+
+    const orderedNodes = sortNodesByCanvasPosition(nodes);
+
+    const sourceCandidates = orderedNodes.filter(
+        (node) =>
+            node.data.blockType !== 'end' &&
+            !hasOutgoingEdge(nextEdges, node.id),
     );
+
+    const targetCandidates = orderedNodes.filter(
+        (node) =>
+            node.data.blockType !== 'start' &&
+            !hasIncomingEdge(nextEdges, node.id),
+    );
+
+    sourceCandidates.forEach((source) => {
+        const availableTargets = targetCandidates.filter(
+            (target) => !hasIncomingEdge(nextEdges, target.id),
+        );
+
+        const target = findBestTargetForSource(source, availableTargets, nextEdges);
+
+        if (!target) {
+            return;
+        }
+
+        nextEdges.push(createAutoEdge(source, target));
+    });
+
+    return nextEdges;
+}
+
+function getRootNodes(nodes: NotebookNode[], edges: Edge[]): NotebookNode[] {
+    const startNodes = nodes.filter((node) => node.data.blockType === 'start');
+
+    const nodesWithoutIncomingEdges = nodes.filter(
+        (node) =>
+            node.data.blockType !== 'start' &&
+            !hasIncomingEdge(edges, node.id),
+    );
+
+    return [
+        ...sortNodesByCanvasPosition(startNodes),
+        ...sortNodesByCanvasPosition(nodesWithoutIncomingEdges),
+    ];
 }
 
 function getDepthMap(nodes: NotebookNode[], edges: Edge[]): Map<string, number> {
     const depthMap = new Map<string, number>();
-    const startNode = getStartNode(nodes);
+    const roots = getRootNodes(nodes, edges);
 
-    if (!startNode) {
-        return depthMap;
+    roots.forEach((root) => {
+        depthMap.set(root.id, 0);
+    });
+
+    if (roots.length === 0 && nodes.length > 0) {
+        const firstNode = sortNodesByCanvasPosition(nodes)[0];
+        depthMap.set(firstNode.id, 0);
     }
-
-    depthMap.set(startNode.id, 0);
 
     for (let iteration = 0; iteration < nodes.length; iteration += 1) {
         edges.forEach((edge) => {
@@ -95,13 +222,12 @@ function getDepthMap(nodes: NotebookNode[], edges: Edge[]): Map<string, number> 
     }
 
     const maxDepth = Math.max(0, ...Array.from(depthMap.values()));
-    const disconnectedNodes = sortNodesByCanvasPosition(
-        nodes.filter((node) => !depthMap.has(node.id)),
-    );
 
-    disconnectedNodes.forEach((node, index) => {
-        depthMap.set(node.id, maxDepth + index + 1);
-    });
+    sortNodesByCanvasPosition(nodes)
+        .filter((node) => !depthMap.has(node.id))
+        .forEach((node, index) => {
+            depthMap.set(node.id, maxDepth + index + 1);
+        });
 
     return depthMap;
 }
@@ -140,7 +266,9 @@ function arrangeNodesByGraph(nodes: NotebookNode[], edges: Edge[]): NotebookNode
 
     const depthMap = getDepthMap(nodes, validEdges);
     const layers = groupNodesByDepth(nodes, depthMap);
-    const sortedDepths = Array.from(layers.keys()).sort((firstDepth, secondDepth) => firstDepth - secondDepth);
+    const sortedDepths = Array.from(layers.keys()).sort(
+        (firstDepth, secondDepth) => firstDepth - secondDepth,
+    );
 
     let currentX = START_X;
     const arrangedNodes: NotebookNode[] = [];
@@ -187,59 +315,6 @@ function arrangeNodesSequentially(nodes: NotebookNode[]): NotebookNode[] {
     });
 }
 
-function removeOldAutoEdges(edges: Edge[]): Edge[] {
-    return edges.filter((edge) => !edge.id.startsWith('auto-'));
-}
-
-function hasEdgeBetween(edges: Edge[], source: string, target: string): boolean {
-    return edges.some((edge) => edge.source === source && edge.target === target);
-}
-
-function createAutoEdge(source: NotebookNode, target: NotebookNode): Edge {
-    return {
-        id: `auto-${source.id}-${target.id}`,
-        source: source.id,
-        target: target.id,
-        type: 'smoothstep',
-    };
-}
-
-function connectNodesSafely(nodes: NotebookNode[], edges: Edge[]): Edge[] {
-    const baseEdges = removeOldAutoEdges(edges);
-
-    if (baseEdges.length > 0) {
-        return baseEdges;
-    }
-
-    const orderedNodes = sortNodesByCanvasPosition(nodes);
-
-    if (orderedNodes.length < 2) {
-        return baseEdges;
-    }
-
-    const nextEdges = [...baseEdges];
-
-    orderedNodes.forEach((node, index) => {
-        const nextNode = orderedNodes[index + 1];
-
-        if (!nextNode) {
-            return;
-        }
-
-        if (node.data.blockType === 'end' || nextNode.data.blockType === 'start') {
-            return;
-        }
-
-        if (hasEdgeBetween(nextEdges, node.id, nextNode.id)) {
-            return;
-        }
-
-        nextEdges.push(createAutoEdge(node, nextNode));
-    });
-
-    return nextEdges;
-}
-
 export function autoLayoutWorkflow(params: {
     nodes: NotebookNode[];
     edges: Edge[];
@@ -255,13 +330,13 @@ export function autoLayoutWorkflow(params: {
 
     const baseEdges = shouldConnect ? removeOldAutoEdges(params.edges) : params.edges;
 
-    const arrangedNodes = shouldArrange
-        ? arrangeNodesByGraph(params.nodes, baseEdges)
-        : params.nodes;
-
     const connectedEdges = shouldConnect
-        ? connectNodesSafely(arrangedNodes, baseEdges)
+        ? connectMissingEdges(params.nodes, baseEdges)
         : baseEdges;
+
+    const arrangedNodes = shouldArrange
+        ? arrangeNodesByGraph(params.nodes, connectedEdges)
+        : params.nodes;
 
     return {
         nodes: arrangedNodes,
