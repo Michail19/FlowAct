@@ -87,31 +87,93 @@ function hasIncomingEdge(edges: Edge[], nodeId: string): boolean {
     return edges.some((edge) => edge.target === nodeId);
 }
 
-function getConditionEdgeLabel(source: NotebookNode, edges: Edge[]): string | undefined {
-    if (source.data.blockType !== 'condition') {
-        return undefined;
-    }
+// function getConditionEdgeLabel(source: NotebookNode, edges: Edge[]): string | undefined {
+//     if (source.data.blockType !== 'condition') {
+//         return undefined;
+//     }
+//
+//     const outgoingCount = edges.filter((edge) => edge.source === source.id).length;
+//
+//     if (outgoingCount === 0) {
+//         return 'Да';
+//     }
+//
+//     if (outgoingCount === 1) {
+//         return 'Нет';
+//     }
+//
+//     return `Вариант ${outgoingCount + 1}`;
+// }
 
-    const outgoingCount = edges.filter((edge) => edge.source === source.id).length;
+type ConditionBranch = 'yes' | 'no';
 
-    if (outgoingCount === 0) {
-        return 'Да';
-    }
+const conditionBranchLabels: Record<ConditionBranch, string> = {
+    yes: 'Да',
+    no: 'Нет',
+};
 
-    if (outgoingCount === 1) {
-        return 'Нет';
-    }
-
-    return `Вариант ${outgoingCount + 1}`;
+function isConditionBranch(value: string | null | undefined): value is ConditionBranch {
+    return value === 'yes' || value === 'no';
 }
 
-function createAutoEdge(source: NotebookNode, target: NotebookNode, edges: Edge[]): Edge {
+function getAvailableConditionBranch(source: NotebookNode, edges: Edge[]): ConditionBranch | null {
+    if (source.data.blockType !== 'condition') {
+        return null;
+    }
+
+    const usedBranches = new Set(
+        edges
+            .filter((edge) => edge.source === source.id)
+            .map((edge) => edge.sourceHandle)
+            .filter(isConditionBranch),
+    );
+
+    if (!usedBranches.has('yes')) {
+        return 'yes';
+    }
+
+    if (!usedBranches.has('no')) {
+        return 'no';
+    }
+
+    return null;
+}
+
+function canCreateOutgoingEdge(source: NotebookNode, edges: Edge[]): boolean {
+    if (source.data.blockType === 'end') {
+        return false;
+    }
+
+    if (source.data.blockType === 'condition') {
+        return getAvailableConditionBranch(source, edges) !== null;
+    }
+
+    return !hasOutgoingEdge(edges, source.id);
+}
+
+function createAutoEdge(source: NotebookNode, target: NotebookNode, edges: Edge[]): Edge | null {
+    if (source.data.blockType === 'condition') {
+        const branch = getAvailableConditionBranch(source, edges);
+
+        if (!branch) {
+            return null;
+        }
+
+        return {
+            id: `auto-${source.id}-${branch}-${target.id}`,
+            source: source.id,
+            sourceHandle: branch,
+            target: target.id,
+            type: 'smoothstep',
+            label: conditionBranchLabels[branch],
+        };
+    }
+
     return {
         id: `auto-${source.id}-${target.id}`,
         source: source.id,
         target: target.id,
         type: 'smoothstep',
-        label: getConditionEdgeLabel(source, edges),
     };
 }
 
@@ -283,7 +345,11 @@ function connectStartToFirstFreeNode(nodes: NotebookNode[], edges: Edge[]): Edge
         return nextEdges;
     }
 
-    nextEdges.push(createAutoEdge(startNode, target, nextEdges));
+    const edge = createAutoEdge(startNode, target, nextEdges);
+
+    if (edge) {
+        nextEdges.push(edge);
+    }
 
     return nextEdges;
 }
@@ -291,10 +357,8 @@ function connectStartToFirstFreeNode(nodes: NotebookNode[], edges: Edge[]): Edge
 function connectComponents(nodes: NotebookNode[], edges: Edge[]): Edge[] {
     const nextEdges = [...edges];
 
-    const sourceCandidates = sortNodesByCanvasPosition(nodes).filter(
-        (node) =>
-            node.data.blockType !== 'end' &&
-            !hasOutgoingEdge(nextEdges, node.id),
+    const sourceCandidates = sortNodesByCanvasPosition(nodes).filter((node) =>
+        canCreateOutgoingEdge(node, nextEdges),
     );
 
     const targetCandidates = sortContentNodesByCanvasPosition(nodes).filter(
@@ -312,7 +376,11 @@ function connectComponents(nodes: NotebookNode[], edges: Edge[]): Edge[] {
             return;
         }
 
-        nextEdges.push(createAutoEdge(source, target, nextEdges));
+        const edge = createAutoEdge(source, target, nextEdges);
+
+        if (edge) {
+            nextEdges.push(edge);
+        }
     });
 
     return nextEdges;
@@ -329,10 +397,8 @@ function connectDanglingNodesToEnd(nodes: NotebookNode[], edges: Edge[]): Edge[]
         return nextEdges;
     }
 
-    const danglingNodes = sortNodesByCanvasPosition(nodes).filter(
-        (node) =>
-            node.data.blockType !== 'end' &&
-            !hasOutgoingEdge(nextEdges, node.id),
+    const danglingNodes = sortNodesByCanvasPosition(nodes).filter((node) =>
+        canCreateOutgoingEdge(node, nextEdges),
     );
 
     danglingNodes.forEach((node) => {
@@ -344,7 +410,11 @@ function connectDanglingNodesToEnd(nodes: NotebookNode[], edges: Edge[]): Edge[]
             return;
         }
 
-        nextEdges.push(createAutoEdge(node, endNode, nextEdges));
+        const edge = createAutoEdge(node, endNode, nextEdges);
+
+        if (edge) {
+            nextEdges.push(edge);
+        }
     });
 
     return nextEdges;

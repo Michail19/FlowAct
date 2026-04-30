@@ -51,6 +51,8 @@ export function toNotebookPayload(params: {
         id: edge.id,
         sourceBlockId: edge.source,
         targetBlockId: edge.target,
+        sourceHandle: edge.sourceHandle ?? undefined,
+        targetHandle: edge.targetHandle ?? undefined,
         label: typeof edge.label === 'string' ? edge.label : undefined,
     }));
 
@@ -92,6 +94,8 @@ export function fromNotebookPayload(payload: NotebookPayloadDto): {
         id: connection.id,
         source: connection.sourceBlockId,
         target: connection.targetBlockId,
+        sourceHandle: connection.sourceHandle,
+        targetHandle: connection.targetHandle,
         type: 'smoothstep',
         label: connection.label,
     }));

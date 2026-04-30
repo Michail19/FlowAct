@@ -429,38 +429,16 @@ function NotebookCanvas({
         [createNodeId, getCanvasCenterPosition],
     );
 
-    const getDefaultConnectionLabel = useCallback(
-        (connection: Connection): string | undefined => {
-            const sourceNode = nodes.find((node) => node.id === connection.source);
+    type ConditionBranch = 'yes' | 'no';
 
-            if (sourceNode?.data.blockType !== 'condition') {
-                return undefined;
-            }
+    const conditionBranchLabels: Record<ConditionBranch, string> = {
+        yes: 'Да',
+        no: 'Нет',
+    };
 
-            if (connection.sourceHandle === 'yes') {
-                return 'Да';
-            }
-
-            if (connection.sourceHandle === 'no') {
-                return 'Нет';
-            }
-
-            const conditionOutgoingCount = edges.filter(
-                (edge) => edge.source === connection.source,
-            ).length;
-
-            if (conditionOutgoingCount === 0) {
-                return 'Да';
-            }
-
-            if (conditionOutgoingCount === 1) {
-                return 'Нет';
-            }
-
-            return `Вариант ${conditionOutgoingCount + 1}`;
-        },
-        [edges, nodes],
-    );
+    function isConditionBranch(value: string | null | undefined): value is ConditionBranch {
+        return value === 'yes' || value === 'no';
+    }
 
     useEffect(() => {
         if (!blockRequest || readonly || !reactFlowInstance) {
@@ -578,26 +556,93 @@ function NotebookCanvas({
         setNodes,
     ]);
 
+    const getAvailableConditionBranch = useCallback(
+        (sourceNodeId: string, requestedHandle?: string | null): ConditionBranch | null => {
+            const conditionEdges = edges.filter((edge) => edge.source === sourceNodeId);
+
+            const usedBranches = new Set(
+                conditionEdges
+                    .map((edge) => edge.sourceHandle)
+                    .filter(isConditionBranch),
+            );
+
+            if (isConditionBranch(requestedHandle)) {
+                return usedBranches.has(requestedHandle) ? null : requestedHandle;
+            }
+
+            if (!usedBranches.has('yes')) {
+                return 'yes';
+            }
+
+            if (!usedBranches.has('no')) {
+                return 'no';
+            }
+
+            return null;
+        },
+        [edges],
+    );
+
     const onConnect = useCallback(
         (connection: Connection) => {
-            if (readonly) {
+            if (readonly || !connection.source || !connection.target) {
                 return;
             }
 
-            const defaultLabel = getDefaultConnectionLabel(connection);
+            const sourceNode = nodes.find((node) => node.id === connection.source);
+
+            if (sourceNode?.data.blockType === 'condition') {
+                const branch = getAvailableConditionBranch(
+                    connection.source,
+                    connection.sourceHandle,
+                );
+
+                if (!branch) {
+                    onExecutionLogsChange?.([
+                        createExecutionLog({
+                            level: 'warning',
+                            status: 'idle',
+                            blockId: sourceNode.id,
+                            blockTitle: sourceNode.data.title,
+                            message: `У блока "${sourceNode.data.title}" уже есть две ветки: "Да" и "Нет". Новая связь не добавлена.`,
+                        }),
+                    ]);
+
+                    return;
+                }
+
+                setEdges((currentEdges) =>
+                    addEdge(
+                        {
+                            ...connection,
+                            sourceHandle: branch,
+                            type: 'smoothstep',
+                            label: conditionBranchLabels[branch],
+                        },
+                        currentEdges,
+                    ),
+                );
+
+                return;
+            }
 
             setEdges((currentEdges) =>
                 addEdge(
                     {
                         ...connection,
                         type: 'smoothstep',
-                        label: defaultLabel,
                     },
                     currentEdges,
                 ),
             );
         },
-        [getDefaultConnectionLabel, readonly, setEdges],
+        [
+            getAvailableConditionBranch,
+            nodes,
+            onExecutionLogsChange,
+            readonly,
+            setEdges,
+        ],
     );
 
     const handleEditNode = useCallback((nodeId: string) => {

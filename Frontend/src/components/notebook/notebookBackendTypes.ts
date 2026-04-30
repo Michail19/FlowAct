@@ -30,6 +30,8 @@ export type NotebookConnectionDto = {
     id: string;
     sourceBlockId: string;
     targetBlockId: string;
+    sourceHandle?: string;
+    targetHandle?: string;
     label?: string;
 };
 

@@ -187,6 +187,47 @@ export function validateWorkflow(nodes: NotebookNode[], edges: Edge[]): Workflow
         const incomingEdges = getIncomingEdges(node.id, validEdges);
         const outgoingEdges = getOutgoingEdges(node.id, validEdges);
 
+        if (node.data.blockType === 'condition') {
+            if (outgoingEdges.length > 2) {
+                issues.push(
+                    createIssue({
+                        id: `node-${node.id}-too-many-condition-outputs`,
+                        severity: 'error',
+                        blockId: node.id,
+                        blockTitle: node.data.title,
+                        message: `У блока "${node.data.title}" может быть только две исходящие ветки: "Да" и "Нет".`,
+                    }),
+                );
+            }
+
+            const hasYesBranch = outgoingEdges.some((edge) => edge.label === 'Да' || edge.sourceHandle === 'yes');
+            const hasNoBranch = outgoingEdges.some((edge) => edge.label === 'Нет' || edge.sourceHandle === 'no');
+
+            if (outgoingEdges.length > 0 && !hasYesBranch) {
+                issues.push(
+                    createIssue({
+                        id: `node-${node.id}-condition-no-yes`,
+                        severity: 'warning',
+                        blockId: node.id,
+                        blockTitle: node.data.title,
+                        message: `У блока "${node.data.title}" нет ветки "Да".`,
+                    }),
+                );
+            }
+
+            if (outgoingEdges.length > 1 && !hasNoBranch) {
+                issues.push(
+                    createIssue({
+                        id: `node-${node.id}-condition-no-no`,
+                        severity: 'warning',
+                        blockId: node.id,
+                        blockTitle: node.data.title,
+                        message: `У блока "${node.data.title}" нет ветки "Нет".`,
+                    }),
+                );
+            }
+        }
+
         if (node.data.blockType !== 'start' && incomingEdges.length === 0) {
             issues.push(
                 createIssue({
