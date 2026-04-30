@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ReactFlow,
     Background,
@@ -10,20 +10,29 @@ import {
     type Connection,
     type Edge,
     type NodeTypes,
+    type ReactFlowInstance,
+    type XYPosition,
 } from '@xyflow/react';
 
 import AiBlockModal from './AiBlockModal';
 import AiBlockNode from './AiBlockNode';
 import CustomBlockNode from './CustomBlockNode';
-import BlockSettingsModal from "./BlockSettingsModal";
+import BlockSettingsModal from './BlockSettingsModal';
 import { DEFAULT_AI_MODEL_ID } from './aiModels';
-import type { AiBlockConfig, NotebookNode } from './notebookTypes';
+import { getBlockDefinition } from './blockLibrary';
+import type {
+    AiBlockConfig,
+    NotebookBlockRequest,
+    NotebookNode,
+} from './notebookTypes';
 
 import '@xyflow/react/dist/style.css';
 import './NotebookCanvas.css';
 
 type NotebookCanvasProps = {
     readonly?: boolean;
+    blockRequest?: NotebookBlockRequest | null;
+    onBlockRequestHandled?: (requestId: number) => void;
 };
 
 const defaultAiConfig: AiBlockConfig = {
@@ -44,6 +53,7 @@ const initialNodes: NotebookNode[] = [
         data: {
             title: 'Старт',
             subtitle: 'Запуск рабочего процесса',
+            description: 'Начальная точка выполнения рабочего процесса.',
             icon: '▶',
             blockType: 'start',
             status: 'success',
@@ -52,7 +62,7 @@ const initialNodes: NotebookNode[] = [
     {
         id: 'ai-main',
         type: 'aiBlock',
-        position: { x: 360, y: 160 },
+        position: { x: 390, y: 150 },
         data: {
             title: 'AI-функция',
             blockType: 'ai',
@@ -63,10 +73,11 @@ const initialNodes: NotebookNode[] = [
     {
         id: 'condition-check',
         type: 'customBlock',
-        position: { x: 720, y: 180 },
+        position: { x: 820, y: 180 },
         data: {
             title: 'Проверка результата',
             subtitle: 'Если ответ корректный',
+            description: 'Проверяет, можно ли перейти к сохранению результата.',
             icon: '◇',
             blockType: 'condition',
             status: 'idle',
@@ -75,10 +86,11 @@ const initialNodes: NotebookNode[] = [
     {
         id: 'database-save',
         type: 'customBlock',
-        position: { x: 1080, y: 70 },
+        position: { x: 1160, y: 70 },
         data: {
             title: 'Сохранить в БД',
             subtitle: 'Запись результата выполнения',
+            description: 'Сохраняет результат выполнения в базу данных.',
             icon: 'DB',
             blockType: 'database',
             status: 'idle',
@@ -87,10 +99,11 @@ const initialNodes: NotebookNode[] = [
     {
         id: 'email-send',
         type: 'customBlock',
-        position: { x: 1370, y: 70 },
+        position: { x: 1500, y: 70 },
         data: {
             title: 'Отправить Email',
             subtitle: 'Уведомить пользователя',
+            description: 'Отправляет пользователю уведомление о результате.',
             icon: '✉',
             blockType: 'email',
             status: 'idle',
@@ -99,7 +112,7 @@ const initialNodes: NotebookNode[] = [
     {
         id: 'ai-retry',
         type: 'aiBlock',
-        position: { x: 1080, y: 330 },
+        position: { x: 1160, y: 350 },
         data: {
             title: 'Повторная AI-функция',
             blockType: 'ai',
@@ -110,10 +123,11 @@ const initialNodes: NotebookNode[] = [
     {
         id: 'action-format',
         type: 'customBlock',
-        position: { x: 1370, y: 330 },
+        position: { x: 1540, y: 350 },
         data: {
             title: 'Форматирование',
             subtitle: 'Подготовка результата',
+            description: 'Приводит результат к нужному формату.',
             icon: '▰',
             blockType: 'action',
             status: 'idle',
@@ -122,10 +136,11 @@ const initialNodes: NotebookNode[] = [
     {
         id: 'log-result',
         type: 'customBlock',
-        position: { x: 1660, y: 200 },
+        position: { x: 1880, y: 210 },
         data: {
             title: 'Логирование',
-            subtitle: 'Сохранение истории выполнения',
+            subtitle: 'Сохранение истории',
+            description: 'Сохраняет информацию о выполнении процесса.',
             icon: 'LOG',
             blockType: 'log',
             status: 'idle',
@@ -134,10 +149,11 @@ const initialNodes: NotebookNode[] = [
     {
         id: 'end',
         type: 'customBlock',
-        position: { x: 1950, y: 200 },
+        position: { x: 2220, y: 210 },
         data: {
             title: 'Конец',
             subtitle: 'Рабочий процесс завершён',
+            description: 'Финальная точка выполнения рабочего процесса.',
             icon: '■',
             blockType: 'end',
             status: 'idle',
@@ -204,7 +220,16 @@ const initialEdges: Edge[] = [
     },
 ];
 
-function NotebookCanvas({ readonly = false }: NotebookCanvasProps) {
+function NotebookCanvas({
+                            readonly = false,
+                            blockRequest = null,
+                            onBlockRequestHandled,
+                        }: NotebookCanvasProps) {
+    const canvasRef = useRef<HTMLDivElement | null>(null);
+    const nodeCounterRef = useRef(initialNodes.length);
+
+    const [reactFlowInstance, setReactFlowInstance] =
+        useState<ReactFlowInstance<NotebookNode, Edge> | null>(null);
     const [nodes, setNodes, onNodesChange] = useNodesState<NotebookNode>(initialNodes);
     const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
     const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
@@ -219,6 +244,87 @@ function NotebookCanvas({ readonly = false }: NotebookCanvasProps) {
 
     const editingNode = nodes.find((node) => node.id === editingNodeId);
     const editingConfig = editingNode?.data.aiConfig ?? defaultAiConfig;
+
+    const createNodeId = useCallback((prefix: string) => {
+        nodeCounterRef.current += 1;
+        return `${prefix}-${nodeCounterRef.current}`;
+    }, []);
+
+    const getCanvasCenterPosition = useCallback((): XYPosition => {
+        const rect = canvasRef.current?.getBoundingClientRect();
+
+        if (!rect || !reactFlowInstance) {
+            return {
+                x: 120,
+                y: 120,
+            };
+        }
+
+        const offset = (nodeCounterRef.current % 6) * 24;
+
+        return reactFlowInstance.screenToFlowPosition({
+            x: rect.left + rect.width / 2 + offset,
+            y: rect.top + rect.height / 2 + offset,
+        });
+    }, [reactFlowInstance]);
+
+    const createNodeFromRequest = useCallback(
+        (request: NotebookBlockRequest): NotebookNode => {
+            const definition = getBlockDefinition(request.blockType);
+            const position = getCanvasCenterPosition();
+            const id = createNodeId(definition.blockType);
+
+            if (definition.blockType === 'ai') {
+                return {
+                    id,
+                    type: 'aiBlock',
+                    position,
+                    data: {
+                        title: definition.title,
+                        blockType: 'ai',
+                        status: 'idle',
+                        aiConfig: {
+                            prompt: '',
+                            models: [DEFAULT_AI_MODEL_ID],
+                        },
+                    },
+                };
+            }
+
+            return {
+                id,
+                type: 'customBlock',
+                position,
+                data: {
+                    title: definition.title,
+                    subtitle: definition.subtitle,
+                    description: definition.description,
+                    icon: definition.icon,
+                    blockType: definition.blockType,
+                    status: 'idle',
+                },
+            };
+        },
+        [createNodeId, getCanvasCenterPosition],
+    );
+
+    useEffect(() => {
+        if (!blockRequest || readonly || !reactFlowInstance) {
+            return;
+        }
+
+        const newNode = createNodeFromRequest(blockRequest);
+
+        setNodes((currentNodes) => [...currentNodes, newNode]);
+        onBlockRequestHandled?.(blockRequest.requestId);
+    }, [
+        blockRequest,
+        createNodeFromRequest,
+        onBlockRequestHandled,
+        reactFlowInstance,
+        readonly,
+        setNodes,
+    ]);
 
     const onConnect = useCallback(
         (connection: Connection) => {
@@ -239,29 +345,6 @@ function NotebookCanvas({ readonly = false }: NotebookCanvasProps) {
         [readonly, setEdges],
     );
 
-    const handleSaveAiBlock = (title: string, config: AiBlockConfig) => {
-        if (!editingNodeId) {
-            return;
-        }
-
-        setNodes((currentNodes) =>
-            currentNodes.map((node) =>
-                node.id === editingNodeId
-                    ? {
-                        ...node,
-                        data: {
-                            ...node.data,
-                            title,
-                            aiConfig: config,
-                        },
-                    }
-                    : node,
-            ),
-        );
-
-        setEditingNodeId(null);
-    };
-
     const handleEditNode = useCallback((nodeId: string) => {
         setEditingNodeId(nodeId);
     }, []);
@@ -278,6 +361,10 @@ function NotebookCanvas({ readonly = false }: NotebookCanvasProps) {
 
             setEdges((currentEdges) =>
                 currentEdges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId),
+            );
+
+            setEditingNodeId((currentEditingNodeId) =>
+                currentEditingNodeId === nodeId ? null : currentEditingNodeId,
             );
         },
         [readonly, setEdges, setNodes],
@@ -332,6 +419,29 @@ function NotebookCanvas({ readonly = false }: NotebookCanvasProps) {
         [handleDeleteNode, handleEditNode, handleRunNode, nodes],
     );
 
+    const handleSaveAiBlock = (title: string, config: AiBlockConfig) => {
+        if (!editingNodeId) {
+            return;
+        }
+
+        setNodes((currentNodes) =>
+            currentNodes.map((node) =>
+                node.id === editingNodeId
+                    ? {
+                        ...node,
+                        data: {
+                            ...node.data,
+                            title,
+                            aiConfig: config,
+                        },
+                    }
+                    : node,
+            ),
+        );
+
+        setEditingNodeId(null);
+    };
+
     const handleSaveGenericBlock = (title: string, subtitle: string, description: string) => {
         if (!editingNodeId) {
             return;
@@ -357,11 +467,12 @@ function NotebookCanvas({ readonly = false }: NotebookCanvasProps) {
     };
 
     return (
-        <div className="notebook-canvas">
-            <ReactFlow
+        <div className="notebook-canvas" ref={canvasRef}>
+            <ReactFlow<NotebookNode, Edge>
                 nodes={visibleNodes}
                 edges={edges}
                 nodeTypes={nodeTypes}
+                onInit={setReactFlowInstance}
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnect}

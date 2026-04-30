@@ -25,3 +25,7 @@
     width: 42px;
     height: 42px;
 }
+
+.notebook-toolbar__blocks .notebook-icon-button:active {
+    transform: translateY(0) scale(0.96);
+}

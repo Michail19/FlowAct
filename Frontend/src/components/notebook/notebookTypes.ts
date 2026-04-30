@@ -33,3 +33,8 @@ export type NotebookBlockData = {
 };
 
 export type NotebookNode = Node<NotebookBlockData>;
+
+export type NotebookBlockRequest = {
+    requestId: number;
+    blockType: NotebookBlockType;
+};

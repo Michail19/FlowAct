@@ -1,24 +1,24 @@
+import { NOTEBOOK_BLOCK_LIBRARY } from './blockLibrary';
 import NotebookIconButton from './NotebookIconButton';
+import type { NotebookBlockType } from './notebookTypes';
 
 import './NotebookToolbar.css';
 
-const blockButtons = [
-    { icon: '○', label: 'Начальный блок' },
-    { icon: '●', label: 'Конечный блок' },
-    { icon: '⊘', label: 'Условие' },
-    { icon: '▰', label: 'Действие' },
-    { icon: '◆', label: 'Преобразование данных' },
-    { icon: '🤖', label: 'AI-блок' },
-    { icon: '▱', label: 'Интеграция' },
-    { icon: '▣', label: 'Логирование' },
-];
+type NotebookToolbarProps = {
+    onAddBlock: (blockType: NotebookBlockType) => void;
+};
 
-function NotebookToolbar() {
+function NotebookToolbar({ onAddBlock }: NotebookToolbarProps) {
     return (
         <aside className="notebook-toolbar" aria-label="Панель блоков">
             <div className="notebook-toolbar__blocks">
-                {blockButtons.map((block) => (
-                    <NotebookIconButton key={block.label} icon={block.icon} label={block.label} />
+                {NOTEBOOK_BLOCK_LIBRARY.map((block) => (
+                    <NotebookIconButton
+                        key={block.blockType}
+                        icon={block.toolbarIcon}
+                        label={block.toolbarLabel}
+                        onClick={() => onAddBlock(block.blockType)}
+                    />
                 ))}
             </div>
 
