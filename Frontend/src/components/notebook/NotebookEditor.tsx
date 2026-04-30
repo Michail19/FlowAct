@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 
@@ -18,6 +18,22 @@ function NotebookEditor() {
 
     const requestIdRef = useRef(0);
     const [blockRequest, setBlockRequest] = useState<NotebookBlockRequest | null>(null);
+    const [dismissedSuggestionIds, setDismissedSuggestionIds] = useState<string[]>([]);
+
+    const suggestion = useMemo(
+        () => ({
+            id: 'suggest-log-after-workflow',
+            blockType: 'log' as NotebookBlockType,
+            confidence: 87,
+            reason:
+                'После выполнения рабочих процессов обычно полезно добавить логирование, чтобы сохранять историю запусков и быстрее находить ошибки.',
+        }),
+        [],
+    );
+
+    const visibleSuggestion = dismissedSuggestionIds.includes(suggestion.id)
+        ? null
+        : suggestion;
 
     const handleAddBlock = useCallback((blockType: NotebookBlockType) => {
         requestIdRef.current += 1;
@@ -34,6 +50,21 @@ function NotebookEditor() {
         );
     }, []);
 
+    const handleAcceptSuggestion = useCallback(
+        (blockType: NotebookBlockType) => {
+            handleAddBlock(blockType);
+        },
+        [handleAddBlock],
+    );
+
+    const handleDismissSuggestion = useCallback((suggestionId: string) => {
+        setDismissedSuggestionIds((currentIds) =>
+            currentIds.includes(suggestionId)
+                ? currentIds
+                : [...currentIds, suggestionId],
+        );
+    }, []);
+
     return (
         <main className="notebook-editor">
             <NotebookHeader isMobile={isMobile} />
@@ -43,12 +74,20 @@ function NotebookEditor() {
 
                 <section className="notebook-editor__workspace">
                     <NotebookSearch />
+
                     <NotebookCanvas
                         readonly={!isDesktop}
                         blockRequest={blockRequest}
                         onBlockRequestHandled={handleBlockRequestHandled}
                     />
-                    <NotebookSuggestion isMobile={isMobile} />
+
+                    <NotebookSuggestion
+                        isMobile={isMobile}
+                        suggestion={visibleSuggestion}
+                        onAccept={handleAcceptSuggestion}
+                        onDismiss={handleDismissSuggestion}
+                    />
+
                     {isMobile && <NotebookMobileActions />}
                 </section>
             </div>

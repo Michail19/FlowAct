@@ -3,27 +3,28 @@
     z-index: 8;
     right: 0;
     bottom: 0;
-    width: min(300px, 42vw);
-    padding: 28px 18px 14px;
+    width: min(340px, 42vw);
+    padding: 16px;
+    border: 1px solid rgba(34, 211, 238, 0.22);
     border-radius: 16px 0 0 0;
-    background: var(--color-panel-light);
+    background: var(--color-panel);
     color: var(--color-text);
-    box-shadow: 0 -10px 30px rgba(15, 23, 42, 0.2);
+    box-shadow: 0 -10px 30px rgba(15, 23, 42, 0.28);
 }
 
 .notebook-suggestion__close {
     position: absolute;
     top: 8px;
     right: 10px;
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
     padding: 0;
     border: 0;
     border-radius: 50%;
     background: transparent;
     color: var(--color-muted);
     cursor: pointer;
-    font-size: 18px;
+    font-size: 20px;
     line-height: 1;
 }
 
@@ -32,21 +33,116 @@
     color: var(--color-text);
 }
 
+.notebook-suggestion__header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-right: 26px;
+}
+
+.notebook-suggestion__icon {
+    display: inline-flex;
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: rgba(34, 211, 238, 0.16);
+    color: var(--color-primary);
+    font-size: 18px;
+}
+
+.notebook-suggestion__title {
+    display: block;
+    font-size: 15px;
+    line-height: 1.2;
+}
+
+.notebook-suggestion__confidence {
+    display: block;
+    margin-top: 2px;
+    color: var(--color-muted);
+    font-size: 11px;
+    line-height: 1.2;
+}
+
+.notebook-suggestion__body {
+    margin-top: 12px;
+}
+
 .notebook-suggestion__text {
-    margin: 0 0 16px;
-    font-size: 16px;
+    margin: 0 0 8px;
+    color: var(--color-muted);
+    font-size: 13px;
+    line-height: 1.3;
+}
+
+.notebook-suggestion__block {
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+    padding: 10px;
+    border-radius: 12px;
+    background: var(--color-panel-light);
+}
+
+.notebook-suggestion__block-icon {
+    display: inline-flex;
+    width: 36px;
+    height: 36px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    font-weight: 700;
+}
+
+.notebook-suggestion__block-info {
+    min-width: 0;
+}
+
+.notebook-suggestion__block-info strong {
+    display: block;
+    overflow: hidden;
+    color: var(--color-text);
+    font-size: 14px;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.notebook-suggestion__block-info span {
+    display: block;
+    margin-top: 3px;
+    overflow: hidden;
+    color: var(--color-muted);
+    font-size: 12px;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.notebook-suggestion__reason {
+    margin: 10px 0 0;
+    color: var(--color-muted);
+    font-size: 12px;
     line-height: 1.35;
 }
 
 .notebook-suggestion__actions {
     display: flex;
-    gap: 16px;
+    gap: 10px;
+    margin-top: 14px;
 }
 
 .notebook-suggestion__button {
-    padding: 9px 16px;
+    flex: 1;
+    min-height: 34px;
+    padding: 8px 12px;
     border: 0;
-    border-radius: 6px;
+    border-radius: 8px;
     color: #ffffff;
     cursor: pointer;
     font-weight: 600;
@@ -60,17 +156,29 @@
     background: var(--color-danger);
 }
 
+.notebook-suggestion__disable {
+    width: 100%;
+    margin-top: 10px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--color-muted);
+    cursor: pointer;
+    font-size: 12px;
+    text-align: center;
+}
+
+.notebook-suggestion__disable:hover {
+    color: var(--color-text);
+}
+
 .notebook-suggestion--mobile {
     right: 8px;
     bottom: 58px;
     left: 8px;
     width: auto;
-    padding: 30px 14px 12px;
+    padding: 14px;
     border-radius: 14px;
-}
-
-.notebook-suggestion--mobile .notebook-suggestion__text {
-    font-size: 14px;
 }
 
 .notebook-suggestion--mobile .notebook-suggestion__actions {
@@ -78,7 +186,6 @@
 }
 
 .notebook-suggestion--mobile .notebook-suggestion__button {
-    flex: 1;
     padding: 8px;
     font-size: 13px;
 }
