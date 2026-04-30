@@ -1,54 +1,37 @@
-import { NOTEBOOK_BLOCK_LIBRARY } from './blockLibrary';
-import NotebookIconButton from './NotebookIconButton';
-import type { NotebookBlockType } from './notebookTypes';
+import './NotebookMobileActions.css';
 
-import './NotebookToolbar.css';
-
-type NotebookToolbarProps = {
-    onAddBlock: (blockType: NotebookBlockType) => void;
+type NotebookMobileActionsProps = {
     onRunWorkflow: () => void;
     onOpenRunPanel: () => void;
     isWorkflowRunning: boolean;
 };
 
-function NotebookToolbar({
-                             onAddBlock,
-                             onRunWorkflow,
-                             onOpenRunPanel,
-                             isWorkflowRunning,
-                         }: NotebookToolbarProps) {
+function NotebookMobileActions({
+                                   onRunWorkflow,
+                                   onOpenRunPanel,
+                                   isWorkflowRunning,
+                               }: NotebookMobileActionsProps) {
     return (
-        <aside className="notebook-toolbar" aria-label="Панель блоков">
-            <div className="notebook-toolbar__blocks">
-                {NOTEBOOK_BLOCK_LIBRARY.map((block) => (
-                    <NotebookIconButton
-                        key={block.blockType}
-                        icon={block.toolbarIcon}
-                        label={block.toolbarLabel}
-                        onClick={() => onAddBlock(block.blockType)}
-                    />
-                ))}
-            </div>
+        <div className="notebook-mobile-actions">
+            <button
+                className="notebook-mobile-actions__play"
+                type="button"
+                aria-label="Запустить рабочий процесс"
+                onClick={onRunWorkflow}
+                disabled={isWorkflowRunning}
+            >
+                {isWorkflowRunning ? '…' : '▶'}
+            </button>
 
-            <div className="notebook-toolbar__actions">
-                <NotebookIconButton
-                    icon="🧾"
-                    label="Показать логи выполнения"
-                    variant="circle"
-                    onClick={onOpenRunPanel}
-                />
-
-                <NotebookIconButton
-                    icon={isWorkflowRunning ? '…' : '▶'}
-                    label={isWorkflowRunning ? 'Рабочий процесс выполняется' : 'Запустить рабочий процесс'}
-                    active
-                    variant="circle"
-                    onClick={onRunWorkflow}
-                    disabled={isWorkflowRunning}
-                />
-            </div>
-        </aside>
+            <button
+                className="notebook-mobile-actions__result"
+                type="button"
+                onClick={onOpenRunPanel}
+            >
+                Результат
+            </button>
+        </div>
     );
 }
 
-export default NotebookToolbar;
+export default NotebookMobileActions;

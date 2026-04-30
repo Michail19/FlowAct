@@ -726,9 +726,10 @@ function NotebookCanvas({
                     createExecutionLog({
                         level: 'error',
                         status: 'error',
-                        message: error instanceof Error
-                            ? error.message
-                            : 'Во время выполнения рабочего процесса произошла ошибка.',
+                        message:
+                            error instanceof Error
+                                ? error.message
+                                : 'Во время выполнения рабочего процесса произошла ошибка.',
                     }),
                 );
 
@@ -747,6 +748,14 @@ function NotebookCanvas({
             setNodes,
         ],
     );
+
+    useEffect(() => {
+        if (!runRequest) {
+            return;
+        }
+
+        void handleRunWorkflow(runRequest.requestId);
+    }, [handleRunWorkflow, runRequest]);
 
     const visibleNodes = useMemo(
         () =>
