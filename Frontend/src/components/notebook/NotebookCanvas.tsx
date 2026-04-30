@@ -522,6 +522,7 @@ function NotebookCanvas({
                 status: 'idle',
                 message:
                     `Автосборка схемы завершена. ` +
+                    `Создано блоков: ${result.createdNodesCount}. ` +
                     `Перемещено блоков: ${result.movedNodesCount}. ` +
                     `Добавлено связей: ${result.createdEdgesCount}.`,
             }),
