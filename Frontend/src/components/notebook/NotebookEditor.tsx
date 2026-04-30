@@ -15,6 +15,12 @@ import {
     loadNotebookLocally,
     saveNotebookLocally,
 } from '../../services/notebookStorage';
+import NotebookRunPanel from './NotebookRunPanel';
+import type {
+    NotebookExecutionLog,
+    WorkflowExecutionStatus,
+    WorkflowRunRequest,
+} from './executionTypes';
 
 import './NotebookEditor.css';
 
@@ -25,6 +31,8 @@ function NotebookEditor() {
     const notebookTitle = 'Название notebook';
 
     const requestIdRef = useRef(0);
+    const runRequestIdRef = useRef(0);
+
     const [blockRequest, setBlockRequest] = useState<NotebookBlockRequest | null>(null);
     const [dismissedSuggestionIds, setDismissedSuggestionIds] = useState<string[]>([]);
     const [notebookPayload, setNotebookPayload] = useState<NotebookPayloadDto | null>(null);
@@ -32,6 +40,10 @@ function NotebookEditor() {
         useState<NotebookPayloadDto | null>(() => loadNotebookLocally());
     const [isSaving, setIsSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
+    const [runRequest, setRunRequest] = useState<WorkflowRunRequest | null>(null);
+    const [executionStatus, setExecutionStatus] = useState<WorkflowExecutionStatus>('idle');
+    const [executionLogs, setExecutionLogs] = useState<NotebookExecutionLog[]>([]);
+    const [isRunPanelOpen, setIsRunPanelOpen] = useState(false);
 
     const suggestion = useMemo(
         () => ({
@@ -104,6 +116,34 @@ function NotebookEditor() {
         }
     }, [notebookPayload]);
 
+    const handleRunWorkflow = useCallback(() => {
+        runRequestIdRef.current += 1;
+
+        setIsRunPanelOpen(true);
+        setRunRequest({
+            requestId: runRequestIdRef.current,
+        });
+    }, []);
+
+    const handleRunRequestHandled = useCallback((requestId: number) => {
+        setRunRequest((currentRequest) =>
+            currentRequest?.requestId === requestId ? null : currentRequest,
+        );
+    }, []);
+
+    const handleOpenRunPanel = useCallback(() => {
+        setIsRunPanelOpen(true);
+    }, []);
+
+    const handleCloseRunPanel = useCallback(() => {
+        setIsRunPanelOpen(false);
+    }, []);
+
+    const handleClearExecutionLogs = useCallback(() => {
+        setExecutionLogs([]);
+        setExecutionStatus('idle');
+    }, []);
+
     return (
         <main className="notebook-editor">
             <NotebookHeader
@@ -113,7 +153,14 @@ function NotebookEditor() {
             />
 
             <div className="notebook-editor__body">
-                {isDesktop && <NotebookToolbar onAddBlock={handleAddBlock} />}
+                {isDesktop && (
+                    <NotebookToolbar
+                        onAddBlock={handleAddBlock}
+                        onRunWorkflow={handleRunWorkflow}
+                        onOpenRunPanel={handleOpenRunPanel}
+                        isWorkflowRunning={executionStatus === 'running'}
+                    />
+                )}
 
                 <section className="notebook-editor__workspace">
                     <NotebookSearch />
@@ -126,6 +173,20 @@ function NotebookEditor() {
                         notebookTitle={notebookTitle}
                         initialPayload={loadedNotebookPayload}
                         onNotebookChange={setNotebookPayload}
+                        runRequest={runRequest}
+                        onRunRequestHandled={handleRunRequestHandled}
+                        onExecutionStatusChange={setExecutionStatus}
+                        onExecutionLogsChange={setExecutionLogs}
+                    />
+
+                    <NotebookRunPanel
+                        isOpen={isRunPanelOpen}
+                        status={executionStatus}
+                        logs={executionLogs}
+                        isMobile={isMobile}
+                        onClose={handleCloseRunPanel}
+                        onClear={handleClearExecutionLogs}
+                        onRunWorkflow={handleRunWorkflow}
                     />
 
                     <NotebookSuggestion
@@ -141,7 +202,13 @@ function NotebookEditor() {
                         </div>
                     )}
 
-                    {isMobile && <NotebookMobileActions />}
+                    {isMobile && (
+                        <NotebookMobileActions
+                            onRunWorkflow={handleRunWorkflow}
+                            onOpenRunPanel={handleOpenRunPanel}
+                            isWorkflowRunning={executionStatus === 'running'}
+                        />
+                    )}
                 </section>
             </div>
         </main>

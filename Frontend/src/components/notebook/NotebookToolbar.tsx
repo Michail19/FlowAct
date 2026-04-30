@@ -6,9 +6,17 @@ import './NotebookToolbar.css';
 
 type NotebookToolbarProps = {
     onAddBlock: (blockType: NotebookBlockType) => void;
+    onRunWorkflow: () => void;
+    onOpenRunPanel: () => void;
+    isWorkflowRunning: boolean;
 };
 
-function NotebookToolbar({ onAddBlock }: NotebookToolbarProps) {
+function NotebookToolbar({
+                             onAddBlock,
+                             onRunWorkflow,
+                             onOpenRunPanel,
+                             isWorkflowRunning,
+                         }: NotebookToolbarProps) {
     return (
         <aside className="notebook-toolbar" aria-label="Панель блоков">
             <div className="notebook-toolbar__blocks">
@@ -23,8 +31,21 @@ function NotebookToolbar({ onAddBlock }: NotebookToolbarProps) {
             </div>
 
             <div className="notebook-toolbar__actions">
-                <NotebookIconButton icon="✦" label="AI-помощник" active variant="circle" />
-                <NotebookIconButton icon="▶" label="Запустить рабочий процесс" active variant="circle" />
+                <NotebookIconButton
+                    icon="🧾"
+                    label="Показать логи выполнения"
+                    variant="circle"
+                    onClick={onOpenRunPanel}
+                />
+
+                <NotebookIconButton
+                    icon={isWorkflowRunning ? '…' : '▶'}
+                    label={isWorkflowRunning ? 'Рабочий процесс выполняется' : 'Запустить рабочий процесс'}
+                    active
+                    variant="circle"
+                    onClick={onRunWorkflow}
+                    disabled={isWorkflowRunning}
+                />
             </div>
         </aside>
     );

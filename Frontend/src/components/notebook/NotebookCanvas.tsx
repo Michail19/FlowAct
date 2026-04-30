@@ -26,6 +26,11 @@ import type {
     NotebookBlockRequest,
     NotebookNode,
 } from './notebookTypes';
+import type {
+    NotebookExecutionLog,
+    WorkflowExecutionStatus,
+    WorkflowRunRequest,
+} from './executionTypes';
 import type { NotebookPayloadDto } from './notebookBackendTypes';
 import { fromNotebookPayload, toNotebookPayload } from './notebookMapper';
 
@@ -40,6 +45,10 @@ type NotebookCanvasProps = {
     notebookTitle?: string;
     initialPayload?: NotebookPayloadDto | null;
     onNotebookChange?: (payload: NotebookPayloadDto) => void;
+    runRequest?: WorkflowRunRequest | null;
+    onRunRequestHandled?: (requestId: number) => void;
+    onExecutionStatusChange?: (status: WorkflowExecutionStatus) => void;
+    onExecutionLogsChange?: (logs: NotebookExecutionLog[]) => void;
 };
 
 const defaultAiConfig: AiBlockConfig = {
@@ -227,6 +236,90 @@ const initialEdges: Edge[] = [
     },
 ];
 
+function sleep(ms: number) {
+    return new Promise((resolve) => {
+        window.setTimeout(resolve, ms);
+    });
+}
+
+function createExecutionLog(params: {
+    level: NotebookExecutionLog['level'];
+    status: WorkflowExecutionStatus;
+    message: string;
+    blockId?: string;
+    blockTitle?: string;
+}): NotebookExecutionLog {
+    return {
+        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        level: params.level,
+        status: params.status,
+        message: params.message,
+        blockId: params.blockId,
+        blockTitle: params.blockTitle,
+        createdAt: new Date().toISOString(),
+    };
+}
+
+function getWorkflowExecutionOrder(nodes: NotebookNode[], edges: Edge[]): NotebookNode[] {
+    if (nodes.length === 0) {
+        return [];
+    }
+
+    const nodeMap = new Map(nodes.map((node) => [node.id, node]));
+
+    const outgoingEdges = edges.reduce<Map<string, Edge[]>>((map, edge) => {
+        const list = map.get(edge.source) ?? [];
+        list.push(edge);
+        map.set(edge.source, list);
+        return map;
+    }, new Map());
+
+    const startNode =
+        nodes.find((node) => node.data.blockType === 'start') ??
+        [...nodes].sort((firstNode, secondNode) => firstNode.position.x - secondNode.position.x)[0];
+
+    const visitedNodeIds = new Set<string>();
+    const orderedNodes: NotebookNode[] = [];
+
+    const visit = (nodeId: string) => {
+        if (visitedNodeIds.has(nodeId)) {
+            return;
+        }
+
+        const node = nodeMap.get(nodeId);
+
+        if (!node) {
+            return;
+        }
+
+        visitedNodeIds.add(nodeId);
+        orderedNodes.push(node);
+
+        const nextEdges = [...(outgoingEdges.get(nodeId) ?? [])].sort((firstEdge, secondEdge) => {
+            const firstLabel = typeof firstEdge.label === 'string' ? firstEdge.label : '';
+            const secondLabel = typeof secondEdge.label === 'string' ? secondEdge.label : '';
+
+            return firstLabel.localeCompare(secondLabel);
+        });
+
+        nextEdges.forEach((edge) => visit(edge.target));
+    };
+
+    visit(startNode.id);
+
+    const disconnectedNodes = nodes
+        .filter((node) => !visitedNodeIds.has(node.id))
+        .sort((firstNode, secondNode) => {
+            if (firstNode.position.x !== secondNode.position.x) {
+                return firstNode.position.x - secondNode.position.x;
+            }
+
+            return firstNode.position.y - secondNode.position.y;
+        });
+
+    return [...orderedNodes, ...disconnectedNodes];
+}
+
 function NotebookCanvas({
                             readonly = false,
                             blockRequest = null,
@@ -235,10 +328,15 @@ function NotebookCanvas({
                             notebookTitle = 'Название notebook',
                             initialPayload = null,
                             onNotebookChange,
+                            runRequest = null,
+                            onRunRequestHandled,
+                            onExecutionStatusChange,
+                            onExecutionLogsChange,
                         }: NotebookCanvasProps) {
     const canvasRef = useRef<HTMLDivElement | null>(null);
     const nodeCounterRef = useRef(initialNodes.length);
     const loadedPayloadKeyRef = useRef<string | null>(null);
+    const isWorkflowRunningRef = useRef(false);
 
     const [reactFlowInstance, setReactFlowInstance] =
         useState<ReactFlowInstance<NotebookNode, Edge> | null>(null);
@@ -386,6 +484,14 @@ function NotebookCanvas({
         }
     }, [initialPayload, reactFlowInstance, setEdges, setNodes]);
 
+    useEffect(() => {
+        if (!runRequest) {
+            return;
+        }
+
+        void handleRunWorkflow(runRequest.requestId);
+    }, [handleRunWorkflow, runRequest]);
+
     const onConnect = useCallback(
         (connection: Connection) => {
             if (readonly) {
@@ -432,6 +538,17 @@ function NotebookCanvas({
 
     const handleRunNode = useCallback(
         (nodeId: string) => {
+            onExecutionStatusChange?.('running');
+            onExecutionLogsChange?.([
+                createExecutionLog({
+                    level: 'info',
+                    status: 'running',
+                    blockId: nodeId,
+                    blockTitle: nodes.find((node) => node.id === nodeId)?.data.title,
+                    message: 'Запущено выполнение отдельного блока.',
+                }),
+            ]);
+
             setNodes((currentNodes) =>
                 currentNodes.map((node) =>
                     node.id === nodeId
@@ -460,9 +577,175 @@ function NotebookCanvas({
                             : node,
                     ),
                 );
+
+                const completedNode = nodes.find((node) => node.id === nodeId);
+
+                onExecutionLogsChange?.([
+                    createExecutionLog({
+                        level: 'info',
+                        status: 'running',
+                        blockId: nodeId,
+                        blockTitle: completedNode?.data.title,
+                        message: 'Запущено выполнение отдельного блока.',
+                    }),
+                    createExecutionLog({
+                        level: 'success',
+                        status: 'success',
+                        blockId: nodeId,
+                        blockTitle: completedNode?.data.title,
+                        message: 'Отдельный блок успешно выполнен.',
+                    }),
+                ]);
+
+                onExecutionStatusChange?.('success');
             }, 900);
         },
         [setNodes],
+    );
+
+    const handleRunWorkflow = useCallback(
+        async (requestId: number) => {
+            if (isWorkflowRunningRef.current) {
+                onRunRequestHandled?.(requestId);
+                return;
+            }
+
+            isWorkflowRunningRef.current = true;
+
+            const executionLogs: NotebookExecutionLog[] = [];
+
+            const emitStatus = (status: WorkflowExecutionStatus) => {
+                onExecutionStatusChange?.(status);
+            };
+
+            const pushLog = (log: NotebookExecutionLog) => {
+                executionLogs.push(log);
+                onExecutionLogsChange?.([...executionLogs]);
+            };
+
+            try {
+                const executionOrder = getWorkflowExecutionOrder(nodes, edges);
+
+                emitStatus('running');
+                onExecutionLogsChange?.([]);
+
+                setNodes((currentNodes) =>
+                    currentNodes.map((node) => ({
+                        ...node,
+                        data: {
+                            ...node.data,
+                            status: 'idle',
+                        },
+                    })),
+                );
+
+                if (executionOrder.length === 0) {
+                    pushLog(
+                        createExecutionLog({
+                            level: 'error',
+                            status: 'error',
+                            message: 'Невозможно запустить рабочий процесс: в схеме нет блоков.',
+                        }),
+                    );
+
+                    emitStatus('error');
+                    return;
+                }
+
+                pushLog(
+                    createExecutionLog({
+                        level: 'info',
+                        status: 'running',
+                        message: `Запуск рабочего процесса. Блоков к выполнению: ${executionOrder.length}.`,
+                    }),
+                );
+
+                for (const node of executionOrder) {
+                    pushLog(
+                        createExecutionLog({
+                            level: 'info',
+                            status: 'running',
+                            blockId: node.id,
+                            blockTitle: node.data.title,
+                            message: `Блок "${node.data.title}" начал выполнение.`,
+                        }),
+                    );
+
+                    setNodes((currentNodes) =>
+                        currentNodes.map((currentNode) =>
+                            currentNode.id === node.id
+                                ? {
+                                    ...currentNode,
+                                    data: {
+                                        ...currentNode.data,
+                                        status: 'running',
+                                    },
+                                }
+                                : currentNode,
+                        ),
+                    );
+
+                    await sleep(node.data.blockType === 'ai' ? 1100 : 650);
+
+                    setNodes((currentNodes) =>
+                        currentNodes.map((currentNode) =>
+                            currentNode.id === node.id
+                                ? {
+                                    ...currentNode,
+                                    data: {
+                                        ...currentNode.data,
+                                        status: 'success',
+                                    },
+                                }
+                                : currentNode,
+                        ),
+                    );
+
+                    pushLog(
+                        createExecutionLog({
+                            level: 'success',
+                            status: 'success',
+                            blockId: node.id,
+                            blockTitle: node.data.title,
+                            message: `Блок "${node.data.title}" успешно выполнен.`,
+                        }),
+                    );
+                }
+
+                pushLog(
+                    createExecutionLog({
+                        level: 'success',
+                        status: 'success',
+                        message: 'Рабочий процесс успешно завершён.',
+                    }),
+                );
+
+                emitStatus('success');
+            } catch (error) {
+                pushLog(
+                    createExecutionLog({
+                        level: 'error',
+                        status: 'error',
+                        message: error instanceof Error
+                            ? error.message
+                            : 'Во время выполнения рабочего процесса произошла ошибка.',
+                    }),
+                );
+
+                emitStatus('error');
+            } finally {
+                isWorkflowRunningRef.current = false;
+                onRunRequestHandled?.(requestId);
+            }
+        },
+        [
+            edges,
+            nodes,
+            onExecutionLogsChange,
+            onExecutionStatusChange,
+            onRunRequestHandled,
+            setNodes,
+        ],
     );
 
     const visibleNodes = useMemo(

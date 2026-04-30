@@ -35,3 +35,8 @@
     color: #0f172a;
     font-weight: 600;
 }
+
+.notebook-mobile-actions__play:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+}
