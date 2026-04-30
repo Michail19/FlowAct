@@ -484,14 +484,6 @@ function NotebookCanvas({
         }
     }, [initialPayload, reactFlowInstance, setEdges, setNodes]);
 
-    useEffect(() => {
-        if (!runRequest) {
-            return;
-        }
-
-        void handleRunWorkflow(runRequest.requestId);
-    }, [handleRunWorkflow, runRequest]);
-
     const onConnect = useCallback(
         (connection: Connection) => {
             if (readonly) {
@@ -538,13 +530,15 @@ function NotebookCanvas({
 
     const handleRunNode = useCallback(
         (nodeId: string) => {
+            const runningNode = nodes.find((node) => node.id === nodeId);
+
             onExecutionStatusChange?.('running');
             onExecutionLogsChange?.([
                 createExecutionLog({
                     level: 'info',
                     status: 'running',
                     blockId: nodeId,
-                    blockTitle: nodes.find((node) => node.id === nodeId)?.data.title,
+                    blockTitle: runningNode?.data.title,
                     message: 'Запущено выполнение отдельного блока.',
                 }),
             ]);
@@ -578,21 +572,19 @@ function NotebookCanvas({
                     ),
                 );
 
-                const completedNode = nodes.find((node) => node.id === nodeId);
-
                 onExecutionLogsChange?.([
                     createExecutionLog({
                         level: 'info',
                         status: 'running',
                         blockId: nodeId,
-                        blockTitle: completedNode?.data.title,
+                        blockTitle: runningNode?.data.title,
                         message: 'Запущено выполнение отдельного блока.',
                     }),
                     createExecutionLog({
                         level: 'success',
                         status: 'success',
                         blockId: nodeId,
-                        blockTitle: completedNode?.data.title,
+                        blockTitle: runningNode?.data.title,
                         message: 'Отдельный блок успешно выполнен.',
                     }),
                 ]);
@@ -600,7 +592,12 @@ function NotebookCanvas({
                 onExecutionStatusChange?.('success');
             }, 900);
         },
-        [setNodes],
+        [
+            nodes,
+            onExecutionLogsChange,
+            onExecutionStatusChange,
+            setNodes,
+        ],
     );
 
     const handleRunWorkflow = useCallback(
