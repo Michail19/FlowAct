@@ -199,6 +199,7 @@ const initialEdges: Edge[] = [
     {
         id: 'condition-database-save',
         source: 'condition-check',
+        sourceHandle: 'yes',
         target: 'database-save',
         type: 'smoothstep',
         label: 'Да',
@@ -218,6 +219,7 @@ const initialEdges: Edge[] = [
     {
         id: 'condition-ai-retry',
         source: 'condition-check',
+        sourceHandle: 'no',
         target: 'ai-retry',
         type: 'smoothstep',
         label: 'Нет',
@@ -440,6 +442,22 @@ function NotebookCanvas({
         return value === 'yes' || value === 'no';
     }
 
+    function getConditionBranchFromEdge(edge: Edge): ConditionBranch | null {
+        if (isConditionBranch(edge.sourceHandle)) {
+            return edge.sourceHandle;
+        }
+
+        if (edge.label === 'Да') {
+            return 'yes';
+        }
+
+        if (edge.label === 'Нет') {
+            return 'no';
+        }
+
+        return null;
+    }
+
     useEffect(() => {
         if (!blockRequest || readonly || !reactFlowInstance) {
             return;
@@ -557,18 +575,13 @@ function NotebookCanvas({
     ]);
 
     const getAvailableConditionBranch = useCallback(
-        (sourceNodeId: string, requestedHandle?: string | null): ConditionBranch | null => {
-            const conditionEdges = edges.filter((edge) => edge.source === sourceNodeId);
-
+        (sourceNodeId: string): ConditionBranch | null => {
             const usedBranches = new Set(
-                conditionEdges
-                    .map((edge) => edge.sourceHandle)
+                edges
+                    .filter((edge) => edge.source === sourceNodeId)
+                    .map(getConditionBranchFromEdge)
                     .filter(isConditionBranch),
             );
-
-            if (isConditionBranch(requestedHandle)) {
-                return usedBranches.has(requestedHandle) ? null : requestedHandle;
-            }
 
             if (!usedBranches.has('yes')) {
                 return 'yes';
@@ -592,10 +605,7 @@ function NotebookCanvas({
             const sourceNode = nodes.find((node) => node.id === connection.source);
 
             if (sourceNode?.data.blockType === 'condition') {
-                const branch = getAvailableConditionBranch(
-                    connection.source,
-                    connection.sourceHandle,
-                );
+                const branch = getAvailableConditionBranch(connection.source);
 
                 if (!branch) {
                     onExecutionLogsChange?.([

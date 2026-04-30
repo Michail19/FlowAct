@@ -67,6 +67,18 @@ export function toNotebookPayload(params: {
     };
 }
 
+function getConditionSourceHandleFromLabel(label?: string): string | undefined {
+    if (label === 'Да') {
+        return 'yes';
+    }
+
+    if (label === 'Нет') {
+        return 'no';
+    }
+
+    return undefined;
+}
+
 export function fromNotebookPayload(payload: NotebookPayloadDto): {
     nodes: NotebookNode[];
     edges: Edge[];
@@ -90,15 +102,27 @@ export function fromNotebookPayload(payload: NotebookPayloadDto): {
         };
     });
 
-    const edges: Edge[] = payload.connections.map((connection) => ({
-        id: connection.id,
-        source: connection.sourceBlockId,
-        target: connection.targetBlockId,
-        sourceHandle: connection.sourceHandle,
-        targetHandle: connection.targetHandle,
-        type: 'smoothstep',
-        label: connection.label,
-    }));
+    const blockTypeById = new Map(
+        payload.blocks.map((block) => [block.id, block.type]),
+    );
+
+    const edges: Edge[] = payload.connections.map((connection) => {
+        const isConditionSource = blockTypeById.get(connection.sourceBlockId) === 'condition';
+
+        return {
+            id: connection.id,
+            source: connection.sourceBlockId,
+            target: connection.targetBlockId,
+            sourceHandle:
+                connection.sourceHandle ??
+                (isConditionSource
+                    ? getConditionSourceHandleFromLabel(connection.label)
+                    : undefined),
+            targetHandle: connection.targetHandle,
+            type: 'smoothstep',
+            label: connection.label,
+        };
+    });
 
     return {
         nodes,

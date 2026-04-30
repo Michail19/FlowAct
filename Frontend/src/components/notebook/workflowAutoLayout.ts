@@ -116,6 +116,22 @@ function isConditionBranch(value: string | null | undefined): value is Condition
     return value === 'yes' || value === 'no';
 }
 
+function getConditionBranchFromEdge(edge: Edge): ConditionBranch | null {
+    if (isConditionBranch(edge.sourceHandle)) {
+        return edge.sourceHandle;
+    }
+
+    if (edge.label === 'Да') {
+        return 'yes';
+    }
+
+    if (edge.label === 'Нет') {
+        return 'no';
+    }
+
+    return null;
+}
+
 function getAvailableConditionBranch(source: NotebookNode, edges: Edge[]): ConditionBranch | null {
     if (source.data.blockType !== 'condition') {
         return null;
@@ -124,7 +140,7 @@ function getAvailableConditionBranch(source: NotebookNode, edges: Edge[]): Condi
     const usedBranches = new Set(
         edges
             .filter((edge) => edge.source === source.id)
-            .map((edge) => edge.sourceHandle)
+            .map(getConditionBranchFromEdge)
             .filter(isConditionBranch),
     );
 
