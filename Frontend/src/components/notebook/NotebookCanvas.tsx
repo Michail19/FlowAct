@@ -11,6 +11,7 @@ import {
     type Edge,
     type NodeTypes,
     type ReactFlowInstance,
+    type Viewport,
     type XYPosition,
 } from '@xyflow/react';
 
@@ -25,6 +26,7 @@ import type {
     NotebookBlockRequest,
     NotebookNode,
 } from './notebookTypes';
+import { toNotebookPayload } from './notebookMapper';
 
 import '@xyflow/react/dist/style.css';
 import './NotebookCanvas.css';
@@ -33,6 +35,9 @@ type NotebookCanvasProps = {
     readonly?: boolean;
     blockRequest?: NotebookBlockRequest | null;
     onBlockRequestHandled?: (requestId: number) => void;
+    notebookId?: string;
+    notebookTitle?: string;
+    onNotebookChange?: (payload: ReturnType<typeof toNotebookPayload>) => void;
 };
 
 const defaultAiConfig: AiBlockConfig = {
@@ -224,6 +229,9 @@ function NotebookCanvas({
                             readonly = false,
                             blockRequest = null,
                             onBlockRequestHandled,
+                            notebookId,
+                            notebookTitle = 'Название notebook',
+                            onNotebookChange,
                         }: NotebookCanvasProps) {
     const canvasRef = useRef<HTMLDivElement | null>(null);
     const nodeCounterRef = useRef(initialNodes.length);
@@ -233,6 +241,7 @@ function NotebookCanvas({
     const [nodes, setNodes, onNodesChange] = useNodesState<NotebookNode>(initialNodes);
     const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
     const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
+    const [viewport, setViewport] = useState<Viewport | undefined>(undefined);
 
     const nodeTypes = useMemo<NodeTypes>(
         () => ({
@@ -324,6 +333,29 @@ function NotebookCanvas({
         reactFlowInstance,
         readonly,
         setNodes,
+    ]);
+
+    useEffect(() => {
+        if (!onNotebookChange) {
+            return;
+        }
+
+        const payload = toNotebookPayload({
+            notebookId,
+            title: notebookTitle,
+            nodes,
+            edges,
+            viewport,
+        });
+
+        onNotebookChange(payload);
+    }, [
+        edges,
+        nodes,
+        notebookId,
+        notebookTitle,
+        onNotebookChange,
+        viewport,
     ]);
 
     const onConnect = useCallback(
@@ -476,6 +508,7 @@ function NotebookCanvas({
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnect}
+                onMoveEnd={(_, currentViewport) => setViewport(currentViewport)}
                 nodesDraggable={!readonly}
                 nodesConnectable={!readonly}
                 elementsSelectable

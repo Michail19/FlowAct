@@ -4,9 +4,10 @@ import './NotebookHeader.css';
 
 type NotebookHeaderProps = {
     isMobile: boolean;
+    onSave?: () => void;
 };
 
-function NotebookHeader({ isMobile }: NotebookHeaderProps) {
+function NotebookHeader({ isMobile, onSave }: NotebookHeaderProps) {
     return (
         <header className="notebook-header">
             <div className="notebook-header__left">
@@ -32,7 +33,12 @@ function NotebookHeader({ isMobile }: NotebookHeaderProps) {
                     </label>
                 )}
 
-                {!isMobile && <NotebookIconButton icon="💾" label="Сохранить notebook" active />}
+                {!isMobile && <NotebookIconButton
+                    icon="💾"
+                    label="Сохранить notebook"
+                    active
+                    onClick={onSave}
+                />}
             </div>
 
             <div className="notebook-header__title-wrap">

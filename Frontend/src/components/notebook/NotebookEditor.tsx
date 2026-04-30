@@ -8,7 +8,9 @@ import NotebookCanvas from './NotebookCanvas';
 import NotebookSearch from './NotebookSearch';
 import NotebookSuggestion from './NotebookSuggestion';
 import NotebookMobileActions from './NotebookMobileActions';
+import { saveNotebookLocally } from '../../services/notebookStorage';
 import type { NotebookBlockRequest, NotebookBlockType } from './notebookTypes';
+import type { NotebookPayloadDto } from './notebookBackendTypes';
 
 import './NotebookEditor.css';
 
@@ -19,6 +21,7 @@ function NotebookEditor() {
     const requestIdRef = useRef(0);
     const [blockRequest, setBlockRequest] = useState<NotebookBlockRequest | null>(null);
     const [dismissedSuggestionIds, setDismissedSuggestionIds] = useState<string[]>([]);
+    const [notebookPayload, setNotebookPayload] = useState<NotebookPayloadDto | null>(null);
 
     const suggestion = useMemo(
         () => ({
@@ -65,9 +68,18 @@ function NotebookEditor() {
         );
     }, []);
 
+    const handleSaveNotebook = useCallback(() => {
+        if (!notebookPayload) {
+            return;
+        }
+
+        saveNotebookLocally(notebookPayload);
+        console.log('Notebook payload for backend:', notebookPayload);
+    }, [notebookPayload]);
+
     return (
         <main className="notebook-editor">
-            <NotebookHeader isMobile={isMobile} />
+            <NotebookHeader isMobile={isMobile} onSave={handleSaveNotebook} />
 
             <div className="notebook-editor__body">
                 {isDesktop && <NotebookToolbar onAddBlock={handleAddBlock} />}
@@ -79,6 +91,9 @@ function NotebookEditor() {
                         readonly={!isDesktop}
                         blockRequest={blockRequest}
                         onBlockRequestHandled={handleBlockRequestHandled}
+                        notebookId="demo-notebook"
+                        notebookTitle="Название notebook"
+                        onNotebookChange={setNotebookPayload}
                     />
 
                     <NotebookSuggestion
