@@ -510,6 +510,12 @@ function NotebookCanvas({
         setNodes(result.nodes);
         setEdges(result.edges);
 
+        window.requestAnimationFrame(() => {
+            reactFlowInstance?.fitView({
+                padding: 0.18,
+            });
+        });
+
         onExecutionLogsChange?.([
             createExecutionLog({
                 level: 'info',
