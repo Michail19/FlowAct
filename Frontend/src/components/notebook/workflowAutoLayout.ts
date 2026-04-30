@@ -87,12 +87,31 @@ function hasIncomingEdge(edges: Edge[], nodeId: string): boolean {
     return edges.some((edge) => edge.target === nodeId);
 }
 
-function createAutoEdge(source: NotebookNode, target: NotebookNode): Edge {
+function getConditionEdgeLabel(source: NotebookNode, edges: Edge[]): string | undefined {
+    if (source.data.blockType !== 'condition') {
+        return undefined;
+    }
+
+    const outgoingCount = edges.filter((edge) => edge.source === source.id).length;
+
+    if (outgoingCount === 0) {
+        return 'Да';
+    }
+
+    if (outgoingCount === 1) {
+        return 'Нет';
+    }
+
+    return `Вариант ${outgoingCount + 1}`;
+}
+
+function createAutoEdge(source: NotebookNode, target: NotebookNode, edges: Edge[]): Edge {
     return {
         id: `auto-${source.id}-${target.id}`,
         source: source.id,
         target: target.id,
         type: 'smoothstep',
+        label: getConditionEdgeLabel(source, edges),
     };
 }
 
@@ -264,7 +283,7 @@ function connectStartToFirstFreeNode(nodes: NotebookNode[], edges: Edge[]): Edge
         return nextEdges;
     }
 
-    nextEdges.push(createAutoEdge(startNode, target));
+    nextEdges.push(createAutoEdge(startNode, target, nextEdges));
 
     return nextEdges;
 }
@@ -293,7 +312,7 @@ function connectComponents(nodes: NotebookNode[], edges: Edge[]): Edge[] {
             return;
         }
 
-        nextEdges.push(createAutoEdge(source, target));
+        nextEdges.push(createAutoEdge(source, target, nextEdges));
     });
 
     return nextEdges;
@@ -325,7 +344,7 @@ function connectDanglingNodesToEnd(nodes: NotebookNode[], edges: Edge[]): Edge[]
             return;
         }
 
-        nextEdges.push(createAutoEdge(node, endNode));
+        nextEdges.push(createAutoEdge(node, endNode, nextEdges));
     });
 
     return nextEdges;

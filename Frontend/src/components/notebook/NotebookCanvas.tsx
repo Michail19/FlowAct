@@ -19,6 +19,7 @@ import AiBlockModal from './AiBlockModal';
 import AiBlockNode from './AiBlockNode';
 import CustomBlockNode from './CustomBlockNode';
 import BlockSettingsModal from './BlockSettingsModal';
+import EdgeSettingsModal from './EdgeSettingsModal';
 import { DEFAULT_AI_MODEL_ID } from './aiModels';
 import { getBlockDefinition } from './blockLibrary';
 import type {
@@ -351,6 +352,7 @@ function NotebookCanvas({
     const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
     const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
     const [viewport, setViewport] = useState<Viewport | undefined>(undefined);
+    const [editingEdgeId, setEditingEdgeId] = useState<string | null>(null);
 
     const nodeTypes = useMemo<NodeTypes>(
         () => ({
@@ -362,6 +364,7 @@ function NotebookCanvas({
 
     const editingNode = nodes.find((node) => node.id === editingNodeId);
     const editingConfig = editingNode?.data.aiConfig ?? defaultAiConfig;
+    const editingEdge = edges.find((edge) => edge.id === editingEdgeId);
 
     const createNodeId = useCallback((prefix: string) => {
         nodeCounterRef.current += 1;
@@ -424,6 +427,39 @@ function NotebookCanvas({
             };
         },
         [createNodeId, getCanvasCenterPosition],
+    );
+
+    const getDefaultConnectionLabel = useCallback(
+        (connection: Connection): string | undefined => {
+            const sourceNode = nodes.find((node) => node.id === connection.source);
+
+            if (sourceNode?.data.blockType !== 'condition') {
+                return undefined;
+            }
+
+            if (connection.sourceHandle === 'yes') {
+                return 'Да';
+            }
+
+            if (connection.sourceHandle === 'no') {
+                return 'Нет';
+            }
+
+            const conditionOutgoingCount = edges.filter(
+                (edge) => edge.source === connection.source,
+            ).length;
+
+            if (conditionOutgoingCount === 0) {
+                return 'Да';
+            }
+
+            if (conditionOutgoingCount === 1) {
+                return 'Нет';
+            }
+
+            return `Вариант ${conditionOutgoingCount + 1}`;
+        },
+        [edges, nodes],
     );
 
     useEffect(() => {
@@ -548,17 +584,20 @@ function NotebookCanvas({
                 return;
             }
 
+            const defaultLabel = getDefaultConnectionLabel(connection);
+
             setEdges((currentEdges) =>
                 addEdge(
                     {
                         ...connection,
                         type: 'smoothstep',
+                        label: defaultLabel,
                     },
                     currentEdges,
                 ),
             );
         },
-        [readonly, setEdges],
+        [getDefaultConnectionLabel, readonly, setEdges],
     );
 
     const handleEditNode = useCallback((nodeId: string) => {
@@ -937,6 +976,25 @@ function NotebookCanvas({
         setEditingNodeId(null);
     };
 
+    const handleSaveEdgeLabel = (label: string) => {
+        if (!editingEdgeId) {
+            return;
+        }
+
+        setEdges((currentEdges) =>
+            currentEdges.map((edge) =>
+                edge.id === editingEdgeId
+                    ? {
+                        ...edge,
+                        label: label || undefined,
+                    }
+                    : edge,
+            ),
+        );
+
+        setEditingEdgeId(null);
+    };
+
     return (
         <div className="notebook-canvas" ref={canvasRef}>
             <ReactFlow<NotebookNode, Edge>
@@ -947,6 +1005,11 @@ function NotebookCanvas({
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnect}
+                onEdgeDoubleClick={(event, edge) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setEditingEdgeId(edge.id);
+                }}
                 onMoveEnd={(_, currentViewport) => setViewport(currentViewport)}
                 nodesDraggable={!readonly}
                 nodesConnectable={!readonly}
@@ -966,6 +1029,14 @@ function NotebookCanvas({
                     initialConfig={editingConfig}
                     onSave={handleSaveAiBlock}
                     onClose={() => setEditingNodeId(null)}
+                />
+            )}
+
+            {editingEdge && (
+                <EdgeSettingsModal
+                    initialLabel={typeof editingEdge.label === 'string' ? editingEdge.label : ''}
+                    onSave={handleSaveEdgeLabel}
+                    onClose={() => setEditingEdgeId(null)}
                 />
             )}
 

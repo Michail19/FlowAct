@@ -28,6 +28,7 @@ function stopReactFlowEvent(event: React.SyntheticEvent) {
 
 function CustomBlockNode({ id, data, selected }: NodeProps<NotebookNode>) {
     const status = data.status ?? 'idle';
+    const isCondition = data.blockType === 'condition';
 
     const nodeClassName = [
         'custom-block-node',
@@ -114,8 +115,16 @@ function CustomBlockNode({ id, data, selected }: NodeProps<NotebookNode>) {
                 </div>
             </header>
 
-            {data.description && (
-                <p className="custom-block-node__description">{data.description}</p>
+            {isCondition ? (
+                <div className="custom-block-node__condition">
+                    <p className="custom-block-node__condition-text">
+                        {data.description || 'Проверяет условие и выбирает одну из веток выполнения.'}
+                    </p>
+                </div>
+            ) : (
+                data.description && (
+                    <p className="custom-block-node__description">{data.description}</p>
+                )
             )}
 
             <footer className="custom-block-node__footer">
@@ -125,12 +134,36 @@ function CustomBlockNode({ id, data, selected }: NodeProps<NotebookNode>) {
                 <span className="custom-block-node__status">{statusLabels[status]}</span>
             </footer>
 
-            {canHaveOutput && (
+            {canHaveOutput && !isCondition && (
                 <Handle
                     className="custom-block-node__handle custom-block-node__handle--source"
                     type="source"
                     position={Position.Right}
                 />
+            )}
+
+            {canHaveOutput && isCondition && (
+                <>
+                    <span className="custom-block-node__handle-label custom-block-node__handle-label--yes">
+                        Да
+                    </span>
+                    <Handle
+                        id="yes"
+                        className="custom-block-node__handle custom-block-node__handle--source custom-block-node__handle--source-yes"
+                        type="source"
+                        position={Position.Right}
+                    />
+
+                    <span className="custom-block-node__handle-label custom-block-node__handle-label--no">
+                        Нет
+                    </span>
+                    <Handle
+                        id="no"
+                        className="custom-block-node__handle custom-block-node__handle--source custom-block-node__handle--source-no"
+                        type="source"
+                        position={Position.Right}
+                    />
+                </>
             )}
         </article>
     );

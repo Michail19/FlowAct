@@ -50,6 +50,31 @@
     font-weight: 700;
 }
 
+.notebook-canvas .react-flow__edge {
+    cursor: pointer;
+}
+
+.notebook-canvas .react-flow__edge:hover .react-flow__edge-path {
+    stroke: var(--color-primary);
+}
+
+.notebook-canvas .react-flow__edge-textbg {
+    fill: #f8f7f3;
+    stroke: rgba(15, 23, 42, 0.16);
+    stroke-width: 1px;
+}
+
+.notebook-canvas .react-flow__edge-text {
+    fill: var(--color-panel);
+    font-size: 12px;
+    font-weight: 700;
+    pointer-events: none;
+}
+
+.notebook-canvas .react-flow__edge.selected .react-flow__edge-text {
+    fill: var(--color-primary);
+}
+
 @media (max-width: 767px) {
     .notebook-canvas {
         inset: 34px 0 0;
