@@ -33,6 +33,7 @@ import type {
 } from './executionTypes';
 import type { NotebookPayloadDto } from './notebookBackendTypes';
 import { fromNotebookPayload, toNotebookPayload } from './notebookMapper';
+import { validateWorkflow } from './workflowValidation';
 
 import '@xyflow/react/dist/style.css';
 import './NotebookCanvas.css';
@@ -621,8 +622,6 @@ function NotebookCanvas({
             };
 
             try {
-                const executionOrder = getWorkflowExecutionOrder(nodes, edges);
-
                 emitStatus('running');
                 onExecutionLogsChange?.([]);
 
@@ -635,6 +634,72 @@ function NotebookCanvas({
                         },
                     })),
                 );
+
+                pushLog(
+                    createExecutionLog({
+                        level: 'info',
+                        status: 'running',
+                        message: 'Проверка схемы перед запуском рабочего процесса.',
+                    }),
+                );
+
+                const validationIssues = validateWorkflow(nodes, edges);
+                const validationErrors = validationIssues.filter((issue) => issue.severity === 'error');
+
+                validationIssues.forEach((issue) => {
+                    pushLog(
+                        createExecutionLog({
+                            level: issue.severity,
+                            status: issue.severity === 'error' ? 'error' : 'running',
+                            blockId: issue.blockId,
+                            blockTitle: issue.blockTitle,
+                            message: issue.message,
+                        }),
+                    );
+                });
+
+                if (validationErrors.length > 0) {
+                    const invalidBlockIds = new Set(
+                        validationErrors
+                            .map((issue) => issue.blockId)
+                            .filter((blockId): blockId is string => Boolean(blockId)),
+                    );
+
+                    setNodes((currentNodes) =>
+                        currentNodes.map((node) =>
+                            invalidBlockIds.has(node.id)
+                                ? {
+                                    ...node,
+                                    data: {
+                                        ...node.data,
+                                        status: 'error',
+                                    },
+                                }
+                                : node,
+                        ),
+                    );
+
+                    pushLog(
+                        createExecutionLog({
+                            level: 'error',
+                            status: 'error',
+                            message: `Запуск остановлен. Найдено ошибок: ${validationErrors.length}.`,
+                        }),
+                    );
+
+                    emitStatus('error');
+                    return;
+                }
+
+                pushLog(
+                    createExecutionLog({
+                        level: 'success',
+                        status: 'success',
+                        message: 'Схема прошла проверку. Запуск рабочего процесса разрешён.',
+                    }),
+                );
+
+                const executionOrder = getWorkflowExecutionOrder(nodes, edges);
 
                 if (executionOrder.length === 0) {
                     pushLog(
