@@ -8,20 +8,30 @@ import NotebookCanvas from './NotebookCanvas';
 import NotebookSearch from './NotebookSearch';
 import NotebookSuggestion from './NotebookSuggestion';
 import NotebookMobileActions from './NotebookMobileActions';
-import { saveNotebookLocally } from '../../services/notebookStorage';
 import type { NotebookBlockRequest, NotebookBlockType } from './notebookTypes';
 import type { NotebookPayloadDto } from './notebookBackendTypes';
+import { notebookApi } from '../../services/notebookApi';
+import {
+    loadNotebookLocally,
+    saveNotebookLocally,
+} from '../../services/notebookStorage';
 
 import './NotebookEditor.css';
 
 function NotebookEditor() {
     const isMobile = useMediaQuery('(max-width: 767px)');
     const isDesktop = useMediaQuery('(min-width: 1024px)');
+    const notebookId = 'demo-notebook';
+    const notebookTitle = 'Название notebook';
 
     const requestIdRef = useRef(0);
     const [blockRequest, setBlockRequest] = useState<NotebookBlockRequest | null>(null);
     const [dismissedSuggestionIds, setDismissedSuggestionIds] = useState<string[]>([]);
     const [notebookPayload, setNotebookPayload] = useState<NotebookPayloadDto | null>(null);
+    const [loadedNotebookPayload, setLoadedNotebookPayload] =
+        useState<NotebookPayloadDto | null>(() => loadNotebookLocally());
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveError, setSaveError] = useState<string | null>(null);
 
     const suggestion = useMemo(
         () => ({
@@ -68,18 +78,39 @@ function NotebookEditor() {
         );
     }, []);
 
-    const handleSaveNotebook = useCallback(() => {
+    const handleSaveNotebook = useCallback(async () => {
         if (!notebookPayload) {
             return;
         }
 
-        saveNotebookLocally(notebookPayload);
-        console.log('Notebook payload for backend:', notebookPayload);
+        setIsSaving(true);
+        setSaveError(null);
+
+        try {
+            const savedNotebook = await notebookApi.saveNotebook(notebookPayload);
+
+            saveNotebookLocally(savedNotebook);
+            setLoadedNotebookPayload(savedNotebook);
+            setNotebookPayload(savedNotebook);
+
+            console.log('Notebook saved via API:', savedNotebook);
+        } catch (error) {
+            saveNotebookLocally(notebookPayload);
+
+            setSaveError('Backend недоступен, notebook сохранён локально.');
+            console.warn('Notebook saved locally because API is unavailable:', error);
+        } finally {
+            setIsSaving(false);
+        }
     }, [notebookPayload]);
 
     return (
         <main className="notebook-editor">
-            <NotebookHeader isMobile={isMobile} onSave={handleSaveNotebook} />
+            <NotebookHeader
+                isMobile={isMobile}
+                onSave={handleSaveNotebook}
+                isSaving={isSaving}
+            />
 
             <div className="notebook-editor__body">
                 {isDesktop && <NotebookToolbar onAddBlock={handleAddBlock} />}
@@ -91,8 +122,9 @@ function NotebookEditor() {
                         readonly={!isDesktop}
                         blockRequest={blockRequest}
                         onBlockRequestHandled={handleBlockRequestHandled}
-                        notebookId="demo-notebook"
-                        notebookTitle="Название notebook"
+                        notebookId={notebookId}
+                        notebookTitle={notebookTitle}
+                        initialPayload={loadedNotebookPayload}
                         onNotebookChange={setNotebookPayload}
                     />
 
@@ -102,6 +134,12 @@ function NotebookEditor() {
                         onAccept={handleAcceptSuggestion}
                         onDismiss={handleDismissSuggestion}
                     />
+
+                    {saveError && (
+                        <div className="notebook-editor__save-message">
+                            {saveError}
+                        </div>
+                    )}
 
                     {isMobile && <NotebookMobileActions />}
                 </section>

@@ -22,6 +22,21 @@
     background: #f8f7f3;
 }
 
+.notebook-editor__save-message {
+    position: absolute;
+    z-index: 9;
+    top: 46px;
+    right: 12px;
+    max-width: 360px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(250, 204, 21, 0.95);
+    color: #111827;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
+}
+
 @media (max-width: 767px) {
     .notebook-editor {
         max-width: 430px;

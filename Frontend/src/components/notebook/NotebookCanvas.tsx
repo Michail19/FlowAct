@@ -26,7 +26,8 @@ import type {
     NotebookBlockRequest,
     NotebookNode,
 } from './notebookTypes';
-import { toNotebookPayload } from './notebookMapper';
+import type { NotebookPayloadDto } from './notebookBackendTypes';
+import { fromNotebookPayload, toNotebookPayload } from './notebookMapper';
 
 import '@xyflow/react/dist/style.css';
 import './NotebookCanvas.css';
@@ -37,7 +38,8 @@ type NotebookCanvasProps = {
     onBlockRequestHandled?: (requestId: number) => void;
     notebookId?: string;
     notebookTitle?: string;
-    onNotebookChange?: (payload: ReturnType<typeof toNotebookPayload>) => void;
+    initialPayload?: NotebookPayloadDto | null;
+    onNotebookChange?: (payload: NotebookPayloadDto) => void;
 };
 
 const defaultAiConfig: AiBlockConfig = {
@@ -231,10 +233,12 @@ function NotebookCanvas({
                             onBlockRequestHandled,
                             notebookId,
                             notebookTitle = 'Название notebook',
+                            initialPayload = null,
                             onNotebookChange,
                         }: NotebookCanvasProps) {
     const canvasRef = useRef<HTMLDivElement | null>(null);
     const nodeCounterRef = useRef(initialNodes.length);
+    const loadedPayloadKeyRef = useRef<string | null>(null);
 
     const [reactFlowInstance, setReactFlowInstance] =
         useState<ReactFlowInstance<NotebookNode, Edge> | null>(null);
@@ -357,6 +361,30 @@ function NotebookCanvas({
         onNotebookChange,
         viewport,
     ]);
+
+    useEffect(() => {
+        if (!initialPayload) {
+            return;
+        }
+
+        const payloadKey = `${initialPayload.id ?? 'local'}-${initialPayload.updatedAt}`;
+
+        if (loadedPayloadKeyRef.current === payloadKey) {
+            return;
+        }
+
+        const restoredNotebook = fromNotebookPayload(initialPayload);
+
+        setNodes(restoredNotebook.nodes);
+        setEdges(restoredNotebook.edges);
+        loadedPayloadKeyRef.current = payloadKey;
+
+        if (initialPayload.viewport && reactFlowInstance) {
+            window.requestAnimationFrame(() => {
+                reactFlowInstance.setViewport(initialPayload.viewport!);
+            });
+        }
+    }, [initialPayload, reactFlowInstance, setEdges, setNodes]);
 
     const onConnect = useCallback(
         (connection: Connection) => {
