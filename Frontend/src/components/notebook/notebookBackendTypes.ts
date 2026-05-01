@@ -1,19 +1,39 @@
 import type { Viewport } from '@xyflow/react';
 
-import type { NotebookBlockType } from './notebookTypes';
+import type {
+    ActionBlockConfig,
+    AiBlockConfig,
+    ConditionBlockConfig,
+    DatabaseBlockConfig,
+    EmailBlockConfig,
+    LogBlockConfig,
+    NotebookBlockType,
+} from './notebookTypes';
 
 export type NotebookBlockPositionDto = {
     x: number;
     y: number;
 };
 
-export type NotebookAiConfigDto = {
-    prompt: string;
-    models: string[];
-};
+export type NotebookAiConfigDto = AiBlockConfig;
+
+export type NotebookConditionConfigDto = ConditionBlockConfig;
+
+export type NotebookActionConfigDto = ActionBlockConfig;
+
+export type NotebookDatabaseConfigDto = DatabaseBlockConfig;
+
+export type NotebookEmailConfigDto = EmailBlockConfig;
+
+export type NotebookLogConfigDto = LogBlockConfig;
 
 export type NotebookBlockConfigDto = {
     ai?: NotebookAiConfigDto;
+    condition?: NotebookConditionConfigDto;
+    action?: NotebookActionConfigDto;
+    database?: NotebookDatabaseConfigDto;
+    email?: NotebookEmailConfigDto;
+    log?: NotebookLogConfigDto;
 };
 
 export type NotebookBlockDto = {

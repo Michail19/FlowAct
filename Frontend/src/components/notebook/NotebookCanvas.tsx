@@ -18,7 +18,7 @@ import {
 import AiBlockModal from './AiBlockModal';
 import AiBlockNode from './AiBlockNode';
 import CustomBlockNode from './CustomBlockNode';
-import BlockSettingsModal from './BlockSettingsModal';
+import BlockSettingsModal, { type BlockSettingsPayload } from './BlockSettingsModal';
 import EdgeSettingsModal from './EdgeSettingsModal';
 import { getBlockDefinition } from './blockLibrary';
 import type {
@@ -777,7 +777,7 @@ function NotebookCanvas({
         setEditingNodeId(null);
     };
 
-    const handleSaveGenericBlock = (title: string, subtitle: string, description: string) => {
+    const handleSaveGenericBlock = (settings: BlockSettingsPayload) => {
         if (!editingNodeId) {
             return;
         }
@@ -789,9 +789,10 @@ function NotebookCanvas({
                         ...node,
                         data: {
                             ...node.data,
-                            title,
-                            subtitle,
-                            description,
+                            title: settings.title,
+                            subtitle: settings.subtitle,
+                            description: settings.description,
+                            config: settings.config,
                         },
                     }
                     : node,
@@ -867,9 +868,11 @@ function NotebookCanvas({
 
             {editingNode && editingNode.data.blockType !== 'ai' && (
                 <BlockSettingsModal
+                    blockType={editingNode.data.blockType}
                     initialTitle={editingNode.data.title}
                     initialSubtitle={editingNode.data.subtitle}
                     initialDescription={editingNode.data.description}
+                    initialConfig={editingNode.data.config}
                     onSave={handleSaveGenericBlock}
                     onClose={() => setEditingNodeId(null)}
                 />

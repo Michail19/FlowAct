@@ -35,13 +35,37 @@ export function toNotebookPayload(params: {
             },
         };
 
+        const config: NotebookBlockDto['config'] = {};
+
         if (node.data.blockType === 'ai' && node.data.aiConfig) {
-            block.config = {
-                ai: {
-                    prompt: node.data.aiConfig.prompt,
-                    models: node.data.aiConfig.models,
-                },
+            config.ai = {
+                prompt: node.data.aiConfig.prompt,
+                models: node.data.aiConfig.models,
             };
+        }
+
+        if (node.data.config?.condition) {
+            config.condition = node.data.config.condition;
+        }
+
+        if (node.data.config?.action) {
+            config.action = node.data.config.action;
+        }
+
+        if (node.data.config?.database) {
+            config.database = node.data.config.database;
+        }
+
+        if (node.data.config?.email) {
+            config.email = node.data.config.email;
+        }
+
+        if (node.data.config?.log) {
+            config.log = node.data.config.log;
+        }
+
+        if (Object.keys(config).length > 0) {
+            block.config = config;
         }
 
         return block;
@@ -98,6 +122,7 @@ export function fromNotebookPayload(payload: NotebookPayloadDto): {
                 blockType: block.type,
                 status: 'idle',
                 aiConfig: block.config?.ai,
+                config: block.config,
             },
         };
     });

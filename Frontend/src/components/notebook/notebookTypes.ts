@@ -17,6 +17,51 @@ export type AiBlockConfig = {
     models: string[];
 };
 
+export type ConditionOperator =
+    | 'equals'
+    | 'notEquals'
+    | 'contains'
+    | 'greaterThan'
+    | 'lessThan'
+    | 'exists';
+
+export type ConditionBlockConfig = {
+    leftValue: string;
+    operator: ConditionOperator;
+    rightValue: string;
+};
+
+export type ActionBlockConfig = {
+    actionType: 'format' | 'transform' | 'httpRequest' | 'custom';
+    parameters: string;
+};
+
+export type DatabaseBlockConfig = {
+    operation: 'select' | 'insert' | 'update' | 'delete';
+    tableName: string;
+    query: string;
+    payload: string;
+};
+
+export type EmailBlockConfig = {
+    recipient: string;
+    subject: string;
+    body: string;
+};
+
+export type LogBlockConfig = {
+    level: 'info' | 'warning' | 'error';
+    messageTemplate: string;
+};
+
+export type NotebookBlockConfig = {
+    condition?: ConditionBlockConfig;
+    action?: ActionBlockConfig;
+    database?: DatabaseBlockConfig;
+    email?: EmailBlockConfig;
+    log?: LogBlockConfig;
+};
+
 export type NotebookBlockData = {
     title: string;
     subtitle?: string;
@@ -26,6 +71,7 @@ export type NotebookBlockData = {
     icon?: string;
     meta?: string;
     aiConfig?: AiBlockConfig;
+    config?: NotebookBlockConfig;
 
     onRun?: (nodeId: string) => void;
     onEdit?: (nodeId: string) => void;
