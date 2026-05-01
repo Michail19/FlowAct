@@ -790,7 +790,7 @@ function NotebookCanvas({
                         data: {
                             ...node.data,
                             title: settings.title,
-                            subtitle: settings.subtitle,
+                            subtitle: getSubtitleByBlockConfig(settings),
                             description: settings.description,
                             config: settings.config,
                         },
@@ -820,6 +820,36 @@ function NotebookCanvas({
 
         setEditingEdgeId(null);
     };
+
+    function getSubtitleByBlockConfig(settings: BlockSettingsPayload): string {
+        if (settings.config?.condition) {
+            const { leftValue, operator, rightValue } = settings.config.condition;
+
+            return `${leftValue} ${operator} ${rightValue}`.trim();
+        }
+
+        if (settings.config?.email) {
+            return settings.config.email.recipient
+                ? `Email: ${settings.config.email.recipient}`
+                : settings.subtitle;
+        }
+
+        if (settings.config?.database) {
+            const { operation, tableName } = settings.config.database;
+
+            return tableName ? `${operation.toUpperCase()}: ${tableName}` : operation.toUpperCase();
+        }
+
+        if (settings.config?.log) {
+            return `Log: ${settings.config.log.level}`;
+        }
+
+        if (settings.config?.action) {
+            return `Action: ${settings.config.action.actionType}`;
+        }
+
+        return settings.subtitle;
+    }
 
     return (
         <div className="notebook-canvas" ref={canvasRef}>
