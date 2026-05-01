@@ -31,6 +31,13 @@ function getPreviewBlockClass(blockType: string) {
 function NotebookPreview({ notebookId }: { notebookId: string }) {
     const notebook = loadNotebookLocally(notebookId);
     const blocks = notebook?.blocks.slice(0, 9) ?? [];
+    const blockIds = new Set(blocks.map((block) => block.id));
+    const connections =
+        notebook?.connections.filter(
+            (connection) =>
+                blockIds.has(connection.sourceBlockId) &&
+                blockIds.has(connection.targetBlockId),
+        ) ?? [];
 
     if (blocks.length === 0) {
         return (
@@ -51,20 +58,58 @@ function NotebookPreview({ notebookId }: { notebookId: string }) {
     const width = Math.max(maxX - minX, 1);
     const height = Math.max(maxY - minY, 1);
 
+    const positionsById = new Map(
+        blocks.map((block) => {
+            const x = 10 + ((block.position.x - minX) / width) * 72;
+            const y = 10 + ((block.position.y - minY) / height) * 72;
+
+            return [block.id, { x, y }];
+        }),
+    );
+
     return (
         <div className="home-page__preview">
             <div className="home-page__preview-canvas">
+                <svg
+                    className="home-page__preview-lines"
+                    viewBox="0 0 100 100"
+                    preserveAspectRatio="none"
+                    aria-hidden="true"
+                >
+                    {connections.map((connection) => {
+                        const sourcePosition = positionsById.get(connection.sourceBlockId);
+                        const targetPosition = positionsById.get(connection.targetBlockId);
+
+                        if (!sourcePosition || !targetPosition) {
+                            return null;
+                        }
+
+                        return (
+                            <line
+                                key={connection.id}
+                                x1={sourcePosition.x}
+                                y1={sourcePosition.y}
+                                x2={targetPosition.x}
+                                y2={targetPosition.y}
+                            />
+                        );
+                    })}
+                </svg>
+
                 {blocks.map((block) => {
-                    const left = 10 + ((block.position.x - minX) / width) * 72;
-                    const top = 10 + ((block.position.y - minY) / height) * 72;
+                    const position = positionsById.get(block.id);
+
+                    if (!position) {
+                        return null;
+                    }
 
                     return (
                         <span
                             className={getPreviewBlockClass(block.type)}
                             key={block.id}
                             style={{
-                                left: `${left}%`,
-                                top: `${top}%`,
+                                left: `${position.x}%`,
+                                top: `${position.y}%`,
                             }}
                             title={block.title}
                         />
@@ -83,9 +128,10 @@ function HomePage() {
     const [search, setSearch] = useState('');
     const [notebookToDelete, setNotebookToDelete] = useState<NotebookListItem | null>(null);
 
-    const filteredNotebooks = useMemo(() => {
-        const normalizedSearch = search.trim().toLowerCase();
+    const normalizedSearch = search.trim().toLowerCase();
+    const isSearching = normalizedSearch.length > 0;
 
+    const filteredNotebooks = useMemo(() => {
         if (!normalizedSearch) {
             return notebooks;
         }
@@ -93,7 +139,7 @@ function HomePage() {
         return notebooks.filter((notebook) =>
             notebook.title.toLowerCase().includes(normalizedSearch),
         );
-    }, [notebooks, search]);
+    }, [normalizedSearch, notebooks]);
 
     const handleCreateNotebook = () => {
         const notebook = createEmptyNotebookLocally('Новый notebook');
@@ -119,6 +165,8 @@ function HomePage() {
         setNotebookToDelete(null);
     };
 
+    const showCreateButtonInEmptyState = notebooks.length === 0 && !isSearching;
+
     return (
         <main className="home-page">
             <section className="home-page__shell">
@@ -127,33 +175,33 @@ function HomePage() {
                         FlowAct
                     </Link>
 
-                    <div className="home-page__topbar-actions">
-                        <button
-                            className="home-page__create-button"
-                            type="button"
-                            onClick={handleCreateNotebook}
-                        >
-                            + Создать notebook
-                        </button>
-
-                        <Link
-                            className="home-page__profile"
-                            to="/my-account"
-                            aria-label="Профиль"
-                            title="Профиль"
-                        >
-                            ◕
-                        </Link>
-                    </div>
+                    <Link
+                        className="home-page__profile"
+                        to="/my-account"
+                        aria-label="Профиль"
+                        title="Профиль"
+                    >
+                        ◕
+                    </Link>
                 </header>
 
                 <section className="home-page__content">
                     <div className="home-page__hero">
-                        <div>
+                        <div className="home-page__hero-text">
                             <h1 className="home-page__title">Добро пожаловать!</h1>
                             <p className="home-page__subtitle">
                                 Создавайте, настраивайте и запускайте рабочие процессы.
                             </p>
+                        </div>
+
+                        <div className="home-page__hero-actions">
+                            <button
+                                className="home-page__create-button"
+                                type="button"
+                                onClick={handleCreateNotebook}
+                            >
+                                + Создать notebook
+                            </button>
                         </div>
                     </div>
 
@@ -172,16 +220,24 @@ function HomePage() {
                         {filteredNotebooks.length === 0 ? (
                             <div className="home-page__empty">
                                 <p className="home-page__empty-title">
-                                    {search.trim()
-                                        ? 'Ничего не найдено'
-                                        : 'Notebook пока нет'}
+                                    {isSearching ? 'Ничего не найдено' : 'Notebook пока нет'}
                                 </p>
 
                                 <p className="home-page__empty-text">
-                                    {search.trim()
+                                    {isSearching
                                         ? 'Попробуйте изменить поисковый запрос.'
-                                        : 'Создайте первый notebook с помощью кнопки сверху.'}
+                                        : 'Создайте первый notebook, чтобы собрать рабочий процесс из блоков.'}
                                 </p>
+
+                                {showCreateButtonInEmptyState && (
+                                    <button
+                                        className="home-page__empty-create-button"
+                                        type="button"
+                                        onClick={handleCreateNotebook}
+                                    >
+                                        Создать notebook
+                                    </button>
+                                )}
                             </div>
                         ) : (
                             <div className="home-page__grid">
