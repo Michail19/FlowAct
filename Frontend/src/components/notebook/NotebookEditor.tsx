@@ -23,6 +23,7 @@ import {
 import NotebookRunPanel from './NotebookRunPanel';
 import type {
     NotebookExecutionLog,
+    WorkflowExecutionResult,
     WorkflowExecutionStatus,
     WorkflowRunRequest,
 } from './executionTypes';
@@ -53,16 +54,18 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
     const [blockRequest, setBlockRequest] = useState<NotebookBlockRequest | null>(null);
     const [dismissedSuggestionIds, setDismissedSuggestionIds] = useState<string[]>([]);
     const [notebookPayload, setNotebookPayload] = useState<NotebookPayloadDto | null>(null);
+    const [loadedNotebookPayload, setLoadedNotebookPayload] =
+        useState<NotebookPayloadDto | null>(initialNotebookPayload);
     const [isSaving, setIsSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
     const [runRequest, setRunRequest] = useState<WorkflowRunRequest | null>(null);
     const [executionStatus, setExecutionStatus] = useState<WorkflowExecutionStatus>('idle');
     const [executionLogs, setExecutionLogs] = useState<NotebookExecutionLog[]>([]);
+    const [executionResult, setExecutionResult] =
+        useState<WorkflowExecutionResult | null>(null);
     const [isRunPanelOpen, setIsRunPanelOpen] = useState(false);
     const [autoLayoutRequest, setAutoLayoutRequest] =
         useState<NotebookAutoLayoutRequest | null>(null);
-    const [loadedNotebookPayload, setLoadedNotebookPayload] =
-        useState<NotebookPayloadDto | null>(initialNotebookPayload);
 
     const suggestion = useMemo(
         () => ({
@@ -148,6 +151,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
     const handleRunWorkflow = useCallback(() => {
         runRequestIdRef.current += 1;
 
+        setExecutionResult(null);
         setIsRunPanelOpen(true);
         setRunRequest({
             requestId: runRequestIdRef.current,
@@ -170,6 +174,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
 
     const handleClearExecutionLogs = useCallback(() => {
         setExecutionLogs([]);
+        setExecutionResult(null);
         setExecutionStatus('idle');
     }, []);
 
@@ -254,6 +259,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                         onRunRequestHandled={handleRunRequestHandled}
                         onExecutionStatusChange={setExecutionStatus}
                         onExecutionLogsChange={setExecutionLogs}
+                        onExecutionResultChange={setExecutionResult}
                         autoLayoutRequest={autoLayoutRequest}
                         onAutoLayoutRequestHandled={handleAutoLayoutRequestHandled}
                     />
@@ -262,6 +268,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                         isOpen={isRunPanelOpen}
                         status={executionStatus}
                         logs={executionLogs}
+                        result={executionResult}
                         isMobile={isMobile}
                         onClose={handleCloseRunPanel}
                         onClear={handleClearExecutionLogs}

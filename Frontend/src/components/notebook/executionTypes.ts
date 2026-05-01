@@ -15,3 +15,18 @@ export type NotebookExecutionLog = {
     message: string;
     createdAt: string;
 };
+
+export type WorkflowExecutionResult = {
+    id: string;
+    status: Exclude<WorkflowExecutionStatus, 'idle' | 'running'>;
+    startedAt: string;
+    finishedAt: string;
+    durationMs: number;
+    totalBlocks: number;
+    completedBlocks: number;
+    failedBlocks: number;
+    warningsCount: number;
+    errorsCount: number;
+    summary: string;
+    output: string;
+};

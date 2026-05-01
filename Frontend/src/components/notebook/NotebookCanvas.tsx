@@ -29,6 +29,7 @@ import type {
 } from './notebookTypes';
 import type {
     NotebookExecutionLog,
+    WorkflowExecutionResult,
     WorkflowExecutionStatus,
     WorkflowRunRequest,
 } from './executionTypes';
@@ -66,6 +67,7 @@ type NotebookCanvasProps = {
     onRunRequestHandled?: (requestId: number) => void;
     onExecutionStatusChange?: (status: WorkflowExecutionStatus) => void;
     onExecutionLogsChange?: (logs: NotebookExecutionLog[]) => void;
+    onExecutionResultChange?: (result: WorkflowExecutionResult | null) => void;
     autoLayoutRequest?: NotebookAutoLayoutRequest | null;
     onAutoLayoutRequestHandled?: (requestId: number) => void;
 };
@@ -82,6 +84,7 @@ function NotebookCanvas({
                             onRunRequestHandled,
                             onExecutionStatusChange,
                             onExecutionLogsChange,
+                            onExecutionResultChange,
                             autoLayoutRequest = null,
                             onAutoLayoutRequestHandled,
                         }: NotebookCanvasProps) {
@@ -449,6 +452,14 @@ function NotebookCanvas({
 
             isWorkflowRunningRef.current = true;
 
+            const startedAt = new Date();
+            let completedBlocks = 0;
+            let failedBlocks = 0;
+            let warningsCount = 0;
+            let errorsCount = 0;
+
+            onExecutionResultChange?.(null);
+
             const executionLogs: NotebookExecutionLog[] = [];
 
             const emitStatus = (status: WorkflowExecutionStatus) => {
@@ -486,6 +497,14 @@ function NotebookCanvas({
                 const validationErrors = validationIssues.filter((issue) => issue.severity === 'error');
 
                 validationIssues.forEach((issue) => {
+                    if (issue.severity === 'warning') {
+                        warningsCount += 1;
+                    }
+
+                    if (issue.severity === 'error') {
+                        errorsCount += 1;
+                    }
+
                     pushLog(
                         createExecutionLog({
                             level: issue.severity,
@@ -517,6 +536,23 @@ function NotebookCanvas({
                                 : node,
                         ),
                     );
+
+                    const finishedAt = new Date();
+
+                    onExecutionResultChange?.({
+                        id: `${finishedAt.getTime()}-validation-error`,
+                        status: 'error',
+                        startedAt: startedAt.toISOString(),
+                        finishedAt: finishedAt.toISOString(),
+                        durationMs: finishedAt.getTime() - startedAt.getTime(),
+                        totalBlocks: nodes.length,
+                        completedBlocks,
+                        failedBlocks: validationErrors.length,
+                        warningsCount,
+                        errorsCount,
+                        summary: 'Рабочий процесс не был запущен',
+                        output: `Проверка схемы завершилась с ошибками. Найдено ошибок: ${validationErrors.length}.`,
+                    });
 
                     pushLog(
                         createExecutionLog({
