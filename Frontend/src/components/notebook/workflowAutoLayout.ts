@@ -2,6 +2,10 @@ import type { Edge } from '@xyflow/react';
 
 import { getBlockDefinition } from './blockLibrary';
 import type { NotebookAutoLayoutMode, NotebookNode } from './notebookTypes';
+import {
+    conditionBranchLabels,
+    getAvailableConditionBranchForEdges,
+} from './conditionBranchUtils';
 
 const START_X = 80;
 const BASE_Y = 210;
@@ -87,81 +91,13 @@ function hasIncomingEdge(edges: Edge[], nodeId: string): boolean {
     return edges.some((edge) => edge.target === nodeId);
 }
 
-// function getConditionEdgeLabel(source: NotebookNode, edges: Edge[]): string | undefined {
-//     if (source.data.blockType !== 'condition') {
-//         return undefined;
-//     }
-//
-//     const outgoingCount = edges.filter((edge) => edge.source === source.id).length;
-//
-//     if (outgoingCount === 0) {
-//         return 'Да';
-//     }
-//
-//     if (outgoingCount === 1) {
-//         return 'Нет';
-//     }
-//
-//     return `Вариант ${outgoingCount + 1}`;
-// }
-
-type ConditionBranch = 'yes' | 'no';
-
-const conditionBranchLabels: Record<ConditionBranch, string> = {
-    yes: 'Да',
-    no: 'Нет',
-};
-
-function isConditionBranch(value: string | null | undefined): value is ConditionBranch {
-    return value === 'yes' || value === 'no';
-}
-
-function getConditionBranchFromEdge(edge: Edge): ConditionBranch | null {
-    if (isConditionBranch(edge.sourceHandle)) {
-        return edge.sourceHandle;
-    }
-
-    if (edge.label === 'Да') {
-        return 'yes';
-    }
-
-    if (edge.label === 'Нет') {
-        return 'no';
-    }
-
-    return null;
-}
-
-function getAvailableConditionBranch(source: NotebookNode, edges: Edge[]): ConditionBranch | null {
-    if (source.data.blockType !== 'condition') {
-        return null;
-    }
-
-    const usedBranches = new Set(
-        edges
-            .filter((edge) => edge.source === source.id)
-            .map(getConditionBranchFromEdge)
-            .filter(isConditionBranch),
-    );
-
-    if (!usedBranches.has('yes')) {
-        return 'yes';
-    }
-
-    if (!usedBranches.has('no')) {
-        return 'no';
-    }
-
-    return null;
-}
-
 function canCreateOutgoingEdge(source: NotebookNode, edges: Edge[]): boolean {
     if (source.data.blockType === 'end') {
         return false;
     }
 
     if (source.data.blockType === 'condition') {
-        return getAvailableConditionBranch(source, edges) !== null;
+        return getAvailableConditionBranchForEdges(source.id, edges) !== null;
     }
 
     return !hasOutgoingEdge(edges, source.id);
@@ -169,7 +105,7 @@ function canCreateOutgoingEdge(source: NotebookNode, edges: Edge[]): boolean {
 
 function createAutoEdge(source: NotebookNode, target: NotebookNode, edges: Edge[]): Edge | null {
     if (source.data.blockType === 'condition') {
-        const branch = getAvailableConditionBranch(source, edges);
+        const branch = getAvailableConditionBranchForEdges(source.id, edges);
 
         if (!branch) {
             return null;
