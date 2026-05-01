@@ -5,6 +5,8 @@ import type { NotebookAutoLayoutMode, NotebookNode } from './notebookTypes';
 import {
     conditionBranchLabels,
     getAvailableConditionBranchForEdges,
+    getUsedConditionBranches,
+    type ConditionBranch,
 } from './conditionBranchUtils';
 
 const START_X = 80;
@@ -103,9 +105,42 @@ function canCreateOutgoingEdge(source: NotebookNode, edges: Edge[]): boolean {
     return !hasOutgoingEdge(edges, source.id);
 }
 
-function createAutoEdge(source: NotebookNode, target: NotebookNode, edges: Edge[]): Edge | null {
+function getPreferredConditionBranchForTarget(
+    source: NotebookNode,
+    target: NotebookNode,
+    edges: Edge[],
+): ConditionBranch | null {
+    if (source.data.blockType !== 'condition') {
+        return null;
+    }
+
+    const usedBranches = getUsedConditionBranches(source.id, edges);
+    const availableBranch = getAvailableConditionBranchForEdges(source.id, edges);
+
+    const targetIsAbove = target.position.y < source.position.y;
+    const targetIsBelow = target.position.y > source.position.y;
+
+    if (targetIsAbove && !usedBranches.has('yes')) {
+        return 'yes';
+    }
+
+    if (targetIsBelow && !usedBranches.has('no')) {
+        return 'no';
+    }
+
+    return availableBranch;
+}
+
+function createAutoEdge(
+    source: NotebookNode,
+    target: NotebookNode,
+    edges: Edge[],
+    conditionBranch?: ConditionBranch,
+): Edge | null {
     if (source.data.blockType === 'condition') {
-        const branch = getAvailableConditionBranchForEdges(source.id, edges);
+        const branch =
+            conditionBranch ??
+            getPreferredConditionBranchForTarget(source, target, edges);
 
         if (!branch) {
             return null;
@@ -164,6 +199,47 @@ function createBoundaryNode(params: {
             icon: definition.icon,
             blockType: params.blockType,
             status: 'idle',
+        },
+    };
+}
+
+function createAutoMergeNode(params: {
+    nodes: NotebookNode[];
+    endNode: NotebookNode;
+    sourceNodes: NotebookNode[];
+}): NotebookNode {
+    const definition = getBlockDefinition('merge');
+    const id = createUniqueNodeId('auto-merge', params.nodes);
+
+    const averageY =
+        params.sourceNodes.length > 0
+            ? Math.round(
+                params.sourceNodes.reduce(
+                    (sum, node) => sum + node.position.y,
+                    0,
+                ) / params.sourceNodes.length,
+            )
+            : params.endNode.position.y;
+
+    return {
+        id,
+        type: 'customBlock',
+        position: {
+            x: params.endNode.position.x - 420,
+            y: averageY,
+        },
+        data: {
+            title: definition.title,
+            subtitle: definition.subtitle,
+            description: definition.description,
+            icon: definition.icon,
+            blockType: 'merge',
+            status: 'idle',
+            config: {
+                merge: {
+                    mode: 'combine',
+                },
+            },
         },
     };
 }
@@ -278,6 +354,90 @@ function findBestTargetForSource(
         })[0];
 }
 
+function findNearestTargetForConditionBranch(
+    source: NotebookNode,
+    branch: ConditionBranch,
+    targetCandidates: NotebookNode[],
+    edges: Edge[],
+): NotebookNode | undefined {
+    return [...targetCandidates]
+        .filter((target) => target.id !== source.id)
+        .filter((target) => target.data.blockType !== 'start')
+        .filter((target) => !hasIncomingEdge(edges, target.id))
+        .filter((target) => !hasEdgeBetween(edges, source.id, target.id))
+        .filter((target) => !wouldCreateCycle(source.id, target.id, edges))
+        .filter((target) =>
+            branch === 'yes'
+                ? target.position.y < source.position.y
+                : target.position.y > source.position.y,
+        )
+        .sort((firstTarget, secondTarget) => {
+            const firstDistance = getDistanceBetweenNodes(source, firstTarget);
+            const secondDistance = getDistanceBetweenNodes(source, secondTarget);
+
+            if (firstDistance !== secondDistance) {
+                return firstDistance - secondDistance;
+            }
+
+            return firstTarget.id.localeCompare(secondTarget.id);
+        })[0];
+}
+
+function connectConditionBranchesToNearbyNodes(
+    nodes: NotebookNode[],
+    edges: Edge[],
+): Edge[] {
+    const nextEdges = [...edges];
+
+    const conditionNodes = sortNodesByCanvasPosition(nodes).filter(
+        (node) => node.data.blockType === 'condition',
+    );
+
+    conditionNodes.forEach((conditionNode) => {
+        const usedBranches = getUsedConditionBranches(conditionNode.id, nextEdges);
+
+        const targetCandidates = sortContentNodesByCanvasPosition(nodes).filter(
+            (node) => node.id !== conditionNode.id,
+        );
+
+        if (!usedBranches.has('yes')) {
+            const yesTarget = findNearestTargetForConditionBranch(
+                conditionNode,
+                'yes',
+                targetCandidates,
+                nextEdges,
+            );
+
+            if (yesTarget) {
+                const edge = createAutoEdge(conditionNode, yesTarget, nextEdges, 'yes');
+
+                if (edge) {
+                    nextEdges.push(edge);
+                }
+            }
+        }
+
+        if (!usedBranches.has('no')) {
+            const noTarget = findNearestTargetForConditionBranch(
+                conditionNode,
+                'no',
+                targetCandidates,
+                nextEdges,
+            );
+
+            if (noTarget) {
+                const edge = createAutoEdge(conditionNode, noTarget, nextEdges, 'no');
+
+                if (edge) {
+                    nextEdges.push(edge);
+                }
+            }
+        }
+    });
+
+    return nextEdges;
+}
+
 function connectStartToFirstFreeNode(nodes: NotebookNode[], edges: Edge[]): Edge[] {
     const nextEdges = [...edges];
 
@@ -338,54 +498,171 @@ function connectComponents(nodes: NotebookNode[], edges: Edge[]): Edge[] {
     return nextEdges;
 }
 
-function connectDanglingNodesToEnd(nodes: NotebookNode[], edges: Edge[]): Edge[] {
+function findMergeNodeBeforeEnd(
+    nodes: NotebookNode[],
+    edges: Edge[],
+    endNodeId: string,
+): NotebookNode | undefined {
+    return sortNodesByCanvasPosition(nodes).find(
+        (node) =>
+            node.data.blockType === 'merge' &&
+            (hasEdgeBetween(edges, node.id, endNodeId) ||
+                !hasOutgoingEdge(edges, node.id)),
+    );
+}
+
+function connectSingleNodeToEnd(
+    node: NotebookNode,
+    endNode: NotebookNode,
+    edges: Edge[],
+): Edge[] {
     const nextEdges = [...edges];
 
-    const endNode = sortNodesByCanvasPosition(
-        nodes.filter((node) => node.data.blockType === 'end'),
-    )[0];
-
-    if (!endNode) {
+    if (hasEdgeBetween(nextEdges, node.id, endNode.id)) {
         return nextEdges;
     }
 
-    const danglingNodes = sortNodesByCanvasPosition(nodes).filter((node) =>
-        canCreateOutgoingEdge(node, nextEdges),
-    );
+    if (wouldCreateCycle(node.id, endNode.id, nextEdges)) {
+        return nextEdges;
+    }
 
-    danglingNodes.forEach((node) => {
-        if (hasEdgeBetween(nextEdges, node.id, endNode.id)) {
-            return;
-        }
+    const edge = createAutoEdge(node, endNode, nextEdges);
 
-        if (wouldCreateCycle(node.id, endNode.id, nextEdges)) {
-            return;
-        }
-
-        const edge = createAutoEdge(node, endNode, nextEdges);
-
-        if (edge) {
-            nextEdges.push(edge);
-        }
-    });
+    if (edge) {
+        nextEdges.push(edge);
+    }
 
     return nextEdges;
 }
 
-function connectMissingEdges(nodes: NotebookNode[], edges: Edge[]): Edge[] {
+function connectDanglingNodesToEnd(params: {
+    nodes: NotebookNode[];
+    edges: Edge[];
+}): {
+    nodes: NotebookNode[];
+    edges: Edge[];
+    createdNodesCount: number;
+} {
+    const nextNodes = [...params.nodes];
+    const nextEdges = [...params.edges];
+    let createdNodesCount = 0;
+
+    const endNode = sortNodesByCanvasPosition(
+        nextNodes.filter((node) => node.data.blockType === 'end'),
+    )[0];
+
+    if (!endNode) {
+        return {
+            nodes: nextNodes,
+            edges: nextEdges,
+            createdNodesCount,
+        };
+    }
+
+    const danglingNodes = sortNodesByCanvasPosition(nextNodes).filter(
+        (node) =>
+            node.id !== endNode.id &&
+            node.data.blockType !== 'end' &&
+            canCreateOutgoingEdge(node, nextEdges),
+    );
+
+    if (danglingNodes.length === 0) {
+        return {
+            nodes: nextNodes,
+            edges: nextEdges,
+            createdNodesCount,
+        };
+    }
+
+    if (danglingNodes.length === 1) {
+        return {
+            nodes: nextNodes,
+            edges: connectSingleNodeToEnd(danglingNodes[0], endNode, nextEdges),
+            createdNodesCount,
+        };
+    }
+
+    let mergeNode = findMergeNodeBeforeEnd(nextNodes, nextEdges, endNode.id);
+
+    if (!mergeNode) {
+        mergeNode = createAutoMergeNode({
+            nodes: nextNodes,
+            endNode,
+            sourceNodes: danglingNodes,
+        });
+
+        nextNodes.push(mergeNode);
+        createdNodesCount += 1;
+    }
+
+    if (!hasOutgoingEdge(nextEdges, mergeNode.id)) {
+        const mergeToEndEdge = createAutoEdge(mergeNode, endNode, nextEdges);
+
+        if (mergeToEndEdge && !wouldCreateCycle(mergeNode.id, endNode.id, nextEdges)) {
+            nextEdges.push(mergeToEndEdge);
+        }
+    }
+
+    danglingNodes
+        .filter((node) => node.id !== mergeNode.id)
+        .forEach((node) => {
+            if (hasEdgeBetween(nextEdges, node.id, mergeNode.id)) {
+                return;
+            }
+
+            if (wouldCreateCycle(node.id, mergeNode.id, nextEdges)) {
+                return;
+            }
+
+            const edge = createAutoEdge(node, mergeNode, nextEdges);
+
+            if (edge) {
+                nextEdges.push(edge);
+            }
+        });
+
+    return {
+        nodes: nextNodes,
+        edges: nextEdges,
+        createdNodesCount,
+    };
+}
+
+function connectMissingEdges(nodes: NotebookNode[], edges: Edge[]): {
+    nodes: NotebookNode[];
+    edges: Edge[];
+    createdNodesCount: number;
+} {
     const validEdges = getValidEdges(nodes, edges);
 
+    let nextNodes = [...nodes];
     let nextEdges = [...validEdges];
 
     if (nodes.length < 2) {
-        return nextEdges;
+        return {
+            nodes: nextNodes,
+            edges: nextEdges,
+            createdNodesCount: 0,
+        };
     }
 
-    nextEdges = connectStartToFirstFreeNode(nodes, nextEdges);
-    nextEdges = connectComponents(nodes, nextEdges);
-    nextEdges = connectDanglingNodesToEnd(nodes, nextEdges);
+    nextEdges = connectStartToFirstFreeNode(nextNodes, nextEdges);
+    nextEdges = connectConditionBranchesToNearbyNodes(nextNodes, nextEdges);
+    nextEdges = connectComponents(nextNodes, nextEdges);
 
-    return nextEdges;
+    const danglingResult = connectDanglingNodesToEnd({
+        nodes: nextNodes,
+        edges: nextEdges,
+    });
+
+    nextNodes = danglingResult.nodes;
+    nextEdges = danglingResult.edges;
+
+    return {
+        nodes: nextNodes,
+        edges: nextEdges,
+        createdNodesCount: danglingResult.createdNodesCount,
+    };
 }
 
 function getRootNodes(nodes: NotebookNode[], edges: Edge[]): NotebookNode[] {
@@ -550,19 +827,24 @@ export function autoLayoutWorkflow(params: {
 
     const baseEdges = shouldConnect ? removeOldAutoEdges(params.edges) : params.edges;
 
-    const connectedEdges = shouldConnect
+    const connectionResult = shouldConnect
         ? connectMissingEdges(boundaryResult.nodes, baseEdges)
-        : baseEdges;
+        : {
+            nodes: boundaryResult.nodes,
+            edges: baseEdges,
+            createdNodesCount: 0,
+        };
 
     const arrangedNodes = shouldArrange
-        ? arrangeNodesByGraph(boundaryResult.nodes, connectedEdges)
-        : boundaryResult.nodes;
+        ? arrangeNodesByGraph(connectionResult.nodes, connectionResult.edges)
+        : connectionResult.nodes;
 
     return {
         nodes: arrangedNodes,
-        edges: connectedEdges,
+        edges: connectionResult.edges,
         movedNodesCount: shouldArrange ? arrangedNodes.length : 0,
-        createdEdgesCount: Math.max(0, connectedEdges.length - baseEdges.length),
-        createdNodesCount: boundaryResult.createdNodesCount,
+        createdEdgesCount: Math.max(0, connectionResult.edges.length - baseEdges.length),
+        createdNodesCount:
+            boundaryResult.createdNodesCount + connectionResult.createdNodesCount,
     };
 }
