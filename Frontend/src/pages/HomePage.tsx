@@ -254,7 +254,7 @@ function HomePage() {
                                             </h3>
 
                                             <p className="home-page__card-date">
-                                                &lt;Изменён {formatNotebookDate(notebook.updatedAt)}&gt;
+                                                Изменён {formatNotebookDate(notebook.updatedAt)}
                                             </p>
 
                                             <div className="home-page__card-meta">

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { useState } from 'react';
+import { type FocusEvent, useState } from 'react';
 
 import NotebookIconButton from './NotebookIconButton';
 
@@ -44,11 +44,29 @@ function NotebookHeader({
         setIsEditingTitle(true);
     };
 
+    const handleCancelRename = () => {
+        setDraftTitle(title);
+        setIsEditingTitle(false);
+    };
+
     const handleSaveRename = () => {
         const normalizedTitle = draftTitle.trim() || 'Без названия';
 
         onRename?.(normalizedTitle);
         setIsEditingTitle(false);
+    };
+
+    const handleTitleEditBlur = (event: FocusEvent<HTMLDivElement>) => {
+        const nextFocusedElement = event.relatedTarget;
+
+        if (
+            nextFocusedElement instanceof Node &&
+            event.currentTarget.contains(nextFocusedElement)
+        ) {
+            return;
+        }
+
+        handleSaveRename();
     };
 
     return (
@@ -91,7 +109,10 @@ function NotebookHeader({
 
             <div className="notebook-header__title-wrap">
                 {isEditingTitle ? (
-                    <div className="notebook-header__title-edit">
+                    <div
+                        className="notebook-header__title-edit"
+                        onBlur={handleTitleEditBlur}
+                    >
                         <input
                             className="notebook-header__title-input"
                             value={draftTitle}
@@ -102,7 +123,7 @@ function NotebookHeader({
                                 }
 
                                 if (event.key === 'Escape') {
-                                    setIsEditingTitle(false);
+                                    handleCancelRename();
                                 }
                             }}
                             autoFocus
@@ -111,6 +132,7 @@ function NotebookHeader({
                         <button
                             className="notebook-header__title-save"
                             type="button"
+                            onMouseDown={(event) => event.preventDefault()}
                             onClick={handleSaveRename}
                         >
                             ✓

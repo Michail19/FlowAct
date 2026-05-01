@@ -277,17 +277,7 @@ function NotebookCanvas({
 
         onExecutionStatusChange?.('idle');
         onAutoLayoutRequestHandled?.(autoLayoutRequest.requestId);
-    }, [
-        autoLayoutRequest,
-        edges,
-        nodes,
-        onAutoLayoutRequestHandled,
-        onExecutionLogsChange,
-        onExecutionStatusChange,
-        readonly,
-        setEdges,
-        setNodes,
-    ]);
+    }, [autoLayoutRequest, edges, nodes, onAutoLayoutRequestHandled, onExecutionLogsChange, onExecutionStatusChange, reactFlowInstance, readonly, setEdges, setNodes]);
 
     const getAvailableConditionBranch = useCallback(
         (sourceNodeId: string) => getAvailableConditionBranchForEdges(sourceNodeId, edges),

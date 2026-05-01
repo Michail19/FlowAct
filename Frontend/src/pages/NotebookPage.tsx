@@ -9,7 +9,7 @@ function NotebookPage() {
         return <Navigate to="/home" replace />;
     }
 
-    return <NotebookEditor notebookId={notebookId} />;
+    return <NotebookEditor key={notebookId} notebookId={notebookId} />;
 }
 
 export default NotebookPage;

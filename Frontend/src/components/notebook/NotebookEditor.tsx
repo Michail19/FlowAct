@@ -189,13 +189,41 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         );
     }, []);
 
+    const handleRenameNotebook = useCallback(
+        (nextTitle: string) => {
+            const normalizedTitle = nextTitle.trim() || 'Без названия';
+
+            setNotebookTitle(normalizedTitle);
+
+            const basePayload = notebookPayload ?? loadedNotebookPayload;
+
+            if (!basePayload) {
+                return;
+            }
+
+            const renamedNotebook: NotebookPayloadDto = {
+                ...basePayload,
+                id: notebookId,
+                title: normalizedTitle,
+                updatedAt: new Date().toISOString(),
+            };
+
+            const savedLocalNotebook = saveNotebookLocally(renamedNotebook);
+
+            setLoadedNotebookPayload(savedLocalNotebook);
+            setNotebookPayload(savedLocalNotebook);
+            setSaveError(null);
+        },
+        [loadedNotebookPayload, notebookId, notebookPayload],
+    );
+
     return (
         <main className="notebook-editor">
             <NotebookHeader
                 isMobile={isMobile}
                 title={notebookTitle}
                 updatedAt={notebookPayload?.updatedAt ?? loadedNotebookPayload?.updatedAt}
-                onRename={setNotebookTitle}
+                onRename={handleRenameNotebook}
                 onSave={handleSaveNotebook}
                 isSaving={isSaving}
             />
