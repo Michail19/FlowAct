@@ -1,7 +1,15 @@
+import { Navigate, useParams } from 'react-router-dom';
+
 import NotebookEditor from '../components/notebook/NotebookEditor';
 
 function NotebookPage() {
-    return <NotebookEditor />;
+    const { notebookId } = useParams();
+
+    if (!notebookId) {
+        return <Navigate to="/home" replace />;
+    }
+
+    return <NotebookEditor notebookId={notebookId} />;
 }
 
 export default NotebookPage;

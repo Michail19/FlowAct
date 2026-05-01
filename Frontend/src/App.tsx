@@ -15,7 +15,8 @@ function App() {
                 <Route path="/" element={<Navigate to="/landing" replace />} />
                 <Route path="/landing" element={<LandingPage />} />
                 <Route path="/home" element={<HomePage />} />
-                <Route path="/notebook" element={<NotebookPage />} />
+                <Route path="/notebook" element={<Navigate to="/home" replace />} />
+                <Route path="/notebook/:notebookId" element={<NotebookPage />} />
                 <Route path="/my-account" element={<AccountPage />} />
             </Routes>
         </BrowserRouter>

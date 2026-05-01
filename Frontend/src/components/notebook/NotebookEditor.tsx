@@ -29,11 +29,22 @@ import type {
 
 import './NotebookEditor.css';
 
-function NotebookEditor() {
+type NotebookEditorProps = {
+    notebookId: string;
+};
+
+function NotebookEditor({ notebookId }: NotebookEditorProps) {
     const isMobile = useMediaQuery('(max-width: 767px)');
     const isDesktop = useMediaQuery('(min-width: 1024px)');
-    const notebookId = 'demo-notebook';
-    const notebookTitle = 'Название notebook';
+
+    const initialNotebookPayload = useMemo(
+        () => loadNotebookLocally(notebookId),
+        [notebookId],
+    );
+
+    const [notebookTitle, setNotebookTitle] = useState(
+        initialNotebookPayload?.title ?? 'Название notebook',
+    );
 
     const requestIdRef = useRef(0);
     const runRequestIdRef = useRef(0);
@@ -42,8 +53,6 @@ function NotebookEditor() {
     const [blockRequest, setBlockRequest] = useState<NotebookBlockRequest | null>(null);
     const [dismissedSuggestionIds, setDismissedSuggestionIds] = useState<string[]>([]);
     const [notebookPayload, setNotebookPayload] = useState<NotebookPayloadDto | null>(null);
-    const [loadedNotebookPayload, setLoadedNotebookPayload] =
-        useState<NotebookPayloadDto | null>(() => loadNotebookLocally());
     const [isSaving, setIsSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
     const [runRequest, setRunRequest] = useState<WorkflowRunRequest | null>(null);
@@ -52,6 +61,8 @@ function NotebookEditor() {
     const [isRunPanelOpen, setIsRunPanelOpen] = useState(false);
     const [autoLayoutRequest, setAutoLayoutRequest] =
         useState<NotebookAutoLayoutRequest | null>(null);
+    const [loadedNotebookPayload, setLoadedNotebookPayload] =
+        useState<NotebookPayloadDto | null>(initialNotebookPayload);
 
     const suggestion = useMemo(
         () => ({
@@ -103,26 +114,36 @@ function NotebookEditor() {
             return;
         }
 
+        const payloadToSave: NotebookPayloadDto = {
+            ...notebookPayload,
+            id: notebookId,
+            title: notebookTitle,
+            updatedAt: new Date().toISOString(),
+        };
+
         setIsSaving(true);
         setSaveError(null);
 
         try {
-            const savedNotebook = await notebookApi.saveNotebook(notebookPayload);
+            const savedNotebook = await notebookApi.saveNotebook(payloadToSave);
+            const savedLocalNotebook = saveNotebookLocally(savedNotebook);
 
-            saveNotebookLocally(savedNotebook);
-            setLoadedNotebookPayload(savedNotebook);
-            setNotebookPayload(savedNotebook);
+            setLoadedNotebookPayload(savedLocalNotebook);
+            setNotebookPayload(savedLocalNotebook);
 
             console.log('Notebook saved via API:', savedNotebook);
         } catch (error) {
-            saveNotebookLocally(notebookPayload);
+            const savedLocalNotebook = saveNotebookLocally(payloadToSave);
 
+            setLoadedNotebookPayload(savedLocalNotebook);
+            setNotebookPayload(savedLocalNotebook);
             setSaveError('Backend недоступен, notebook сохранён локально.');
+
             console.warn('Notebook saved locally because API is unavailable:', error);
         } finally {
             setIsSaving(false);
         }
-    }, [notebookPayload]);
+    }, [notebookId, notebookPayload, notebookTitle]);
 
     const handleRunWorkflow = useCallback(() => {
         runRequestIdRef.current += 1;
@@ -172,6 +193,9 @@ function NotebookEditor() {
         <main className="notebook-editor">
             <NotebookHeader
                 isMobile={isMobile}
+                title={notebookTitle}
+                updatedAt={notebookPayload?.updatedAt ?? loadedNotebookPayload?.updatedAt}
+                onRename={setNotebookTitle}
                 onSave={handleSaveNotebook}
                 isSaving={isSaving}
             />

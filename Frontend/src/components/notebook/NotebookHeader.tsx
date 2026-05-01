@@ -1,14 +1,56 @@
+import { Link } from 'react-router-dom';
+import { useState } from 'react';
+
 import NotebookIconButton from './NotebookIconButton';
 
 import './NotebookHeader.css';
 
 type NotebookHeaderProps = {
     isMobile: boolean;
+    title: string;
+    updatedAt?: string;
+    onRename?: (title: string) => void;
     onSave?: () => void;
     isSaving?: boolean;
 };
 
-function NotebookHeader({ isMobile, onSave, isSaving = false }: NotebookHeaderProps) {
+function formatUpdatedAt(updatedAt?: string) {
+    if (!updatedAt) {
+        return 'ещё не сохранён';
+    }
+
+    return `изменён ${new Date(updatedAt).toLocaleString('ru-RU', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    })}`;
+}
+
+function NotebookHeader({
+                            isMobile,
+                            title,
+                            updatedAt,
+                            onRename,
+                            onSave,
+                            isSaving = false,
+                        }: NotebookHeaderProps) {
+    const [isEditingTitle, setIsEditingTitle] = useState(false);
+    const [draftTitle, setDraftTitle] = useState(title);
+
+    const handleStartRename = () => {
+        setDraftTitle(title);
+        setIsEditingTitle(true);
+    };
+
+    const handleSaveRename = () => {
+        const normalizedTitle = draftTitle.trim() || 'Без названия';
+
+        onRename?.(normalizedTitle);
+        setIsEditingTitle(false);
+    };
+
     return (
         <header className="notebook-header">
             <div className="notebook-header__left">
@@ -21,7 +63,9 @@ function NotebookHeader({ isMobile, onSave, isSaving = false }: NotebookHeaderPr
                 )}
 
                 {isMobile ? (
-                    <NotebookIconButton icon="⌂" label="На главную" />
+                    <Link to="/home" className="notebook-header__home-link">
+                        ⌂
+                    </Link>
                 ) : (
                     <label className="notebook-header__zoom">
                         <span className="notebook-header__zoom-label">Масштаб</span>
@@ -46,15 +90,56 @@ function NotebookHeader({ isMobile, onSave, isSaving = false }: NotebookHeaderPr
             </div>
 
             <div className="notebook-header__title-wrap">
-                <button className="notebook-header__title" type="button">
-                    <span className="notebook-header__title-text">Название notebook</span>
-                    <span className="notebook-header__subtitle">дата и время последнего изменения</span>
-                </button>
+                {isEditingTitle ? (
+                    <div className="notebook-header__title-edit">
+                        <input
+                            className="notebook-header__title-input"
+                            value={draftTitle}
+                            onChange={(event) => setDraftTitle(event.target.value)}
+                            onKeyDown={(event) => {
+                                if (event.key === 'Enter') {
+                                    handleSaveRename();
+                                }
+
+                                if (event.key === 'Escape') {
+                                    setIsEditingTitle(false);
+                                }
+                            }}
+                            autoFocus
+                        />
+
+                        <button
+                            className="notebook-header__title-save"
+                            type="button"
+                            onClick={handleSaveRename}
+                        >
+                            ✓
+                        </button>
+                    </div>
+                ) : (
+                    <button
+                        className="notebook-header__title"
+                        type="button"
+                        onClick={handleStartRename}
+                    >
+                        <span className="notebook-header__title-text">{title}</span>
+                        <span className="notebook-header__subtitle">
+                            {formatUpdatedAt(updatedAt)}
+                        </span>
+                    </button>
+                )}
             </div>
 
             <div className="notebook-header__right">
-                {!isMobile && <NotebookIconButton icon="⌂" label="На главную" />}
-                <NotebookIconButton icon="◕" label="Профиль пользователя" variant="circle" />
+                {!isMobile && (
+                    <Link to="/home" className="notebook-header__home-link">
+                        ⌂
+                    </Link>
+                )}
+
+                <Link to="/my-account" className="notebook-header__profile-link">
+                    ◕
+                </Link>
             </div>
         </header>
     );
