@@ -6,9 +6,12 @@ import './CustomBlockNode.css';
 
 const statusLabels: Record<NotebookBlockStatus, string> = {
     idle: 'Ожидает',
+    pending: 'В очереди',
     running: 'Выполняется',
     success: 'Успешно',
     error: 'Ошибка',
+    skipped: 'Пропущен',
+    waiting: 'Ожидает события',
 };
 
 const blockTypeLabels: Record<string, string> = {
@@ -20,6 +23,9 @@ const blockTypeLabels: Record<string, string> = {
     database: 'DATABASE',
     email: 'EMAIL',
     log: 'LOG',
+    http: 'HTTP',
+    loop: 'LOOP',
+    merge: 'MERGE',
 };
 
 function stopReactFlowEvent(event: React.SyntheticEvent) {

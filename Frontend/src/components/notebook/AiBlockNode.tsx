@@ -9,9 +9,12 @@ type AiBlockNodeProps = NodeProps<NotebookNode>;
 
 const statusLabels: Record<NotebookBlockStatus, string> = {
     idle: 'Ожидает',
+    pending: 'В очереди',
     running: 'Выполняется',
     success: 'Успешно',
     error: 'Ошибка',
+    skipped: 'Пропущен',
+    waiting: 'Ожидает события',
 };
 
 function stopReactFlowEvent(event: React.SyntheticEvent) {

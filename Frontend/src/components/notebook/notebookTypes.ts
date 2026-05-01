@@ -8,9 +8,19 @@ export type NotebookBlockType =
     | 'action'
     | 'database'
     | 'email'
-    | 'log';
+    | 'log'
+    | 'http'
+    | 'loop'
+    | 'merge';
 
-export type NotebookBlockStatus = 'idle' | 'running' | 'success' | 'error';
+export type NotebookBlockStatus =
+    | 'idle'
+    | 'pending'
+    | 'running'
+    | 'success'
+    | 'error'
+    | 'skipped'
+    | 'waiting';
 
 export type AiBlockConfig = {
     prompt: string;
@@ -32,7 +42,7 @@ export type ConditionBlockConfig = {
 };
 
 export type ActionBlockConfig = {
-    actionType: 'format' | 'transform' | 'httpRequest' | 'custom';
+    actionType: 'format' | 'transform' | 'custom';
     parameters: string;
 };
 
@@ -54,12 +64,32 @@ export type LogBlockConfig = {
     messageTemplate: string;
 };
 
+export type HttpBlockConfig = {
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+    url: string;
+    headers: string;
+    body: string;
+};
+
+export type LoopBlockConfig = {
+    collectionPath: string;
+    itemName: string;
+    mode: 'map' | 'forEach';
+};
+
+export type MergeBlockConfig = {
+    mode: 'passThrough' | 'combine';
+};
+
 export type NotebookBlockConfig = {
     condition?: ConditionBlockConfig;
     action?: ActionBlockConfig;
     database?: DatabaseBlockConfig;
     email?: EmailBlockConfig;
     log?: LogBlockConfig;
+    http?: HttpBlockConfig;
+    loop?: LoopBlockConfig;
+    merge?: MergeBlockConfig;
 };
 
 export type NotebookBlockData = {

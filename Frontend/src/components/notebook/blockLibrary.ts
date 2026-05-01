@@ -92,6 +92,36 @@ export const NOTEBOOK_BLOCK_LIBRARY: NotebookBlockDefinition[] = [
         toolbarLabel: 'Логирование',
         toolbarIcon: '▣',
     },
+    {
+        blockType: 'http',
+        nodeType: 'customBlock',
+        title: 'HTTP-запрос',
+        subtitle: 'Вызов внешнего API',
+        description: 'Отправляет HTTP-запрос во внешний сервис и передаёт ответ дальше по рабочему процессу.',
+        icon: 'HTTP',
+        toolbarLabel: 'HTTP-запрос',
+        toolbarIcon: '↗',
+    },
+    {
+        blockType: 'loop',
+        nodeType: 'customBlock',
+        title: 'Цикл',
+        subtitle: 'Итерация по коллекции',
+        description: 'Обрабатывает набор элементов внутри одного блока и возвращает результат итерации.',
+        icon: '↻',
+        toolbarLabel: 'Цикл',
+        toolbarIcon: '↻',
+    },
+    {
+        blockType: 'merge',
+        nodeType: 'customBlock',
+        title: 'Объединение',
+        subtitle: 'Слияние веток',
+        description: 'Объединяет несколько входящих веток рабочего процесса в один общий поток.',
+        icon: 'MERGE',
+        toolbarLabel: 'Объединение',
+        toolbarIcon: '⋈',
+    },
 ];
 
 export function getBlockDefinition(blockType: NotebookBlockType): NotebookBlockDefinition {

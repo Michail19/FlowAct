@@ -23,9 +23,16 @@ type NotebookRunPanelProps = {
 
 const statusLabels: Record<WorkflowExecutionStatus, string> = {
     idle: 'Ожидает запуска',
+    created: 'Создано',
+    validating: 'Проверяется',
+    pending: 'В очереди',
+    ready: 'Готово к запуску',
     running: 'Выполняется',
+    waiting: 'Ожидает события',
     success: 'Выполнено',
     error: 'Ошибка',
+    cancelling: 'Отменяется',
+    cancelled: 'Отменено',
 };
 
 function formatLogTime(date: string) {
