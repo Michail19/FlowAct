@@ -848,6 +848,24 @@ function NotebookCanvas({
             return `Action: ${settings.config.action.actionType}`;
         }
 
+        if (settings.config?.http) {
+            const { method, url } = settings.config.http;
+
+            return url ? `${method} ${url}` : `${method} URL не задан`;
+        }
+
+        if (settings.config?.loop) {
+            const { collectionPath, itemName, mode } = settings.config.loop;
+
+            return `${mode}: ${collectionPath || 'collection'} as ${itemName || 'item'}`;
+        }
+
+        if (settings.config?.merge) {
+            return settings.config.merge.mode === 'combine'
+                ? 'Merge: объединить результаты'
+                : 'Merge: пропустить результат';
+        }
+
         return settings.subtitle;
     }
 

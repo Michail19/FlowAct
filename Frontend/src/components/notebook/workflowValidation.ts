@@ -228,6 +228,56 @@ export function validateWorkflow(nodes: NotebookNode[], edges: Edge[]): Workflow
             }
         }
 
+        if (node.data.blockType === 'merge') {
+            if (incomingEdges.length < 2) {
+                issues.push(
+                    createIssue({
+                        id: `node-${node.id}-merge-not-enough-inputs`,
+                        severity: 'error',
+                        blockId: node.id,
+                        blockTitle: node.data.title,
+                        message: `У блока "${node.data.title}" должно быть минимум две входящие связи.`,
+                    }),
+                );
+            }
+
+            if (outgoingEdges.length > 1) {
+                issues.push(
+                    createIssue({
+                        id: `node-${node.id}-merge-too-many-outputs`,
+                        severity: 'error',
+                        blockId: node.id,
+                        blockTitle: node.data.title,
+                        message: `У блока "${node.data.title}" должна быть только одна исходящая связь.`,
+                    }),
+                );
+            }
+        }
+
+        if (node.data.blockType === 'http' && !node.data.config?.http?.url.trim()) {
+            issues.push(
+                createIssue({
+                    id: `node-${node.id}-http-url-missing`,
+                    severity: 'error',
+                    blockId: node.id,
+                    blockTitle: node.data.title,
+                    message: `У блока "${node.data.title}" не задан URL HTTP-запроса.`,
+                }),
+            );
+        }
+
+        if (node.data.blockType === 'loop' && !node.data.config?.loop?.collectionPath.trim()) {
+            issues.push(
+                createIssue({
+                    id: `node-${node.id}-loop-collection-missing`,
+                    severity: 'error',
+                    blockId: node.id,
+                    blockTitle: node.data.title,
+                    message: `У блока "${node.data.title}" не задан путь к коллекции.`,
+                }),
+            );
+        }
+
         if (node.data.blockType !== 'start' && incomingEdges.length === 0) {
             issues.push(
                 createIssue({

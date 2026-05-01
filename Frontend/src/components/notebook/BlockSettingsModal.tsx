@@ -6,7 +6,10 @@ import type {
     ConditionBlockConfig,
     DatabaseBlockConfig,
     EmailBlockConfig,
+    HttpBlockConfig,
     LogBlockConfig,
+    LoopBlockConfig,
+    MergeBlockConfig,
     NotebookBlockConfig,
     NotebookBlockType,
 } from './notebookTypes';
@@ -78,6 +81,29 @@ function getDefaultLogConfig(config?: NotebookBlockConfig): LogBlockConfig {
     };
 }
 
+function getDefaultHttpConfig(config?: NotebookBlockConfig): HttpBlockConfig {
+    return {
+        method: config?.http?.method ?? 'GET',
+        url: config?.http?.url ?? '',
+        headers: config?.http?.headers ?? '{\n  "Content-Type": "application/json"\n}',
+        body: config?.http?.body ?? '',
+    };
+}
+
+function getDefaultLoopConfig(config?: NotebookBlockConfig): LoopBlockConfig {
+    return {
+        collectionPath: config?.loop?.collectionPath ?? 'input.items',
+        itemName: config?.loop?.itemName ?? 'item',
+        mode: config?.loop?.mode ?? 'map',
+    };
+}
+
+function getDefaultMergeConfig(config?: NotebookBlockConfig): MergeBlockConfig {
+    return {
+        mode: config?.merge?.mode ?? 'passThrough',
+    };
+}
+
 function BlockSettingsModal({
                                 blockType,
                                 initialTitle,
@@ -105,6 +131,15 @@ function BlockSettingsModal({
     );
     const [logConfig, setLogConfig] = useState<LogBlockConfig>(() =>
         getDefaultLogConfig(initialConfig),
+    );
+    const [httpConfig, setHttpConfig] = useState<HttpBlockConfig>(() =>
+        getDefaultHttpConfig(initialConfig),
+    );
+    const [loopConfig, setLoopConfig] = useState<LoopBlockConfig>(() =>
+        getDefaultLoopConfig(initialConfig),
+    );
+    const [mergeConfig, setMergeConfig] = useState<MergeBlockConfig>(() =>
+        getDefaultMergeConfig(initialConfig),
     );
 
     useEffect(() => {
@@ -149,6 +184,24 @@ function BlockSettingsModal({
         if (blockType === 'log') {
             return {
                 log: logConfig,
+            };
+        }
+
+        if (blockType === 'http') {
+            return {
+                http: httpConfig,
+            };
+        }
+
+        if (blockType === 'loop') {
+            return {
+                loop: loopConfig,
+            };
+        }
+
+        if (blockType === 'merge') {
+            return {
+                merge: mergeConfig,
             };
         }
 
@@ -286,7 +339,6 @@ function BlockSettingsModal({
                                 >
                                     <option value="format">Форматирование</option>
                                     <option value="transform">Преобразование</option>
-                                    <option value="httpRequest">HTTP-запрос</option>
                                     <option value="custom">Пользовательское действие</option>
                                 </select>
                             </label>
@@ -428,6 +480,172 @@ function BlockSettingsModal({
                                     placeholder="Рабочий процесс завершён. Результат: {{result}}"
                                 />
                             </label>
+                        </section>
+                    )}
+
+                    {blockType === 'http' && (
+                        <section className="block-settings-modal__type-section">
+                            <h3 className="block-settings-modal__section-title">HTTP-запрос</h3>
+
+                            <div className="block-settings-modal__grid">
+                                <label className="block-settings-modal__field">
+                                    <span className="block-settings-modal__label">Метод</span>
+                                    <select
+                                        className="block-settings-modal__input"
+                                        value={httpConfig.method}
+                                        onChange={(event) =>
+                                            setHttpConfig((currentConfig) => ({
+                                                ...currentConfig,
+                                                method: event.target.value as HttpBlockConfig['method'],
+                                            }))
+                                        }
+                                    >
+                                        <option value="GET">GET</option>
+                                        <option value="POST">POST</option>
+                                        <option value="PUT">PUT</option>
+                                        <option value="PATCH">PATCH</option>
+                                        <option value="DELETE">DELETE</option>
+                                    </select>
+                                </label>
+
+                                <label className="block-settings-modal__field">
+                                    <span className="block-settings-modal__label">URL</span>
+                                    <input
+                                        className="block-settings-modal__input"
+                                        value={httpConfig.url}
+                                        onChange={(event) =>
+                                            setHttpConfig((currentConfig) => ({
+                                                ...currentConfig,
+                                                url: event.target.value,
+                                            }))
+                                        }
+                                        placeholder="https://api.example.com/data"
+                                    />
+                                </label>
+                            </div>
+
+                            <label className="block-settings-modal__field">
+                                <span className="block-settings-modal__label">Headers JSON</span>
+                                <textarea
+                                    className="block-settings-modal__textarea"
+                                    value={httpConfig.headers}
+                                    onChange={(event) =>
+                                        setHttpConfig((currentConfig) => ({
+                                            ...currentConfig,
+                                            headers: event.target.value,
+                                        }))
+                                    }
+                                    placeholder='{"Authorization": "Bearer {{token}}"}'
+                                />
+                            </label>
+
+                            <label className="block-settings-modal__field">
+                                <span className="block-settings-modal__label">Body JSON / текст</span>
+                                <textarea
+                                    className="block-settings-modal__textarea"
+                                    value={httpConfig.body}
+                                    onChange={(event) =>
+                                        setHttpConfig((currentConfig) => ({
+                                            ...currentConfig,
+                                            body: event.target.value,
+                                        }))
+                                    }
+                                    placeholder='{"text": "{{input.text}}"}'
+                                />
+                            </label>
+
+                            <p className="block-settings-modal__hint">
+                                На backend этот блок будет соответствовать HTTP_REQUEST.
+                                Поля headers и body позже будут преобразованы в объект перед отправкой.
+                            </p>
+                        </section>
+                    )}
+
+                    {blockType === 'loop' && (
+                        <section className="block-settings-modal__type-section">
+                            <h3 className="block-settings-modal__section-title">Цикл / итерация</h3>
+
+                            <div className="block-settings-modal__grid">
+                                <label className="block-settings-modal__field">
+                                    <span className="block-settings-modal__label">Путь к коллекции</span>
+                                    <input
+                                        className="block-settings-modal__input"
+                                        value={loopConfig.collectionPath}
+                                        onChange={(event) =>
+                                            setLoopConfig((currentConfig) => ({
+                                                ...currentConfig,
+                                                collectionPath: event.target.value,
+                                            }))
+                                        }
+                                        placeholder="input.items"
+                                    />
+                                </label>
+
+                                <label className="block-settings-modal__field">
+                                    <span className="block-settings-modal__label">Имя элемента</span>
+                                    <input
+                                        className="block-settings-modal__input"
+                                        value={loopConfig.itemName}
+                                        onChange={(event) =>
+                                            setLoopConfig((currentConfig) => ({
+                                                ...currentConfig,
+                                                itemName: event.target.value,
+                                            }))
+                                        }
+                                        placeholder="item"
+                                    />
+                                </label>
+
+                                <label className="block-settings-modal__field">
+                                    <span className="block-settings-modal__label">Режим</span>
+                                    <select
+                                        className="block-settings-modal__input"
+                                        value={loopConfig.mode}
+                                        onChange={(event) =>
+                                            setLoopConfig((currentConfig) => ({
+                                                ...currentConfig,
+                                                mode: event.target.value as LoopBlockConfig['mode'],
+                                            }))
+                                        }
+                                    >
+                                        <option value="map">map — вернуть массив результатов</option>
+                                        <option value="forEach">forEach — выполнить без отдельного результата</option>
+                                    </select>
+                                </label>
+                            </div>
+
+                            <p className="block-settings-modal__hint">
+                                В MVP цикл работает как отдельный блок итерации, без стрелки назад.
+                                Графические циклы в схеме пока не используем.
+                            </p>
+                        </section>
+                    )}
+
+                    {blockType === 'merge' && (
+                        <section className="block-settings-modal__type-section">
+                            <h3 className="block-settings-modal__section-title">Объединение веток</h3>
+
+                            <label className="block-settings-modal__field">
+                                <span className="block-settings-modal__label">Режим объединения</span>
+                                <select
+                                    className="block-settings-modal__input"
+                                    value={mergeConfig.mode}
+                                    onChange={(event) =>
+                                        setMergeConfig((currentConfig) => ({
+                                            ...currentConfig,
+                                            mode: event.target.value as MergeBlockConfig['mode'],
+                                        }))
+                                    }
+                                >
+                                    <option value="passThrough">Пропустить первый доступный результат</option>
+                                    <option value="combine">Объединить входящие результаты</option>
+                                </select>
+                            </label>
+
+                            <p className="block-settings-modal__hint">
+                                Merge-блок должен иметь минимум две входящие связи и одну исходящую связь.
+                                Он нужен для явного объединения веток после условия.
+                            </p>
                         </section>
                     )}
 

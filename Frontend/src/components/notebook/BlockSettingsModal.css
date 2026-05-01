@@ -144,6 +144,13 @@
     grid-column: 1 / -1;
 }
 
+.block-settings-modal__hint {
+    margin: 8px 0 0;
+    color: var(--color-muted);
+    font-size: 12px;
+    line-height: 1.45;
+}
+
 @media (max-width: 640px) {
     .block-settings-modal__grid {
         grid-template-columns: 1fr;

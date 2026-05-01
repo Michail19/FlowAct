@@ -64,6 +64,18 @@ export function toNotebookPayload(params: {
             config.log = node.data.config.log;
         }
 
+        if (node.data.config?.http) {
+            config.http = node.data.config.http;
+        }
+
+        if (node.data.config?.loop) {
+            config.loop = node.data.config.loop;
+        }
+
+        if (node.data.config?.merge) {
+            config.merge = node.data.config.merge;
+        }
+
         if (Object.keys(config).length > 0) {
             block.config = config;
         }
