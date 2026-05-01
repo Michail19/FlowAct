@@ -537,6 +537,16 @@ function NotebookCanvas({
                         ),
                     );
 
+                    pushLog(
+                        createExecutionLog({
+                            level: 'error',
+                            status: 'error',
+                            message: `Запуск остановлен. Найдено ошибок: ${validationErrors.length}.`,
+                        }),
+                    );
+
+                    emitStatus('error');
+
                     const finishedAt = new Date();
 
                     onExecutionResultChange?.({
@@ -554,15 +564,6 @@ function NotebookCanvas({
                         output: `Проверка схемы завершилась с ошибками. Найдено ошибок: ${validationErrors.length}.`,
                     });
 
-                    pushLog(
-                        createExecutionLog({
-                            level: 'error',
-                            status: 'error',
-                            message: `Запуск остановлен. Найдено ошибок: ${validationErrors.length}.`,
-                        }),
-                    );
-
-                    emitStatus('error');
                     return;
                 }
 
@@ -638,6 +639,8 @@ function NotebookCanvas({
                         ),
                     );
 
+                    completedBlocks += 1;
+
                     pushLog(
                         createExecutionLog({
                             level: 'success',
@@ -657,6 +660,25 @@ function NotebookCanvas({
                     }),
                 );
 
+                const finishedAt = new Date();
+
+                onExecutionResultChange?.({
+                    id: `${finishedAt.getTime()}-success`,
+                    status: 'success',
+                    startedAt: startedAt.toISOString(),
+                    finishedAt: finishedAt.toISOString(),
+                    durationMs: finishedAt.getTime() - startedAt.getTime(),
+                    totalBlocks: executionOrder.length,
+                    completedBlocks,
+                    failedBlocks,
+                    warningsCount,
+                    errorsCount,
+                    summary: 'Рабочий процесс успешно завершён',
+                    output:
+                        `Выполнено блоков: ${completedBlocks} из ${executionOrder.length}. ` +
+                        'Результат сохранён как frontend-заглушка. Позже здесь будет ответ Execution Service.',
+                });
+
                 emitStatus('success');
             } catch (error) {
                 pushLog(
@@ -670,6 +692,29 @@ function NotebookCanvas({
                     }),
                 );
 
+                const finishedAt = new Date();
+
+                failedBlocks += 1;
+                errorsCount += 1;
+
+                onExecutionResultChange?.({
+                    id: `${finishedAt.getTime()}-runtime-error`,
+                    status: 'error',
+                    startedAt: startedAt.toISOString(),
+                    finishedAt: finishedAt.toISOString(),
+                    durationMs: finishedAt.getTime() - startedAt.getTime(),
+                    totalBlocks: nodes.length,
+                    completedBlocks,
+                    failedBlocks,
+                    warningsCount,
+                    errorsCount,
+                    summary: 'Рабочий процесс завершился с ошибкой',
+                    output:
+                        error instanceof Error
+                            ? error.message
+                            : 'Во время выполнения рабочего процесса произошла ошибка.',
+                });
+
                 emitStatus('error');
             } finally {
                 isWorkflowRunningRef.current = false;
@@ -681,6 +726,7 @@ function NotebookCanvas({
             nodes,
             onExecutionLogsChange,
             onExecutionStatusChange,
+            onExecutionResultChange,
             onRunRequestHandled,
             setNodes,
         ],
