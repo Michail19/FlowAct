@@ -28,6 +28,31 @@ const blockTypeLabels: Record<string, string> = {
     merge: 'MERGE',
 };
 
+const conditionOperatorLabels = {
+    equals: '=',
+    notEquals: '≠',
+    contains: 'contains',
+    greaterThan: '>',
+    lessThan: '<',
+    exists: 'exists',
+};
+
+function getConditionExpression(data: NotebookNode['data']): string {
+    const condition = data.config?.condition;
+
+    if (!condition) {
+        return data.description || 'Условие не настроено';
+    }
+
+    const operator = conditionOperatorLabels[condition.operator];
+
+    if (condition.operator === 'exists') {
+        return `${condition.leftValue} ${operator}`;
+    }
+
+    return `${condition.leftValue} ${operator} ${condition.rightValue}`.trim();
+}
+
 function stopReactFlowEvent(event: React.SyntheticEvent) {
     event.stopPropagation();
 }
@@ -123,8 +148,12 @@ function CustomBlockNode({ id, data, selected }: NodeProps<NotebookNode>) {
 
             {isCondition ? (
                 <div className="custom-block-node__condition">
+                    <span className="custom-block-node__condition-label">
+                        Условие
+                    </span>
+
                     <p className="custom-block-node__condition-text">
-                        {data.description || 'Проверяет условие и выбирает одну из веток выполнения.'}
+                        {getConditionExpression(data)}
                     </p>
                 </div>
             ) : (

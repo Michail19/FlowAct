@@ -45,10 +45,11 @@ import {
 import {
     conditionBranchLabels,
     getAvailableConditionBranchForEdges,
+    getConditionBranchFromEdge,
 } from './conditionBranchUtils';
 import {
     createExecutionLog,
-    getWorkflowExecutionOrder,
+    getWorkflowExecutionPlan,
     sleep,
 } from './workflowExecution';
 
@@ -575,7 +576,9 @@ function NotebookCanvas({
                     }),
                 );
 
-                const executionOrder = getWorkflowExecutionOrder(nodes, edges);
+                const executionPlan = getWorkflowExecutionPlan(nodes, edges);
+                const executionOrder = executionPlan.orderedNodes;
+                const skippedNodeIds = executionPlan.skippedNodeIds;
 
                 if (executionOrder.length === 0) {
                     pushLog(
@@ -597,6 +600,30 @@ function NotebookCanvas({
                         message: `Запуск рабочего процесса. Блоков к выполнению: ${executionOrder.length}.`,
                     }),
                 );
+
+                if (skippedNodeIds.size > 0) {
+                    setNodes((currentNodes) =>
+                        currentNodes.map((node) =>
+                            skippedNodeIds.has(node.id)
+                                ? {
+                                    ...node,
+                                    data: {
+                                        ...node.data,
+                                        status: 'skipped',
+                                    },
+                                }
+                                : node,
+                        ),
+                    );
+
+                    pushLog(
+                        createExecutionLog({
+                            level: 'warning',
+                            status: 'running',
+                            message: `Пропущено блоков из невыбранных веток condition: ${skippedNodeIds.size}.`,
+                        }),
+                    );
+                }
 
                 for (const node of executionOrder) {
                     pushLog(
@@ -802,7 +829,7 @@ function NotebookCanvas({
         setEditingNodeId(null);
     };
 
-    const handleSaveEdgeLabel = (label: string) => {
+    const handleSaveEdgeLabel = (label: string, branch?: 'yes' | 'no') => {
         if (!editingEdgeId) {
             return;
         }
@@ -812,7 +839,8 @@ function NotebookCanvas({
                 edge.id === editingEdgeId
                     ? {
                         ...edge,
-                        label: label || undefined,
+                        label: branch ? conditionBranchLabels[branch] : label || undefined,
+                        sourceHandle: branch ?? edge.sourceHandle,
                     }
                     : edge,
             ),
@@ -869,6 +897,16 @@ function NotebookCanvas({
         return settings.subtitle;
     }
 
+    const editingEdgeSourceNode = editingEdge
+        ? nodes.find((node) => node.id === editingEdge.source)
+        : undefined;
+
+    const isEditingConditionEdge = editingEdgeSourceNode?.data.blockType === 'condition';
+
+    const editingConditionBranch = editingEdge
+        ? getConditionBranchFromEdge(editingEdge) ?? 'yes'
+        : 'yes';
+
     return (
         <div className="notebook-canvas" ref={canvasRef}>
             <ReactFlow<NotebookNode, Edge>
@@ -909,6 +947,8 @@ function NotebookCanvas({
             {editingEdge && (
                 <EdgeSettingsModal
                     initialLabel={typeof editingEdge.label === 'string' ? editingEdge.label : ''}
+                    initialBranch={editingConditionBranch}
+                    isConditionEdge={isEditingConditionEdge}
                     onSave={handleSaveEdgeLabel}
                     onClose={() => setEditingEdgeId(null)}
                 />

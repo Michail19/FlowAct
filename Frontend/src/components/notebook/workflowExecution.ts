@@ -4,7 +4,14 @@ import type {
     NotebookExecutionLog,
     WorkflowExecutionStatus,
 } from './executionTypes';
-import type { NotebookNode } from './notebookTypes';
+import type {
+    ConditionBlockConfig,
+    NotebookNode,
+} from './notebookTypes';
+import {
+    getConditionBranchFromEdge,
+    type ConditionBranch,
+} from './conditionBranchUtils';
 
 export function sleep(ms: number) {
     return new Promise((resolve) => {
@@ -30,9 +37,87 @@ export function createExecutionLog(params: {
     };
 }
 
-export function getWorkflowExecutionOrder(nodes: NotebookNode[], edges: Edge[]): NotebookNode[] {
+export type WorkflowExecutionPlan = {
+    orderedNodes: NotebookNode[];
+    skippedNodeIds: Set<string>;
+};
+
+function normalizeValue(value: string) {
+    return value.trim();
+}
+
+function evaluateCondition(config?: ConditionBlockConfig): boolean {
+    if (!config) {
+        return true;
+    }
+
+    const leftValue = normalizeValue(config.leftValue);
+    const rightValue = normalizeValue(config.rightValue);
+
+    switch (config.operator) {
+        case 'equals':
+            return leftValue === rightValue;
+
+        case 'notEquals':
+            return leftValue !== rightValue;
+
+        case 'contains':
+            return leftValue.includes(rightValue);
+
+        case 'greaterThan':
+            return Number(leftValue) > Number(rightValue);
+
+        case 'lessThan':
+            return Number(leftValue) < Number(rightValue);
+
+        case 'exists':
+            return leftValue.length > 0 && leftValue !== 'null' && leftValue !== 'undefined';
+
+        default:
+            return false;
+    }
+}
+
+function getSelectedConditionBranch(node: NotebookNode): ConditionBranch {
+    return evaluateCondition(node.data.config?.condition) ? 'yes' : 'no';
+}
+
+function getStartNode(nodes: NotebookNode[]): NotebookNode | undefined {
+    return (
+        nodes.find((node) => node.data.blockType === 'start') ??
+        [...nodes].sort((firstNode, secondNode) => firstNode.position.x - secondNode.position.x)[0]
+    );
+}
+
+function getReachableNodeIds(startNodeId: string, edges: Edge[]): Set<string> {
+    const reachableNodeIds = new Set<string>();
+    const stack = [startNodeId];
+
+    while (stack.length > 0) {
+        const currentNodeId = stack.pop();
+
+        if (!currentNodeId || reachableNodeIds.has(currentNodeId)) {
+            continue;
+        }
+
+        reachableNodeIds.add(currentNodeId);
+
+        edges
+            .filter((edge) => edge.source === currentNodeId)
+            .forEach((edge) => {
+                stack.push(edge.target);
+            });
+    }
+
+    return reachableNodeIds;
+}
+
+export function getWorkflowExecutionPlan(nodes: NotebookNode[], edges: Edge[]): WorkflowExecutionPlan {
     if (nodes.length === 0) {
-        return [];
+        return {
+            orderedNodes: [],
+            skippedNodeIds: new Set(),
+        };
     }
 
     const nodeMap = new Map(nodes.map((node) => [node.id, node]));
@@ -44,15 +129,21 @@ export function getWorkflowExecutionOrder(nodes: NotebookNode[], edges: Edge[]):
         return map;
     }, new Map());
 
-    const startNode =
-        nodes.find((node) => node.data.blockType === 'start') ??
-        [...nodes].sort((firstNode, secondNode) => firstNode.position.x - secondNode.position.x)[0];
+    const startNode = getStartNode(nodes);
+
+    if (!startNode) {
+        return {
+            orderedNodes: [],
+            skippedNodeIds: new Set(),
+        };
+    }
 
     const visitedNodeIds = new Set<string>();
+    const skippedNodeIds = new Set<string>();
     const orderedNodes: NotebookNode[] = [];
 
     const visit = (nodeId: string) => {
-        if (visitedNodeIds.has(nodeId)) {
+        if (visitedNodeIds.has(nodeId) || skippedNodeIds.has(nodeId)) {
             return;
         }
 
@@ -65,27 +156,53 @@ export function getWorkflowExecutionOrder(nodes: NotebookNode[], edges: Edge[]):
         visitedNodeIds.add(nodeId);
         orderedNodes.push(node);
 
-        const nextEdges = [...(outgoingEdges.get(nodeId) ?? [])].sort((firstEdge, secondEdge) => {
+        const nodeOutgoingEdges = [...(outgoingEdges.get(nodeId) ?? [])].sort((firstEdge, secondEdge) => {
             const firstLabel = typeof firstEdge.label === 'string' ? firstEdge.label : '';
             const secondLabel = typeof secondEdge.label === 'string' ? secondEdge.label : '';
 
             return firstLabel.localeCompare(secondLabel);
         });
 
-        nextEdges.forEach((edge) => visit(edge.target));
+        if (node.data.blockType === 'condition') {
+            const selectedBranch = getSelectedConditionBranch(node);
+
+            const selectedEdge = nodeOutgoingEdges.find(
+                (edge) => getConditionBranchFromEdge(edge) === selectedBranch,
+            );
+
+            const skippedEdges = nodeOutgoingEdges.filter(
+                (edge) => getConditionBranchFromEdge(edge) !== selectedBranch,
+            );
+
+            skippedEdges.forEach((edge) => {
+                const skippedBranchNodeIds = getReachableNodeIds(edge.target, edges);
+
+                skippedBranchNodeIds.forEach((skippedNodeId) => {
+                    if (!visitedNodeIds.has(skippedNodeId)) {
+                        skippedNodeIds.add(skippedNodeId);
+                    }
+                });
+            });
+
+            if (selectedEdge) {
+                visit(selectedEdge.target);
+            }
+
+            return;
+        }
+
+        nodeOutgoingEdges.forEach((edge) => visit(edge.target));
     };
 
     visit(startNode.id);
 
-    const disconnectedNodes = nodes
-        .filter((node) => !visitedNodeIds.has(node.id))
-        .sort((firstNode, secondNode) => {
-            if (firstNode.position.x !== secondNode.position.x) {
-                return firstNode.position.x - secondNode.position.x;
-            }
+    return {
+        orderedNodes,
+        skippedNodeIds,
+    };
+}
 
-            return firstNode.position.y - secondNode.position.y;
-        });
-
-    return [...orderedNodes, ...disconnectedNodes];
+// Оставляем старое имя, если где-то ещё используется.
+export function getWorkflowExecutionOrder(nodes: NotebookNode[], edges: Edge[]): NotebookNode[] {
+    return getWorkflowExecutionPlan(nodes, edges).orderedNodes;
 }

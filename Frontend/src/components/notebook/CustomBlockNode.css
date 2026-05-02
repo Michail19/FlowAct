@@ -276,3 +276,18 @@
 .custom-block-node__handle-label--no {
     top: calc(62% - 9px);
 }
+
+.custom-block-node__condition-label {
+    display: inline-flex;
+    margin-bottom: 4px;
+    color: var(--color-muted);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    line-height: 1;
+    text-transform: uppercase;
+}
+
+.custom-block-node__condition-text {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}

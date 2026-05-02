@@ -1,16 +1,27 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
+import type { ConditionBranch } from './conditionBranchUtils';
+
 import './EdgeSettingsModal.css';
 
 type EdgeSettingsModalProps = {
     initialLabel: string;
-    onSave: (label: string) => void;
+    initialBranch?: ConditionBranch;
+    isConditionEdge?: boolean;
+    onSave: (label: string, branch?: ConditionBranch) => void;
     onClose: () => void;
 };
 
-function EdgeSettingsModal({ initialLabel, onSave, onClose }: EdgeSettingsModalProps) {
+function EdgeSettingsModal({
+                               initialLabel,
+                               initialBranch = 'yes',
+                               isConditionEdge = false,
+                               onSave,
+                               onClose,
+                           }: EdgeSettingsModalProps) {
     const [label, setLabel] = useState(initialLabel);
+    const [branch, setBranch] = useState<ConditionBranch>(initialBranch);
 
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
@@ -19,6 +30,11 @@ function EdgeSettingsModal({ initialLabel, onSave, onClose }: EdgeSettingsModalP
             }
 
             if (event.key === 'Enter') {
+                if (isConditionEdge) {
+                    onSave(branch === 'yes' ? 'Да' : 'Нет', branch);
+                    return;
+                }
+
                 onSave(label.trim());
             }
         };
@@ -28,9 +44,14 @@ function EdgeSettingsModal({ initialLabel, onSave, onClose }: EdgeSettingsModalP
         return () => {
             document.removeEventListener('keydown', handleKeyDown);
         };
-    }, [label, onClose, onSave]);
+    }, [branch, isConditionEdge, label, onClose, onSave]);
 
     const handleSave = () => {
+        if (isConditionEdge) {
+            onSave(branch === 'yes' ? 'Да' : 'Нет', branch);
+            return;
+        }
+
         onSave(label.trim());
     };
 
@@ -54,17 +75,35 @@ function EdgeSettingsModal({ initialLabel, onSave, onClose }: EdgeSettingsModalP
                     </button>
                 </header>
 
-                <label className="edge-settings-modal__field">
-                    <span className="edge-settings-modal__label">Подпись стрелки</span>
+                {isConditionEdge ? (
+                    <label className="edge-settings-modal__field">
+                        <span className="edge-settings-modal__label">
+                            Ветка условия
+                        </span>
 
-                    <input
-                        className="edge-settings-modal__input"
-                        value={label}
-                        onChange={(event) => setLabel(event.target.value)}
-                        placeholder="Например: Да, Нет, Успех, Ошибка"
-                        autoFocus
-                    />
-                </label>
+                        <select
+                            className="edge-settings-modal__input"
+                            value={branch}
+                            onChange={(event) => setBranch(event.target.value as ConditionBranch)}
+                            autoFocus
+                        >
+                            <option value="yes">Да</option>
+                            <option value="no">Нет</option>
+                        </select>
+                    </label>
+                ) : (
+                    <label className="edge-settings-modal__field">
+                        <span className="edge-settings-modal__label">Подпись стрелки</span>
+
+                        <input
+                            className="edge-settings-modal__input"
+                            value={label}
+                            onChange={(event) => setLabel(event.target.value)}
+                            placeholder="Например: Успех, Ошибка, Повтор"
+                            autoFocus
+                        />
+                    </label>
+                )}
 
                 <footer className="edge-settings-modal__footer">
                     <button
@@ -75,13 +114,15 @@ function EdgeSettingsModal({ initialLabel, onSave, onClose }: EdgeSettingsModalP
                         Сохранить
                     </button>
 
-                    <button
-                        className="edge-settings-modal__button edge-settings-modal__button--clear"
-                        type="button"
-                        onClick={() => onSave('')}
-                    >
-                        Очистить
-                    </button>
+                    {!isConditionEdge && (
+                        <button
+                            className="edge-settings-modal__button edge-settings-modal__button--clear"
+                            type="button"
+                            onClick={() => onSave('')}
+                        >
+                            Очистить
+                        </button>
+                    )}
 
                     <button
                         className="edge-settings-modal__button edge-settings-modal__button--cancel"
