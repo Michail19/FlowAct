@@ -91,7 +91,13 @@
     color: #047857;
 }
 
-.notebook-search__undo {
+.notebook-search__history-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.notebook-search__history-button {
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -103,13 +109,13 @@
     cursor: pointer;
 }
 
-.notebook-search__undo:disabled {
+.notebook-search__history-button:disabled {
     cursor: not-allowed;
     opacity: 0.45;
 }
 
-.notebook-search__undo span:first-child {
-    font-size: 26px;
+.notebook-search__history-button span:first-child {
+    font-size: 24px;
     line-height: 1;
 }
 
@@ -138,7 +144,7 @@
         display: none;
     }
 
-    .notebook-search__undo {
+    .notebook-search__history-actions {
         display: none;
     }
 }

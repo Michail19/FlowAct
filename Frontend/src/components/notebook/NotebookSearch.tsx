@@ -8,7 +8,9 @@ type NotebookSearchProps = {
     result?: NotebookSearchResult | null;
     onSearch: (query: string) => void;
     onUndo?: () => void;
+    onRedo?: () => void;
     canUndo?: boolean;
+    canRedo?: boolean;
 };
 
 function getSearchResultText(result?: NotebookSearchResult | null) {
@@ -31,7 +33,9 @@ function NotebookSearch({
                             result = null,
                             onSearch,
                             onUndo,
+                            onRedo,
                             canUndo = false,
+                            canRedo = false,
                         }: NotebookSearchProps) {
     const [query, setQuery] = useState('');
 
@@ -77,20 +81,29 @@ function NotebookSearch({
                 )}
             </form>
 
-            <button
-                className="notebook-search__undo"
-                type="button"
-                onClick={onUndo}
-                disabled={!canUndo}
-                title={
-                    canUndo
-                        ? 'Отменить последнее действие'
-                        : 'Undo будет подключён следующим этапом'
-                }
-            >
-                <span aria-hidden="true">↶</span>
-                <span>Undo</span>
-            </button>
+            <div className="notebook-search__history-actions">
+                <button
+                    className="notebook-search__history-button"
+                    type="button"
+                    onClick={onUndo}
+                    disabled={!canUndo}
+                    title={canUndo ? 'Отменить последнее действие' : 'Нет действий для отмены'}
+                >
+                    <span aria-hidden="true">↶</span>
+                    <span>Undo</span>
+                </button>
+
+                <button
+                    className="notebook-search__history-button"
+                    type="button"
+                    onClick={onRedo}
+                    disabled={!canRedo}
+                    title={canRedo ? 'Повторить отменённое действие' : 'Нет действий для повтора'}
+                >
+                    <span aria-hidden="true">↷</span>
+                    <span>Redo</span>
+                </button>
+            </div>
         </div>
     );
 }

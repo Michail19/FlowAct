@@ -13,6 +13,8 @@ import type {
     NotebookAutoLayoutRequest,
     NotebookBlockRequest,
     NotebookBlockType,
+    NotebookHistoryRequest,
+    NotebookHistoryState,
     NotebookSearchRequest,
     NotebookSearchResult,
     NotebookViewportRequest,
@@ -56,6 +58,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
     const autoLayoutRequestIdRef = useRef(0);
     const viewportRequestIdRef = useRef(0);
     const searchRequestIdRef = useRef(0);
+    const historyRequestIdRef = useRef(0);
 
     const [blockRequest, setBlockRequest] = useState<NotebookBlockRequest | null>(null);
     const [dismissedSuggestionIds, setDismissedSuggestionIds] = useState<string[]>([]);
@@ -80,6 +83,12 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         useState<NotebookSearchRequest | null>(null);
     const [searchResult, setSearchResult] =
         useState<NotebookSearchResult | null>(null);
+    const [historyRequest, setHistoryRequest] =
+        useState<NotebookHistoryRequest | null>(null);
+    const [historyState, setHistoryState] = useState<NotebookHistoryState>({
+        canUndo: false,
+        canRedo: false,
+    });
 
     const suggestion = useMemo(
         () => ({
@@ -284,6 +293,30 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         );
     }, []);
 
+    const handleUndo = useCallback(() => {
+        historyRequestIdRef.current += 1;
+
+        setHistoryRequest({
+            requestId: historyRequestIdRef.current,
+            action: 'undo',
+        });
+    }, []);
+
+    const handleRedo = useCallback(() => {
+        historyRequestIdRef.current += 1;
+
+        setHistoryRequest({
+            requestId: historyRequestIdRef.current,
+            action: 'redo',
+        });
+    }, []);
+
+    const handleHistoryRequestHandled = useCallback((requestId: number) => {
+        setHistoryRequest((currentRequest) =>
+            currentRequest?.requestId === requestId ? null : currentRequest,
+        );
+    }, []);
+
     return (
         <main
             className={
@@ -321,6 +354,10 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                         <NotebookSearch
                             result={searchResult}
                             onSearch={handleSearchBlocks}
+                            onUndo={handleUndo}
+                            onRedo={handleRedo}
+                            canUndo={historyState.canUndo}
+                            canRedo={historyState.canRedo}
                         />
                     )}
 
@@ -343,6 +380,9 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                         onViewportRequestHandled={handleViewportRequestHandled}
                         searchRequest={searchRequest}
                         onSearchRequestHandled={handleSearchRequestHandled}
+                        historyRequest={historyRequest}
+                        onHistoryRequestHandled={handleHistoryRequestHandled}
+                        onHistoryStateChange={setHistoryState}
                     />
 
                     {!isInterfaceHidden && (

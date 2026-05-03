@@ -25,6 +25,8 @@ import type {
     AiBlockConfig,
     NotebookAutoLayoutRequest,
     NotebookBlockRequest,
+    NotebookHistoryRequest,
+    NotebookHistoryState,
     NotebookNode,
     NotebookSearchRequest,
     NotebookSearchResult,
@@ -78,6 +80,9 @@ type NotebookCanvasProps = {
     onViewportRequestHandled?: (requestId: number) => void;
     searchRequest?: NotebookSearchRequest | null;
     onSearchRequestHandled?: (result: NotebookSearchResult) => void;
+    historyRequest?: NotebookHistoryRequest | null;
+    onHistoryRequestHandled?: (requestId: number) => void;
+    onHistoryStateChange?: (state: NotebookHistoryState) => void;
 };
 
 function normalizeSearchQuery(query: string) {
@@ -126,6 +131,153 @@ function getApproximateNodeWidth(node: NotebookNode) {
     return node.data.blockType === 'ai' ? 380 : 290;
 }
 
+type NotebookHistorySnapshot = {
+    nodes: NotebookNode[];
+    edges: Edge[];
+};
+
+type NotebookHistoryStorageState = {
+    snapshots: NotebookHistorySnapshot[];
+    currentIndex: number;
+};
+
+const NOTEBOOK_HISTORY_LIMIT = 15;
+
+function getNotebookHistoryStorageKey(notebookId?: string) {
+    return `flowact-history:${notebookId ?? 'draft'}`;
+}
+
+function sanitizeNodeForHistory(node: NotebookNode): NotebookNode {
+    return {
+        id: node.id,
+        type: node.type,
+        position: {
+            x: node.position.x,
+            y: node.position.y,
+        },
+        selected: false,
+        data: {
+            title: node.data.title,
+            subtitle: node.data.subtitle,
+            description: node.data.description,
+            blockType: node.data.blockType,
+            status: 'idle',
+            icon: node.data.icon,
+            meta: node.data.meta,
+            aiConfig: node.data.aiConfig,
+            config: node.data.config,
+        },
+    };
+}
+
+function sanitizeEdgeForHistory(edge: Edge): Edge {
+    return {
+        id: edge.id,
+        source: edge.source,
+        target: edge.target,
+        sourceHandle: edge.sourceHandle ?? undefined,
+        targetHandle: edge.targetHandle ?? undefined,
+        type: edge.type,
+        label: edge.label,
+    };
+}
+
+function createHistorySnapshot(nodes: NotebookNode[], edges: Edge[]): NotebookHistorySnapshot {
+    return {
+        nodes: nodes.map(sanitizeNodeForHistory),
+        edges: edges.map(sanitizeEdgeForHistory),
+    };
+}
+
+function serializeHistorySnapshot(snapshot: NotebookHistorySnapshot) {
+    return JSON.stringify(snapshot);
+}
+
+function createInitialHistoryStorageState(
+    snapshot: NotebookHistorySnapshot,
+): NotebookHistoryStorageState {
+    return {
+        snapshots: [snapshot],
+        currentIndex: 0,
+    };
+}
+
+function readHistoryStorageState(
+    notebookId: string | undefined,
+): NotebookHistoryStorageState | null {
+    try {
+        const rawValue = window.sessionStorage.getItem(
+            getNotebookHistoryStorageKey(notebookId),
+        );
+
+        if (!rawValue) {
+            return null;
+        }
+
+        return JSON.parse(rawValue) as NotebookHistoryStorageState;
+    } catch {
+        return null;
+    }
+}
+
+function writeHistoryStorageState(
+    notebookId: string | undefined,
+    state: NotebookHistoryStorageState,
+) {
+    window.sessionStorage.setItem(
+        getNotebookHistoryStorageKey(notebookId),
+        JSON.stringify(state),
+    );
+}
+
+function getHistoryState(state: NotebookHistoryStorageState): NotebookHistoryState {
+    return {
+        canUndo: state.currentIndex > 0,
+        canRedo: state.currentIndex < state.snapshots.length - 1,
+    };
+}
+
+function pushHistorySnapshot(params: {
+    notebookId?: string;
+    currentState: NotebookHistoryStorageState | null;
+    snapshot: NotebookHistorySnapshot;
+}): NotebookHistoryStorageState {
+    const snapshotKey = serializeHistorySnapshot(params.snapshot);
+
+    if (!params.currentState) {
+        const initialState = createInitialHistoryStorageState(params.snapshot);
+
+        writeHistoryStorageState(params.notebookId, initialState);
+
+        return initialState;
+    }
+
+    const currentSnapshot =
+        params.currentState.snapshots[params.currentState.currentIndex];
+
+    if (currentSnapshot && serializeHistorySnapshot(currentSnapshot) === snapshotKey) {
+        return params.currentState;
+    }
+
+    const snapshotsBeforeCurrentIndex = params.currentState.snapshots.slice(
+        0,
+        params.currentState.currentIndex + 1,
+    );
+
+    const nextSnapshots = [...snapshotsBeforeCurrentIndex, params.snapshot].slice(
+        -NOTEBOOK_HISTORY_LIMIT,
+    );
+
+    const nextState: NotebookHistoryStorageState = {
+        snapshots: nextSnapshots,
+        currentIndex: nextSnapshots.length - 1,
+    };
+
+    writeHistoryStorageState(params.notebookId, nextState);
+
+    return nextState;
+}
+
 function NotebookCanvas({
                             readonly = false,
                             blockRequest = null,
@@ -145,6 +297,9 @@ function NotebookCanvas({
                             onViewportRequestHandled,
                             searchRequest = null,
                             onSearchRequestHandled,
+                            historyRequest = null,
+                            onHistoryRequestHandled,
+                            onHistoryStateChange,
                         }: NotebookCanvasProps) {
     const canvasRef = useRef<HTMLDivElement | null>(null);
     const nodeCounterRef = useRef(initialNodes.length);
@@ -157,6 +312,8 @@ function NotebookCanvas({
         query: '',
         nodeId: null,
     });
+    const historyStateRef = useRef<NotebookHistoryStorageState | null>(null);
+    const shouldSkipNextHistoryRecordRef = useRef(false);
 
     const [reactFlowInstance, setReactFlowInstance] =
         useState<ReactFlowInstance<NotebookNode, Edge> | null>(null);
@@ -295,16 +452,31 @@ function NotebookCanvas({
 
         const restoredNotebook = fromNotebookPayload(initialPayload);
 
+        shouldSkipNextHistoryRecordRef.current = true;
+
         setNodes(restoredNotebook.nodes);
         setEdges(restoredNotebook.edges);
         loadedPayloadKeyRef.current = payloadKey;
+
+        const initialSnapshot = createHistorySnapshot(
+            restoredNotebook.nodes,
+            restoredNotebook.edges,
+        );
+
+        historyStateRef.current = pushHistorySnapshot({
+            notebookId,
+            currentState: readHistoryStorageState(notebookId),
+            snapshot: initialSnapshot,
+        });
+
+        onHistoryStateChange?.(getHistoryState(historyStateRef.current));
 
         if (initialPayload.viewport && reactFlowInstance) {
             window.requestAnimationFrame(() => {
                 reactFlowInstance.setViewport(initialPayload.viewport!);
             });
         }
-    }, [initialPayload, reactFlowInstance, setEdges, setNodes]);
+    }, [initialPayload, reactFlowInstance, setEdges, setNodes, notebookId, onHistoryStateChange]);
 
     useEffect(() => {
         if (!autoLayoutRequest) {
@@ -499,6 +671,92 @@ function NotebookCanvas({
         onSearchRequestHandled,
         reactFlowInstance,
         searchRequest,
+        setNodes,
+    ]);
+
+    useEffect(() => {
+        if (shouldSkipNextHistoryRecordRef.current) {
+            shouldSkipNextHistoryRecordRef.current = false;
+            return;
+        }
+
+        const snapshot = createHistorySnapshot(nodes, edges);
+
+        historyStateRef.current = pushHistorySnapshot({
+            notebookId,
+            currentState: historyStateRef.current,
+            snapshot,
+        });
+
+        onHistoryStateChange?.(getHistoryState(historyStateRef.current));
+    }, [
+        edges,
+        nodes,
+        notebookId,
+        onHistoryStateChange,
+    ]);
+
+    useEffect(() => {
+        if (!historyRequest) {
+            return;
+        }
+
+        const animationFrameId = window.requestAnimationFrame(() => {
+            const currentState =
+                historyStateRef.current ?? readHistoryStorageState(notebookId);
+
+            if (!currentState) {
+                onHistoryRequestHandled?.(historyRequest.requestId);
+                return;
+            }
+
+            const nextIndex =
+                historyRequest.action === 'undo'
+                    ? Math.max(0, currentState.currentIndex - 1)
+                    : Math.min(
+                        currentState.snapshots.length - 1,
+                        currentState.currentIndex + 1,
+                    );
+
+            if (nextIndex === currentState.currentIndex) {
+                onHistoryStateChange?.(getHistoryState(currentState));
+                onHistoryRequestHandled?.(historyRequest.requestId);
+                return;
+            }
+
+            const nextState: NotebookHistoryStorageState = {
+                ...currentState,
+                currentIndex: nextIndex,
+            };
+
+            const snapshot = nextState.snapshots[nextIndex];
+
+            if (!snapshot) {
+                onHistoryStateChange?.(getHistoryState(currentState));
+                onHistoryRequestHandled?.(historyRequest.requestId);
+                return;
+            }
+
+            shouldSkipNextHistoryRecordRef.current = true;
+            historyStateRef.current = nextState;
+            writeHistoryStorageState(notebookId, nextState);
+
+            setNodes(snapshot.nodes);
+            setEdges(snapshot.edges);
+
+            onHistoryStateChange?.(getHistoryState(nextState));
+            onHistoryRequestHandled?.(historyRequest.requestId);
+        });
+
+        return () => {
+            window.cancelAnimationFrame(animationFrameId);
+        };
+    }, [
+        historyRequest,
+        notebookId,
+        onHistoryRequestHandled,
+        onHistoryStateChange,
+        setEdges,
         setNodes,
     ]);
 

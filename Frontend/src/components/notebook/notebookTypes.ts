@@ -149,3 +149,15 @@ export type NotebookSearchResult = {
     matchedNodeId?: string;
     matchedTitle?: string;
 };
+
+export type NotebookHistoryAction = 'undo' | 'redo';
+
+export type NotebookHistoryRequest = {
+    requestId: number;
+    action: NotebookHistoryAction;
+};
+
+export type NotebookHistoryState = {
+    canUndo: boolean;
+    canRedo: boolean;
+};
