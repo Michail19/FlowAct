@@ -89,27 +89,92 @@ function getStartNode(nodes: NotebookNode[]): NotebookNode | undefined {
     );
 }
 
-function getReachableNodeIds(startNodeId: string, edges: Edge[]): Set<string> {
-    const reachableNodeIds = new Set<string>();
-    const stack = [startNodeId];
+function createOutgoingEdgesMap(edges: Edge[]) {
+    return edges.reduce<Map<string, Edge[]>>((map, edge) => {
+        const list = map.get(edge.source) ?? [];
+
+        list.push(edge);
+        map.set(edge.source, list);
+
+        return map;
+    }, new Map());
+}
+
+function createIncomingEdgesMap(edges: Edge[]) {
+    return edges.reduce<Map<string, Edge[]>>((map, edge) => {
+        const list = map.get(edge.target) ?? [];
+
+        list.push(edge);
+        map.set(edge.target, list);
+
+        return map;
+    }, new Map());
+}
+
+function sortEdgesByLabel(edges: Edge[]) {
+    return [...edges].sort((firstEdge, secondEdge) => {
+        const firstLabel = typeof firstEdge.label === 'string' ? firstEdge.label : '';
+        const secondLabel = typeof secondEdge.label === 'string' ? secondEdge.label : '';
+
+        return firstLabel.localeCompare(secondLabel);
+    });
+}
+
+function isConvergenceNode(
+    node: NotebookNode,
+    incomingEdgesMap: Map<string, Edge[]>,
+): boolean {
+    const incomingEdgesCount = incomingEdgesMap.get(node.id)?.length ?? 0;
+
+    return node.data.blockType === 'merge' || incomingEdgesCount > 1;
+}
+
+function collectSkippedBranchNodeIds(params: {
+    startNodeId: string;
+    nodeMap: Map<string, NotebookNode>;
+    outgoingEdgesMap: Map<string, Edge[]>;
+    incomingEdgesMap: Map<string, Edge[]>;
+    alreadyVisitedNodeIds: Set<string>;
+}): Set<string> {
+    const skippedNodeIds = new Set<string>();
+    const stack = [params.startNodeId];
 
     while (stack.length > 0) {
         const currentNodeId = stack.pop();
 
-        if (!currentNodeId || reachableNodeIds.has(currentNodeId)) {
+        if (
+            !currentNodeId ||
+            skippedNodeIds.has(currentNodeId) ||
+            params.alreadyVisitedNodeIds.has(currentNodeId)
+        ) {
             continue;
         }
 
-        reachableNodeIds.add(currentNodeId);
+        const currentNode = params.nodeMap.get(currentNodeId);
 
-        edges
-            .filter((edge) => edge.source === currentNodeId)
-            .forEach((edge) => {
-                stack.push(edge.target);
-            });
+        if (!currentNode) {
+            continue;
+        }
+
+        /*
+         * Важно:
+         * Merge и любые узлы с несколькими входами — это точки схождения веток.
+         * Их нельзя помечать skipped только потому, что одна из веток не выбрана.
+         */
+        if (isConvergenceNode(currentNode, params.incomingEdgesMap)) {
+            continue;
+        }
+
+        skippedNodeIds.add(currentNodeId);
+
+        const outgoingEdges = params.outgoingEdgesMap.get(currentNodeId) ?? [];
+
+        outgoingEdges.forEach((edge) => {
+            stack.push(edge.target);
+        });
     }
 
-    return reachableNodeIds;
+    return skippedNodeIds;
 }
 
 export function getWorkflowExecutionPlan(nodes: NotebookNode[], edges: Edge[]): WorkflowExecutionPlan {
@@ -121,14 +186,8 @@ export function getWorkflowExecutionPlan(nodes: NotebookNode[], edges: Edge[]): 
     }
 
     const nodeMap = new Map(nodes.map((node) => [node.id, node]));
-
-    const outgoingEdges = edges.reduce<Map<string, Edge[]>>((map, edge) => {
-        const list = map.get(edge.source) ?? [];
-        list.push(edge);
-        map.set(edge.source, list);
-        return map;
-    }, new Map());
-
+    const outgoingEdgesMap = createOutgoingEdgesMap(edges);
+    const incomingEdgesMap = createIncomingEdgesMap(edges);
     const startNode = getStartNode(nodes);
 
     if (!startNode) {
@@ -143,7 +202,13 @@ export function getWorkflowExecutionPlan(nodes: NotebookNode[], edges: Edge[]): 
     const orderedNodes: NotebookNode[] = [];
 
     const visit = (nodeId: string) => {
-        if (visitedNodeIds.has(nodeId) || skippedNodeIds.has(nodeId)) {
+        /*
+         * Если узел раньше попал в skipped, но потом оказался достижим
+         * по выбранной ветке, выбранная ветка имеет приоритет.
+         */
+        skippedNodeIds.delete(nodeId);
+
+        if (visitedNodeIds.has(nodeId)) {
             return;
         }
 
@@ -156,12 +221,7 @@ export function getWorkflowExecutionPlan(nodes: NotebookNode[], edges: Edge[]): 
         visitedNodeIds.add(nodeId);
         orderedNodes.push(node);
 
-        const nodeOutgoingEdges = [...(outgoingEdges.get(nodeId) ?? [])].sort((firstEdge, secondEdge) => {
-            const firstLabel = typeof firstEdge.label === 'string' ? firstEdge.label : '';
-            const secondLabel = typeof secondEdge.label === 'string' ? secondEdge.label : '';
-
-            return firstLabel.localeCompare(secondLabel);
-        });
+        const nodeOutgoingEdges = sortEdgesByLabel(outgoingEdgesMap.get(nodeId) ?? []);
 
         if (node.data.blockType === 'condition') {
             const selectedBranch = getSelectedConditionBranch(node);
@@ -175,12 +235,16 @@ export function getWorkflowExecutionPlan(nodes: NotebookNode[], edges: Edge[]): 
             );
 
             skippedEdges.forEach((edge) => {
-                const skippedBranchNodeIds = getReachableNodeIds(edge.target, edges);
+                const skippedBranchNodeIds = collectSkippedBranchNodeIds({
+                    startNodeId: edge.target,
+                    nodeMap,
+                    outgoingEdgesMap,
+                    incomingEdgesMap,
+                    alreadyVisitedNodeIds: visitedNodeIds,
+                });
 
                 skippedBranchNodeIds.forEach((skippedNodeId) => {
-                    if (!visitedNodeIds.has(skippedNodeId)) {
-                        skippedNodeIds.add(skippedNodeId);
-                    }
+                    skippedNodeIds.add(skippedNodeId);
                 });
             });
 
@@ -191,7 +255,9 @@ export function getWorkflowExecutionPlan(nodes: NotebookNode[], edges: Edge[]): 
             return;
         }
 
-        nodeOutgoingEdges.forEach((edge) => visit(edge.target));
+        nodeOutgoingEdges.forEach((edge) => {
+            visit(edge.target);
+        });
     };
 
     visit(startNode.id);
@@ -202,7 +268,6 @@ export function getWorkflowExecutionPlan(nodes: NotebookNode[], edges: Edge[]): 
     };
 }
 
-// Оставляем старое имя, если где-то ещё используется.
 export function getWorkflowExecutionOrder(nodes: NotebookNode[], edges: Edge[]): NotebookNode[] {
     return getWorkflowExecutionPlan(nodes, edges).orderedNodes;
 }
