@@ -33,6 +33,7 @@ import type {
     WorkflowExecutionStatus,
     WorkflowRunRequest,
 } from './executionTypes';
+import { toBackendWorkflowRequest } from './backendWorkflowMapper';
 
 import './NotebookEditor.css';
 
@@ -146,6 +147,10 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
             title: notebookTitle,
             updatedAt: new Date().toISOString(),
         };
+
+        const backendWorkflowPayload = toBackendWorkflowRequest(payloadToSave);
+
+        console.log('Backend workflow contract:', backendWorkflowPayload);
 
         setIsSaving(true);
         setSaveError(null);

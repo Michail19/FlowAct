@@ -1,3 +1,5 @@
+import type { NotebookBlockStatus } from './notebookTypes';
+
 export type WorkflowExecutionStatus =
     | 'idle'
     | 'created'
@@ -89,7 +91,9 @@ export function mapApiExecutionStatus(status: ApiExecutionStatus): WorkflowExecu
     }
 }
 
-export function mapApiExecutionLogStatus(status: ApiExecutionLogStatus) {
+export function mapApiExecutionLogStatus(
+    status: ApiExecutionLogStatus,
+): NotebookBlockStatus {
     switch (status) {
         case 'PENDING':
             return 'pending';
