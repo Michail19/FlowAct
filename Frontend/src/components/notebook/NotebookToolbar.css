@@ -23,29 +23,13 @@
     overflow-y: auto;
     overflow-x: hidden;
     padding: 0 0 8px;
-    scrollbar-width: thin;
-    scrollbar-color: transparent transparent;
-}
 
-.notebook-toolbar__blocks:hover {
-    scrollbar-color: rgba(34, 211, 238, 0.28) transparent;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
 }
 
 .notebook-toolbar__blocks::-webkit-scrollbar {
-    width: 2px;
-}
-
-.notebook-toolbar__blocks::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.notebook-toolbar__blocks::-webkit-scrollbar-thumb {
-    border-radius: 999px;
-    background: transparent;
-}
-
-.notebook-toolbar__blocks:hover::-webkit-scrollbar-thumb {
-    background: rgba(34, 211, 238, 0.28);
+    display: none;
 }
 
 .notebook-toolbar__group {
@@ -53,8 +37,8 @@
     width: 100%;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
-    padding: 8px 0;
+    gap: 7px;
+    padding: 7px 0;
 }
 
 .notebook-toolbar__group:first-child {
@@ -62,7 +46,7 @@
 }
 
 .notebook-toolbar__group + .notebook-toolbar__group {
-    border-top: 1px solid rgba(148, 163, 184, 0.2);
+    border-top: 1px solid rgba(148, 163, 184, 0.16);
 }
 
 .notebook-toolbar__actions {
