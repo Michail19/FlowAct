@@ -625,7 +625,56 @@ function NotebookCanvas({
                     );
                 }
 
+                const successfulNodeIds = new Set<string>();
+                const skippedExecutionNodeIds = new Set<string>(skippedNodeIds);
+
+                const incomingEdgesByNodeId = edges.reduce<Map<string, Edge[]>>((map, edge) => {
+                    const nodeEdges = map.get(edge.target) ?? [];
+
+                    nodeEdges.push(edge);
+                    map.set(edge.target, nodeEdges);
+
+                    return map;
+                }, new Map());
+
                 for (const node of executionOrder) {
+                    const incomingEdges = incomingEdgesByNodeId.get(node.id) ?? [];
+
+                    const hasSuccessfulInput =
+                        node.data.blockType === 'start' ||
+                        incomingEdges.length === 0 ||
+                        incomingEdges.some((edge) => successfulNodeIds.has(edge.source));
+
+                    if (skippedExecutionNodeIds.has(node.id) || !hasSuccessfulInput) {
+                        skippedExecutionNodeIds.add(node.id);
+
+                        setNodes((currentNodes) =>
+                            currentNodes.map((currentNode) =>
+                                currentNode.id === node.id
+                                    ? {
+                                        ...currentNode,
+                                        data: {
+                                            ...currentNode.data,
+                                            status: 'skipped',
+                                        },
+                                    }
+                                    : currentNode,
+                            ),
+                        );
+
+                        pushLog(
+                            createExecutionLog({
+                                level: 'warning',
+                                status: 'running',
+                                blockId: node.id,
+                                blockTitle: node.data.title,
+                                message: `Блок "${node.data.title}" пропущен: входные данные не поступили.`,
+                            }),
+                        );
+
+                        continue;
+                    }
+
                     pushLog(
                         createExecutionLog({
                             level: 'info',
@@ -667,6 +716,7 @@ function NotebookCanvas({
                     );
 
                     completedBlocks += 1;
+                    successfulNodeIds.add(node.id);
 
                     pushLog(
                         createExecutionLog({
