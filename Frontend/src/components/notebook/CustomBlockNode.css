@@ -291,3 +291,9 @@
 .custom-block-node__condition-text {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
+
+.custom-block-node__run svg,
+.custom-block-node__action svg,
+.custom-block-node__icon svg {
+    display: block;
+}

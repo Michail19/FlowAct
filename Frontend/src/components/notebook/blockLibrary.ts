@@ -1,4 +1,5 @@
 import type { NotebookBlockType } from './notebookTypes';
+import type { NotebookSvgIconName } from './notebookSvgIconTypes';
 
 export type NotebookBlockDefinition = {
     blockType: NotebookBlockType;
@@ -6,9 +7,9 @@ export type NotebookBlockDefinition = {
     title: string;
     subtitle: string;
     description: string;
-    icon: string;
+    icon: NotebookSvgIconName;
     toolbarLabel: string;
-    toolbarIcon: string;
+    toolbarIcon: NotebookSvgIconName;
 };
 
 export const NOTEBOOK_BLOCK_LIBRARY: NotebookBlockDefinition[] = [
@@ -18,9 +19,9 @@ export const NOTEBOOK_BLOCK_LIBRARY: NotebookBlockDefinition[] = [
         title: 'Старт',
         subtitle: 'Запуск рабочего процесса',
         description: 'Начальная точка выполнения рабочего процесса.',
-        icon: '▶',
+        icon: 'start',
         toolbarLabel: 'Начальный блок',
-        toolbarIcon: '○',
+        toolbarIcon: 'start',
     },
     {
         blockType: 'end',
@@ -28,9 +29,9 @@ export const NOTEBOOK_BLOCK_LIBRARY: NotebookBlockDefinition[] = [
         title: 'Конец',
         subtitle: 'Завершение процесса',
         description: 'Финальная точка выполнения рабочего процесса.',
-        icon: '■',
+        icon: 'end',
         toolbarLabel: 'Конечный блок',
-        toolbarIcon: '●',
+        toolbarIcon: 'end',
     },
     {
         blockType: 'ai',
@@ -38,9 +39,9 @@ export const NOTEBOOK_BLOCK_LIBRARY: NotebookBlockDefinition[] = [
         title: 'AI-функция',
         subtitle: 'Обработка через нейросеть',
         description: 'Блок для генерации, анализа или преобразования текста через выбранные модели.',
-        icon: '🤖',
+        icon: 'ai',
         toolbarLabel: 'AI-блок',
-        toolbarIcon: '🤖',
+        toolbarIcon: 'ai',
     },
     {
         blockType: 'condition',
@@ -48,9 +49,9 @@ export const NOTEBOOK_BLOCK_LIBRARY: NotebookBlockDefinition[] = [
         title: 'Условие',
         subtitle: 'Проверка результата',
         description: 'Ветвление рабочего процесса по заданному условию.',
-        icon: '◇',
+        icon: 'condition',
         toolbarLabel: 'Условие',
-        toolbarIcon: '⊘',
+        toolbarIcon: 'condition',
     },
     {
         blockType: 'action',
@@ -58,9 +59,9 @@ export const NOTEBOOK_BLOCK_LIBRARY: NotebookBlockDefinition[] = [
         title: 'Действие',
         subtitle: 'Выполнение операции',
         description: 'Универсальный блок действия внутри рабочего процесса.',
-        icon: '▰',
+        icon: 'action',
         toolbarLabel: 'Действие',
-        toolbarIcon: '▰',
+        toolbarIcon: 'action',
     },
     {
         blockType: 'database',
@@ -68,9 +69,9 @@ export const NOTEBOOK_BLOCK_LIBRARY: NotebookBlockDefinition[] = [
         title: 'База данных',
         subtitle: 'Работа с данными',
         description: 'Чтение, запись или обновление данных во внешнем хранилище.',
-        icon: 'DB',
+        icon: 'database',
         toolbarLabel: 'База данных',
-        toolbarIcon: '◆',
+        toolbarIcon: 'database',
     },
     {
         blockType: 'email',
@@ -78,9 +79,9 @@ export const NOTEBOOK_BLOCK_LIBRARY: NotebookBlockDefinition[] = [
         title: 'Email',
         subtitle: 'Отправка сообщения',
         description: 'Отправка уведомления или результата пользователю.',
-        icon: '✉',
+        icon: 'email',
         toolbarLabel: 'Email',
-        toolbarIcon: '▱',
+        toolbarIcon: 'email',
     },
     {
         blockType: 'log',
@@ -88,9 +89,9 @@ export const NOTEBOOK_BLOCK_LIBRARY: NotebookBlockDefinition[] = [
         title: 'Логирование',
         subtitle: 'История выполнения',
         description: 'Сохранение информации о ходе выполнения рабочего процесса.',
-        icon: 'LOG',
+        icon: 'log',
         toolbarLabel: 'Логирование',
-        toolbarIcon: '▣',
+        toolbarIcon: 'log',
     },
     {
         blockType: 'http',
@@ -98,9 +99,9 @@ export const NOTEBOOK_BLOCK_LIBRARY: NotebookBlockDefinition[] = [
         title: 'HTTP-запрос',
         subtitle: 'Вызов внешнего API',
         description: 'Отправляет HTTP-запрос во внешний сервис и передаёт ответ дальше по рабочему процессу.',
-        icon: 'HTTP',
+        icon: 'http',
         toolbarLabel: 'HTTP-запрос',
-        toolbarIcon: '↗',
+        toolbarIcon: 'http',
     },
     {
         blockType: 'loop',
@@ -108,9 +109,9 @@ export const NOTEBOOK_BLOCK_LIBRARY: NotebookBlockDefinition[] = [
         title: 'Цикл',
         subtitle: 'Итерация по коллекции',
         description: 'Обрабатывает набор элементов внутри одного блока и возвращает результат итерации.',
-        icon: '↻',
+        icon: 'loop',
         toolbarLabel: 'Цикл',
-        toolbarIcon: '↻',
+        toolbarIcon: 'loop',
     },
     {
         blockType: 'merge',
@@ -118,9 +119,9 @@ export const NOTEBOOK_BLOCK_LIBRARY: NotebookBlockDefinition[] = [
         title: 'Объединение',
         subtitle: 'Слияние веток',
         description: 'Объединяет несколько входящих веток рабочего процесса в один общий поток.',
-        icon: 'MERGE',
+        icon: 'merge',
         toolbarLabel: 'Объединение',
-        toolbarIcon: '⋈',
+        toolbarIcon: 'merge',
     },
 ];
 

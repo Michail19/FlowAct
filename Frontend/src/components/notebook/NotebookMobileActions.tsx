@@ -1,3 +1,5 @@
+import NotebookSvgIcon from './NotebookSvgIcon';
+
 import './NotebookMobileActions.css';
 
 type NotebookMobileActionsProps = {
@@ -20,7 +22,7 @@ function NotebookMobileActions({
                 onClick={onRunWorkflow}
                 disabled={isWorkflowRunning}
             >
-                {isWorkflowRunning ? '…' : '▶'}
+                <NotebookSvgIcon name={isWorkflowRunning ? 'loading' : 'play'} />
             </button>
 
             <button

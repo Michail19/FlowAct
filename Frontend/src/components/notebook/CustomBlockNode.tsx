@@ -1,6 +1,8 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 
 import type { NotebookBlockStatus, NotebookNode } from './notebookTypes';
+import NotebookSvgIcon from './NotebookSvgIcon';
+import type { NotebookSvgIconName } from './notebookSvgIconTypes';
 
 import './CustomBlockNode.css';
 
@@ -26,6 +28,20 @@ const blockTypeLabels: Record<string, string> = {
     http: 'HTTP',
     loop: 'LOOP',
     merge: 'MERGE',
+};
+
+const blockIconNames: Record<NotebookNode['data']['blockType'], NotebookSvgIconName> = {
+    start: 'start',
+    end: 'end',
+    ai: 'ai',
+    condition: 'condition',
+    action: 'action',
+    database: 'database',
+    email: 'email',
+    log: 'log',
+    http: 'http',
+    loop: 'loop',
+    merge: 'merge',
 };
 
 const conditionOperatorLabels = {
@@ -106,12 +122,12 @@ function CustomBlockNode({ id, data, selected }: NodeProps<NotebookNode>) {
                     onPointerDown={stopReactFlowEvent}
                     onClick={handleRun}
                 >
-                    ▶
+                    <NotebookSvgIcon name="play" size={14} />
                 </button>
 
                 <div className="custom-block-node__heading">
                     <span className="custom-block-node__icon" aria-hidden="true">
-                        {data.icon}
+                        <NotebookSvgIcon name={blockIconNames[data.blockType]} />
                     </span>
 
                     <div className="custom-block-node__text">
@@ -131,7 +147,7 @@ function CustomBlockNode({ id, data, selected }: NodeProps<NotebookNode>) {
                         onPointerDown={stopReactFlowEvent}
                         onClick={handleEdit}
                     >
-                        ✎
+                        <NotebookSvgIcon name="edit" size={12} />
                     </button>
 
                     <button
@@ -141,7 +157,7 @@ function CustomBlockNode({ id, data, selected }: NodeProps<NotebookNode>) {
                         onPointerDown={stopReactFlowEvent}
                         onClick={handleDelete}
                     >
-                        ×
+                        <NotebookSvgIcon name="trash" size={12} />
                     </button>
                 </div>
             </header>

@@ -1,5 +1,8 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
+import NotebookSvgIcon from './NotebookSvgIcon';
+import { isNotebookSvgIconName } from './notebookSvgIconTypes';
+
 import './NotebookIconButton.css';
 
 type NotebookIconButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -9,15 +12,23 @@ type NotebookIconButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
     variant?: 'square' | 'circle';
 };
 
+function renderIcon(icon: ReactNode) {
+    if (typeof icon === 'string' && isNotebookSvgIconName(icon)) {
+        return <NotebookSvgIcon name={icon} />;
+    }
+
+    return icon;
+}
+
 function NotebookIconButton({
-    icon,
-    label,
-    active = false,
-    variant = 'square',
-    className = '',
-    type = 'button',
-    ...props
-}: NotebookIconButtonProps) {
+                                icon,
+                                label,
+                                active = false,
+                                variant = 'square',
+                                className = '',
+                                type = 'button',
+                                ...props
+                            }: NotebookIconButtonProps) {
     const buttonClassName = [
         'notebook-icon-button',
         `notebook-icon-button--${variant}`,
@@ -30,7 +41,7 @@ function NotebookIconButton({
     return (
         <button className={buttonClassName} type={type} aria-label={label} title={label} {...props}>
             <span className="notebook-icon-button__icon" aria-hidden="true">
-                {icon}
+                {renderIcon(icon)}
             </span>
         </button>
     );

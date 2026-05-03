@@ -34,21 +34,21 @@ function NotebookToolbar({
 
             <div className="notebook-toolbar__actions">
                 <NotebookIconButton
-                    icon="✦"
+                    icon="sparkles"
                     label="Автосборка схемы"
                     variant="circle"
                     onClick={onAutoLayout}
                 />
 
                 <NotebookIconButton
-                    icon="🧾"
+                    icon="logs"
                     label="Показать логи выполнения"
                     variant="circle"
                     onClick={onOpenRunPanel}
                 />
 
                 <NotebookIconButton
-                    icon={isWorkflowRunning ? '…' : '▶'}
+                    icon={isWorkflowRunning ? 'loading' : 'play'}
                     label={isWorkflowRunning ? 'Рабочий процесс выполняется' : 'Запустить рабочий процесс'}
                     active
                     variant="circle"

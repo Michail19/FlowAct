@@ -45,6 +45,16 @@
     line-height: 1;
 }
 
+.notebook-svg-icon {
+    display: block;
+    flex: 0 0 auto;
+}
+
+.notebook-icon-button__icon svg {
+    width: 20px;
+    height: 20px;
+}
+
 @media (max-width: 767px) {
     .notebook-icon-button--square,
     .notebook-icon-button--circle {

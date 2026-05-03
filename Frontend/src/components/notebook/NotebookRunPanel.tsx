@@ -1,5 +1,7 @@
 import { useState } from 'react';
 
+import NotebookSvgIcon from './NotebookSvgIcon';
+
 import type {
     NotebookExecutionLog,
     WorkflowExecutionResult,
@@ -98,7 +100,7 @@ function NotebookRunPanel({
                     aria-label="Закрыть панель выполнения"
                     onClick={onClose}
                 >
-                    ×
+                    <NotebookSvgIcon name="close" size={16} />
                 </button>
             </header>
 

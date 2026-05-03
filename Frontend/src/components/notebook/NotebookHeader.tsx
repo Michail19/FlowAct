@@ -5,6 +5,7 @@ import NotebookIconButton from './NotebookIconButton';
 import type { NotebookZoomValue } from './notebookTypes';
 
 import './NotebookHeader.css';
+import NotebookSvgIcon from "./NotebookSvgIcon";
 
 type NotebookHeaderProps = {
     isMobile: boolean;
@@ -82,7 +83,7 @@ function NotebookHeader({
         <header className="notebook-header">
             <div className="notebook-header__left">
                 <NotebookIconButton
-                    icon={isInterfaceHidden ? '◱' : '⋯'}
+                    icon={isInterfaceHidden ? 'focus' : 'more'}
                     label={
                         isInterfaceHidden
                             ? 'Показать интерфейс редактора'
@@ -94,8 +95,8 @@ function NotebookHeader({
                 />
 
                 {isMobile ? (
-                    <Link to="/home" className="notebook-header__home-link">
-                        ⌂
+                    <Link to="/home" className="notebook-header__home-link" aria-label="На главную">
+                        <NotebookSvgIcon name="home" />
                     </Link>
                 ) : (
                     <label className="notebook-header__zoom">
@@ -119,7 +120,7 @@ function NotebookHeader({
 
                 {!isMobile && !isInterfaceHidden && (
                     <NotebookIconButton
-                        icon={isSaving ? '…' : '💾'}
+                        icon={isSaving ? 'loading' : 'save'}
                         label={isSaving ? 'Сохранение...' : 'Сохранить notebook'}
                         active
                         onClick={onSave}
@@ -180,8 +181,8 @@ function NotebookHeader({
                     </Link>
                 )}
 
-                <Link to="/my-account" className="notebook-header__profile-link">
-                    ◕
+                <Link to="/my-account" className="notebook-header__profile-link" aria-label="Профиль">
+                    <NotebookSvgIcon name="user" />
                 </Link>
             </div>
         </header>

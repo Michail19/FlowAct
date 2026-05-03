@@ -215,3 +215,9 @@
 .ai-block-node__handle--source {
     right: -7px;
 }
+
+.ai-block-node__run svg,
+.ai-block-node__action svg,
+.ai-block-node__icon svg {
+    display: block;
+}

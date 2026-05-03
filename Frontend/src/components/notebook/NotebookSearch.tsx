@@ -3,6 +3,7 @@ import { type FormEvent, useState } from 'react';
 import type { NotebookSearchResult } from './notebookTypes';
 
 import './NotebookSearch.css';
+import NotebookSvgIcon from "./NotebookSvgIcon";
 
 type NotebookSearchProps = {
     result?: NotebookSearchResult | null;
@@ -51,7 +52,7 @@ function NotebookSearch({
             <form className="notebook-search__form" onSubmit={handleSubmit}>
                 <label className="notebook-search__label">
                     <span className="notebook-search__icon" aria-hidden="true">
-                        🔍
+                        <NotebookSvgIcon name="search" size={16} />
                     </span>
                     <span className="notebook-search__text">Поиск</span>
 
@@ -89,7 +90,7 @@ function NotebookSearch({
                     disabled={!canUndo}
                     title={canUndo ? 'Отменить последнее действие' : 'Нет действий для отмены'}
                 >
-                    <span aria-hidden="true">↶</span>
+                    <NotebookSvgIcon name="undo" size={17} />
                     <span>Undo</span>
                 </button>
 
@@ -100,7 +101,7 @@ function NotebookSearch({
                     disabled={!canRedo}
                     title={canRedo ? 'Повторить отменённое действие' : 'Нет действий для повтора'}
                 >
-                    <span aria-hidden="true">↷</span>
+                    <NotebookSvgIcon name="redo" size={17} />
                     <span>Redo</span>
                 </button>
             </div>

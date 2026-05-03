@@ -1,6 +1,7 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 
 import { getAiModelName } from './aiModels';
+import NotebookSvgIcon from './NotebookSvgIcon';
 import type { NotebookBlockStatus, NotebookNode } from './notebookTypes';
 
 import './AiBlockNode.css';
@@ -79,12 +80,12 @@ function AiBlockNode({ id, data, selected }: AiBlockNodeProps) {
                     onPointerDown={stopReactFlowEvent}
                     onClick={handleRun}
                 >
-                    ▶
+                    <NotebookSvgIcon name="play" size={14} />
                 </button>
 
                 <div className="ai-block-node__heading">
                     <span className="ai-block-node__icon" aria-hidden="true">
-                        🤖
+                        <NotebookSvgIcon name="ai" />
                     </span>
                     <h3 className="ai-block-node__title">{data.title}</h3>
                 </div>
@@ -97,7 +98,7 @@ function AiBlockNode({ id, data, selected }: AiBlockNodeProps) {
                         onPointerDown={stopReactFlowEvent}
                         onClick={handleEdit}
                     >
-                        ✎
+                        <NotebookSvgIcon name="edit" size={12} />
                     </button>
 
                     <button
@@ -107,7 +108,7 @@ function AiBlockNode({ id, data, selected }: AiBlockNodeProps) {
                         onPointerDown={stopReactFlowEvent}
                         onClick={handleDelete}
                     >
-                        ×
+                        <NotebookSvgIcon name="trash" size={12} />
                     </button>
                 </div>
             </header>
