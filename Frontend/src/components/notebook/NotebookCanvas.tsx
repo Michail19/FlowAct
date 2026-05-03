@@ -293,27 +293,31 @@ function NotebookCanvas({
             return;
         }
 
-        if (viewportRequest.mode === 'fit') {
-            window.requestAnimationFrame(() => {
-                reactFlowInstance.fitView({
+        const animationFrameId = window.requestAnimationFrame(() => {
+            if (viewportRequest.mode === 'fit') {
+                void reactFlowInstance.fitView({
                     padding: 0.18,
                 });
 
                 onViewportRequestHandled?.(viewportRequest.requestId);
-            });
+                return;
+            }
 
-            return;
-        }
+            const currentViewport = reactFlowInstance.getViewport();
 
-        const currentViewport = reactFlowInstance.getViewport();
-        const nextViewport: Viewport = {
-            ...currentViewport,
-            zoom: viewportRequest.zoom,
+            const nextViewport: Viewport = {
+                ...currentViewport,
+                zoom: viewportRequest.zoom,
+            };
+
+            void reactFlowInstance.setViewport(nextViewport);
+            setViewport(nextViewport);
+            onViewportRequestHandled?.(viewportRequest.requestId);
+        });
+
+        return () => {
+            window.cancelAnimationFrame(animationFrameId);
         };
-
-        void reactFlowInstance.setViewport(nextViewport);
-        setViewport(nextViewport);
-        onViewportRequestHandled?.(viewportRequest.requestId);
     }, [
         onViewportRequestHandled,
         reactFlowInstance,
