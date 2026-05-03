@@ -55,6 +55,14 @@
     height: 20px;
 }
 
+.notebook-icon-button--circle .notebook-icon-button__icon svg {
+    width: 21px;
+    height: 21px;
+}
+
+.notebook-icon-button--active .notebook-icon-button__icon svg {
+    filter: drop-shadow(0 1px 1px rgba(15, 23, 42, 0.2));
+}
 @media (max-width: 767px) {
     .notebook-icon-button--square,
     .notebook-icon-button--circle {

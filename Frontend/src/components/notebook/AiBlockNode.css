@@ -216,8 +216,38 @@
     right: -7px;
 }
 
+.ai-block-node__icon svg {
+    width: 19px;
+    height: 19px;
+}
+
+.ai-block-node__run svg {
+    width: 14px;
+    height: 14px;
+}
+
+.ai-block-node__action svg {
+    width: 12px;
+    height: 12px;
+}
+
 .ai-block-node__run svg,
 .ai-block-node__action svg,
 .ai-block-node__icon svg {
     display: block;
+}
+
+.ai-block-node--pending .ai-block-node__status {
+    background: rgba(148, 163, 184, 0.18);
+    color: #cbd5e1;
+}
+
+.ai-block-node--waiting .ai-block-node__status {
+    background: rgba(250, 204, 21, 0.16);
+    color: #facc15;
+}
+
+.ai-block-node--skipped .ai-block-node__status {
+    background: rgba(100, 116, 139, 0.2);
+    color: #94a3b8;
 }

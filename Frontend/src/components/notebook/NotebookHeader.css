@@ -164,3 +164,20 @@
     color: #ffffff;
     cursor: pointer;
 }
+
+.notebook-header__home-link svg,
+.notebook-header__profile-link svg {
+    width: 18px;
+    height: 18px;
+}
+
+.notebook-header__home-link,
+.notebook-header__profile-link {
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    background: rgba(30, 41, 59, 0.92);
+}
+
+.notebook-header__home-link:hover,
+.notebook-header__profile-link:hover {
+    border-color: rgba(34, 211, 238, 0.55);
+}

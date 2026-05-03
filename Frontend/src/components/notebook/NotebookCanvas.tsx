@@ -1459,7 +1459,16 @@ function NotebookCanvas({
             >
                 <Background />
                 <Controls />
-                {!readonly && <MiniMap pannable zoomable />}
+                {!readonly &&
+                    <MiniMap
+                        className="notebook-canvas__minimap"
+                        pannable
+                        zoomable
+                        nodeColor="#d1d5db"
+                        nodeStrokeColor="#cbd5e1"
+                        maskColor="rgba(248, 247, 243, 0.48)"
+                    />
+                }
             </ReactFlow>
 
             {editingNode && editingNode.data.blockType === 'ai' && (
