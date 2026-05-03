@@ -66,6 +66,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
     const [isRunPanelOpen, setIsRunPanelOpen] = useState(false);
     const [autoLayoutRequest, setAutoLayoutRequest] =
         useState<NotebookAutoLayoutRequest | null>(null);
+    const [isInterfaceHidden, setIsInterfaceHidden] = useState(false);
 
     const suggestion = useMemo(
         () => ({
@@ -222,8 +223,18 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         [loadedNotebookPayload, notebookId, notebookPayload],
     );
 
+    const handleToggleInterface = useCallback(() => {
+        setIsInterfaceHidden((currentValue) => !currentValue);
+    }, []);
+
     return (
-        <main className="notebook-editor">
+        <main
+            className={
+                isInterfaceHidden
+                    ? 'notebook-editor notebook-editor--focus'
+                    : 'notebook-editor'
+            }
+        >
             <NotebookHeader
                 isMobile={isMobile}
                 title={notebookTitle}
@@ -231,10 +242,12 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                 onRename={handleRenameNotebook}
                 onSave={handleSaveNotebook}
                 isSaving={isSaving}
+                isInterfaceHidden={isInterfaceHidden}
+                onToggleInterface={handleToggleInterface}
             />
 
             <div className="notebook-editor__body">
-                {isDesktop && (
+                {isDesktop && !isInterfaceHidden && (
                     <NotebookToolbar
                         onAddBlock={handleAddBlock}
                         onRunWorkflow={handleRunWorkflow}
@@ -245,7 +258,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                 )}
 
                 <section className="notebook-editor__workspace">
-                    <NotebookSearch />
+                    {!isInterfaceHidden && <NotebookSearch />}
 
                     <NotebookCanvas
                         readonly={!isDesktop}
@@ -264,31 +277,35 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                         onAutoLayoutRequestHandled={handleAutoLayoutRequestHandled}
                     />
 
-                    <NotebookRunPanel
-                        isOpen={isRunPanelOpen}
-                        status={executionStatus}
-                        logs={executionLogs}
-                        result={executionResult}
-                        isMobile={isMobile}
-                        onClose={handleCloseRunPanel}
-                        onClear={handleClearExecutionLogs}
-                        onRunWorkflow={handleRunWorkflow}
-                    />
+                    {!isInterfaceHidden && (
+                        <NotebookRunPanel
+                            isOpen={isRunPanelOpen}
+                            status={executionStatus}
+                            logs={executionLogs}
+                            result={executionResult}
+                            isMobile={isMobile}
+                            onClose={handleCloseRunPanel}
+                            onClear={handleClearExecutionLogs}
+                            onRunWorkflow={handleRunWorkflow}
+                        />
+                    )}
 
-                    <NotebookSuggestion
-                        isMobile={isMobile}
-                        suggestion={visibleSuggestion}
-                        onAccept={handleAcceptSuggestion}
-                        onDismiss={handleDismissSuggestion}
-                    />
+                    {!isInterfaceHidden && (
+                        <NotebookSuggestion
+                            isMobile={isMobile}
+                            suggestion={visibleSuggestion}
+                            onAccept={handleAcceptSuggestion}
+                            onDismiss={handleDismissSuggestion}
+                        />
+                    )}
 
-                    {saveError && (
+                    {saveError && !isInterfaceHidden && (
                         <div className="notebook-editor__save-message">
                             {saveError}
                         </div>
                     )}
 
-                    {isMobile && (
+                    {isMobile && !isInterfaceHidden && (
                         <NotebookMobileActions
                             onRunWorkflow={handleRunWorkflow}
                             onOpenRunPanel={handleOpenRunPanel}

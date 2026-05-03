@@ -12,6 +12,8 @@ type NotebookHeaderProps = {
     onRename?: (title: string) => void;
     onSave?: () => void;
     isSaving?: boolean;
+    isInterfaceHidden?: boolean;
+    onToggleInterface?: () => void;
 };
 
 function formatUpdatedAt(updatedAt?: string) {
@@ -35,6 +37,8 @@ function NotebookHeader({
                             onRename,
                             onSave,
                             isSaving = false,
+                            isInterfaceHidden = false,
+                            onToggleInterface,
                         }: NotebookHeaderProps) {
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [draftTitle, setDraftTitle] = useState(title);
@@ -72,13 +76,17 @@ function NotebookHeader({
     return (
         <header className="notebook-header">
             <div className="notebook-header__left">
-                {!isMobile && (
-                    <NotebookIconButton
-                        icon="⠿"
-                        label="Открыть меню блоков"
-                        className="notebook-header__menu-button"
-                    />
-                )}
+                <NotebookIconButton
+                    icon={isInterfaceHidden ? '◱' : '⋯'}
+                    label={
+                        isInterfaceHidden
+                            ? 'Показать интерфейс редактора'
+                            : 'Скрыть интерфейс редактора'
+                    }
+                    className="notebook-header__menu-button"
+                    active={isInterfaceHidden}
+                    onClick={onToggleInterface}
+                />
 
                 {isMobile ? (
                     <Link to="/home" className="notebook-header__home-link">
@@ -87,7 +95,16 @@ function NotebookHeader({
                 ) : (
                     <label className="notebook-header__zoom">
                         <span className="notebook-header__zoom-label">Масштаб</span>
-                        <select className="notebook-header__zoom-select" defaultValue="100">
+                        <select
+                            className="notebook-header__zoom-select"
+                            defaultValue="100"
+                            disabled={isInterfaceHidden}
+                            title={
+                                isInterfaceHidden
+                                    ? 'Масштабирование недоступно в режиме фокуса'
+                                    : 'Масштаб'
+                            }
+                        >
                             <option value="75">75%</option>
                             <option value="100">100%</option>
                             <option value="125">125%</option>
@@ -96,7 +113,7 @@ function NotebookHeader({
                     </label>
                 )}
 
-                {!isMobile && (
+                {!isMobile && !isInterfaceHidden && (
                     <NotebookIconButton
                         icon={isSaving ? '…' : '💾'}
                         label={isSaving ? 'Сохранение...' : 'Сохранить notebook'}

@@ -37,6 +37,14 @@
     box-shadow: 0 10px 24px rgba(15, 23, 42, 0.16);
 }
 
+.notebook-editor--focus .notebook-editor__body {
+    display: block;
+}
+
+.notebook-editor--focus .notebook-editor__workspace {
+    height: calc(100vh - var(--header-height));
+}
+
 @media (max-width: 767px) {
     .notebook-editor {
         max-width: 430px;
