@@ -13,6 +13,8 @@ import type {
     NotebookAutoLayoutRequest,
     NotebookBlockRequest,
     NotebookBlockType,
+    NotebookSearchRequest,
+    NotebookSearchResult,
     NotebookViewportRequest,
     NotebookZoomValue,
 } from './notebookTypes';
@@ -53,6 +55,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
     const runRequestIdRef = useRef(0);
     const autoLayoutRequestIdRef = useRef(0);
     const viewportRequestIdRef = useRef(0);
+    const searchRequestIdRef = useRef(0);
 
     const [blockRequest, setBlockRequest] = useState<NotebookBlockRequest | null>(null);
     const [dismissedSuggestionIds, setDismissedSuggestionIds] = useState<string[]>([]);
@@ -73,6 +76,10 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
     const [zoomValue, setZoomValue] = useState<NotebookZoomValue>('100');
     const [viewportRequest, setViewportRequest] =
         useState<NotebookViewportRequest | null>(null);
+    const [searchRequest, setSearchRequest] =
+        useState<NotebookSearchRequest | null>(null);
+    const [searchResult, setSearchResult] =
+        useState<NotebookSearchResult | null>(null);
 
     const suggestion = useMemo(
         () => ({
@@ -260,6 +267,23 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         setIsInterfaceHidden((currentValue) => !currentValue);
     }, []);
 
+    const handleSearchBlocks = useCallback((query: string) => {
+        searchRequestIdRef.current += 1;
+
+        setSearchResult(null);
+        setSearchRequest({
+            requestId: searchRequestIdRef.current,
+            query,
+        });
+    }, []);
+
+    const handleSearchRequestHandled = useCallback((result: NotebookSearchResult) => {
+        setSearchResult(result);
+        setSearchRequest((currentRequest) =>
+            currentRequest?.requestId === result.requestId ? null : currentRequest,
+        );
+    }, []);
+
     return (
         <main
             className={
@@ -293,7 +317,12 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                 )}
 
                 <section className="notebook-editor__workspace">
-                    {!isInterfaceHidden && <NotebookSearch />}
+                    {!isInterfaceHidden && (
+                        <NotebookSearch
+                            result={searchResult}
+                            onSearch={handleSearchBlocks}
+                        />
+                    )}
 
                     <NotebookCanvas
                         readonly={!isDesktop}
@@ -312,6 +341,8 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                         onAutoLayoutRequestHandled={handleAutoLayoutRequestHandled}
                         viewportRequest={viewportRequest}
                         onViewportRequestHandled={handleViewportRequestHandled}
+                        searchRequest={searchRequest}
+                        onSearchRequestHandled={handleSearchRequestHandled}
                     />
 
                     {!isInterfaceHidden && (

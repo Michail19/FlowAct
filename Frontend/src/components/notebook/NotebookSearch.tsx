@@ -1,17 +1,93 @@
+import { type FormEvent, useState } from 'react';
+
+import type { NotebookSearchResult } from './notebookTypes';
+
 import './NotebookSearch.css';
 
-function NotebookSearch() {
+type NotebookSearchProps = {
+    result?: NotebookSearchResult | null;
+    onSearch: (query: string) => void;
+    onUndo?: () => void;
+    canUndo?: boolean;
+};
+
+function getSearchResultText(result?: NotebookSearchResult | null) {
+    if (!result) {
+        return '';
+    }
+
+    if (!result.query.trim()) {
+        return 'Введите запрос для поиска блока';
+    }
+
+    if (!result.found) {
+        return 'Ничего не найдено';
+    }
+
+    return `Найдено: ${(result.activeIndex ?? 0) + 1} из ${result.total} — ${result.matchedTitle}`;
+}
+
+function NotebookSearch({
+                            result = null,
+                            onSearch,
+                            onUndo,
+                            canUndo = false,
+                        }: NotebookSearchProps) {
+    const [query, setQuery] = useState('');
+
+    const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        onSearch(query);
+    };
+
+    const resultText = getSearchResultText(result);
+
     return (
         <div className="notebook-search">
-            <label className="notebook-search__label">
-                <span className="notebook-search__icon" aria-hidden="true">
-                    🔍
-                </span>
-                <span className="notebook-search__text">Поиск</span>
-                <input className="notebook-search__input" type="search" placeholder="Поиск" />
-            </label>
+            <form className="notebook-search__form" onSubmit={handleSubmit}>
+                <label className="notebook-search__label">
+                    <span className="notebook-search__icon" aria-hidden="true">
+                        🔍
+                    </span>
+                    <span className="notebook-search__text">Поиск</span>
 
-            <button className="notebook-search__undo" type="button">
+                    <input
+                        className="notebook-search__input"
+                        type="search"
+                        placeholder="Поиск блока"
+                        value={query}
+                        onChange={(event) => setQuery(event.target.value)}
+                    />
+                </label>
+
+                <button className="notebook-search__submit" type="submit">
+                    Найти
+                </button>
+
+                {resultText && (
+                    <span
+                        className={
+                            result?.found
+                                ? 'notebook-search__result notebook-search__result--found'
+                                : 'notebook-search__result'
+                        }
+                    >
+                        {resultText}
+                    </span>
+                )}
+            </form>
+
+            <button
+                className="notebook-search__undo"
+                type="button"
+                onClick={onUndo}
+                disabled={!canUndo}
+                title={
+                    canUndo
+                        ? 'Отменить последнее действие'
+                        : 'Undo будет подключён следующим этапом'
+                }
+            >
                 <span aria-hidden="true">↶</span>
                 <span>Undo</span>
             </button>

@@ -134,3 +134,18 @@ export type NotebookViewportRequest =
     mode: 'zoom';
     zoom: number;
 };
+
+export type NotebookSearchRequest = {
+    requestId: number;
+    query: string;
+};
+
+export type NotebookSearchResult = {
+    requestId: number;
+    query: string;
+    found: boolean;
+    total: number;
+    activeIndex?: number;
+    matchedNodeId?: string;
+    matchedTitle?: string;
+};

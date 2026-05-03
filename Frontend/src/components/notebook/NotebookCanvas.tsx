@@ -26,6 +26,8 @@ import type {
     NotebookAutoLayoutRequest,
     NotebookBlockRequest,
     NotebookNode,
+    NotebookSearchRequest,
+    NotebookSearchResult,
     NotebookViewportRequest,
 } from './notebookTypes';
 import type {
@@ -74,7 +76,55 @@ type NotebookCanvasProps = {
     onAutoLayoutRequestHandled?: (requestId: number) => void;
     viewportRequest?: NotebookViewportRequest | null;
     onViewportRequestHandled?: (requestId: number) => void;
+    searchRequest?: NotebookSearchRequest | null;
+    onSearchRequestHandled?: (result: NotebookSearchResult) => void;
 };
+
+function normalizeSearchQuery(query: string) {
+    return query.trim().toLowerCase();
+}
+
+function getSearchableNodeContent(node: NotebookNode) {
+    const configText = node.data.config
+        ? JSON.stringify(node.data.config)
+        : '';
+
+    const aiConfigText = node.data.aiConfig
+        ? JSON.stringify(node.data.aiConfig)
+        : '';
+
+    return [
+        node.data.title,
+        node.data.subtitle,
+        node.data.description,
+        node.data.blockType,
+        node.data.meta,
+        node.data.icon,
+        configText,
+        aiConfigText,
+    ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+}
+
+function sortNodesForSearch(nodes: NotebookNode[]) {
+    return [...nodes].sort((firstNode, secondNode) => {
+        if (firstNode.position.x !== secondNode.position.x) {
+            return firstNode.position.x - secondNode.position.x;
+        }
+
+        if (firstNode.position.y !== secondNode.position.y) {
+            return firstNode.position.y - secondNode.position.y;
+        }
+
+        return firstNode.id.localeCompare(secondNode.id);
+    });
+}
+
+function getApproximateNodeWidth(node: NotebookNode) {
+    return node.data.blockType === 'ai' ? 380 : 290;
+}
 
 function NotebookCanvas({
                             readonly = false,
@@ -93,11 +143,20 @@ function NotebookCanvas({
                             onAutoLayoutRequestHandled,
                             viewportRequest = null,
                             onViewportRequestHandled,
+                            searchRequest = null,
+                            onSearchRequestHandled,
                         }: NotebookCanvasProps) {
     const canvasRef = useRef<HTMLDivElement | null>(null);
     const nodeCounterRef = useRef(initialNodes.length);
     const loadedPayloadKeyRef = useRef<string | null>(null);
     const isWorkflowRunningRef = useRef(false);
+    const lastSearchResultRef = useRef<{
+        query: string;
+        nodeId: string | null;
+    }>({
+        query: '',
+        nodeId: null,
+    });
 
     const [reactFlowInstance, setReactFlowInstance] =
         useState<ReactFlowInstance<NotebookNode, Edge> | null>(null);
@@ -322,6 +381,125 @@ function NotebookCanvas({
         onViewportRequestHandled,
         reactFlowInstance,
         viewportRequest,
+    ]);
+
+    useEffect(() => {
+        if (!searchRequest || !reactFlowInstance) {
+            return;
+        }
+
+        const animationFrameId = window.requestAnimationFrame(() => {
+            const normalizedQuery = normalizeSearchQuery(searchRequest.query);
+
+            if (!normalizedQuery) {
+                lastSearchResultRef.current = {
+                    query: '',
+                    nodeId: null,
+                };
+
+                setNodes((currentNodes) =>
+                    currentNodes.map((node) => ({
+                        ...node,
+                        selected: false,
+                    })),
+                );
+
+                onSearchRequestHandled?.({
+                    requestId: searchRequest.requestId,
+                    query: searchRequest.query,
+                    found: false,
+                    total: 0,
+                });
+
+                return;
+            }
+
+            const matchedNodes = sortNodesForSearch(nodes).filter((node) =>
+                getSearchableNodeContent(node).includes(normalizedQuery),
+            );
+
+            if (matchedNodes.length === 0) {
+                lastSearchResultRef.current = {
+                    query: normalizedQuery,
+                    nodeId: null,
+                };
+
+                setNodes((currentNodes) =>
+                    currentNodes.map((node) => ({
+                        ...node,
+                        selected: false,
+                    })),
+                );
+
+                onSearchRequestHandled?.({
+                    requestId: searchRequest.requestId,
+                    query: searchRequest.query,
+                    found: false,
+                    total: 0,
+                });
+
+                return;
+            }
+
+            let activeIndex = 0;
+
+            if (lastSearchResultRef.current.query === normalizedQuery) {
+                const previousIndex = matchedNodes.findIndex(
+                    (node) => node.id === lastSearchResultRef.current.nodeId,
+                );
+
+                activeIndex =
+                    previousIndex >= 0
+                        ? (previousIndex + 1) % matchedNodes.length
+                        : 0;
+            }
+
+            const matchedNode = matchedNodes[activeIndex];
+
+            lastSearchResultRef.current = {
+                query: normalizedQuery,
+                nodeId: matchedNode.id,
+            };
+
+            setNodes((currentNodes) =>
+                currentNodes.map((node) => ({
+                    ...node,
+                    selected: node.id === matchedNode.id,
+                })),
+            );
+
+            const currentViewport = reactFlowInstance.getViewport();
+            const nodeWidth = getApproximateNodeWidth(matchedNode);
+
+            void reactFlowInstance.setCenter(
+                matchedNode.position.x + nodeWidth / 2,
+                matchedNode.position.y + 90,
+                {
+                    zoom: Math.max(currentViewport.zoom, 0.9),
+                    duration: 450,
+                },
+            );
+
+            onSearchRequestHandled?.({
+                requestId: searchRequest.requestId,
+                query: searchRequest.query,
+                found: true,
+                total: matchedNodes.length,
+                activeIndex,
+                matchedNodeId: matchedNode.id,
+                matchedTitle: matchedNode.data.title,
+            });
+        });
+
+        return () => {
+            window.cancelAnimationFrame(animationFrameId);
+        };
+    }, [
+        nodes,
+        onSearchRequestHandled,
+        reactFlowInstance,
+        searchRequest,
+        setNodes,
     ]);
 
     const getAvailableConditionBranch = useCallback(
