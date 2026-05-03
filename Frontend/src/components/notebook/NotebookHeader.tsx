@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { type FocusEvent, useState } from 'react';
 
 import NotebookIconButton from './NotebookIconButton';
+import type { NotebookZoomValue } from './notebookTypes';
 
 import './NotebookHeader.css';
 
@@ -14,6 +15,8 @@ type NotebookHeaderProps = {
     isSaving?: boolean;
     isInterfaceHidden?: boolean;
     onToggleInterface?: () => void;
+    zoomValue?: NotebookZoomValue;
+    onZoomChange?: (zoomValue: NotebookZoomValue) => void;
 };
 
 function formatUpdatedAt(updatedAt?: string) {
@@ -39,6 +42,8 @@ function NotebookHeader({
                             isSaving = false,
                             isInterfaceHidden = false,
                             onToggleInterface,
+                            zoomValue = '100',
+                            onZoomChange,
                         }: NotebookHeaderProps) {
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [draftTitle, setDraftTitle] = useState(title);
@@ -97,14 +102,13 @@ function NotebookHeader({
                         <span className="notebook-header__zoom-label">Масштаб</span>
                         <select
                             className="notebook-header__zoom-select"
-                            defaultValue="100"
-                            disabled={isInterfaceHidden}
-                            title={
-                                isInterfaceHidden
-                                    ? 'Масштабирование недоступно в режиме фокуса'
-                                    : 'Масштаб'
+                            value={zoomValue}
+                            title="Масштаб"
+                            onChange={(event) =>
+                                onZoomChange?.(event.target.value as NotebookZoomValue)
                             }
                         >
+                            <option value="auto">Авто</option>
                             <option value="75">75%</option>
                             <option value="100">100%</option>
                             <option value="125">125%</option>

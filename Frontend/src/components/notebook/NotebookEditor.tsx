@@ -13,6 +13,8 @@ import type {
     NotebookAutoLayoutRequest,
     NotebookBlockRequest,
     NotebookBlockType,
+    NotebookViewportRequest,
+    NotebookZoomValue,
 } from './notebookTypes';
 import type { NotebookPayloadDto } from './notebookBackendTypes';
 import { notebookApi } from '../../services/notebookApi';
@@ -50,6 +52,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
     const requestIdRef = useRef(0);
     const runRequestIdRef = useRef(0);
     const autoLayoutRequestIdRef = useRef(0);
+    const viewportRequestIdRef = useRef(0);
 
     const [blockRequest, setBlockRequest] = useState<NotebookBlockRequest | null>(null);
     const [dismissedSuggestionIds, setDismissedSuggestionIds] = useState<string[]>([]);
@@ -67,6 +70,9 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
     const [autoLayoutRequest, setAutoLayoutRequest] =
         useState<NotebookAutoLayoutRequest | null>(null);
     const [isInterfaceHidden, setIsInterfaceHidden] = useState(false);
+    const [zoomValue, setZoomValue] = useState<NotebookZoomValue>('100');
+    const [viewportRequest, setViewportRequest] =
+        useState<NotebookViewportRequest | null>(null);
 
     const suggestion = useMemo(
         () => ({
@@ -195,6 +201,33 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         );
     }, []);
 
+    const handleZoomChange = useCallback((nextZoomValue: NotebookZoomValue) => {
+        viewportRequestIdRef.current += 1;
+
+        setZoomValue(nextZoomValue);
+
+        if (nextZoomValue === 'auto') {
+            setViewportRequest({
+                requestId: viewportRequestIdRef.current,
+                mode: 'fit',
+            });
+
+            return;
+        }
+
+        setViewportRequest({
+            requestId: viewportRequestIdRef.current,
+            mode: 'zoom',
+            zoom: Number(nextZoomValue) / 100,
+        });
+    }, []);
+
+    const handleViewportRequestHandled = useCallback((requestId: number) => {
+        setViewportRequest((currentRequest) =>
+            currentRequest?.requestId === requestId ? null : currentRequest,
+        );
+    }, []);
+
     const handleRenameNotebook = useCallback(
         (nextTitle: string) => {
             const normalizedTitle = nextTitle.trim() || 'Без названия';
@@ -244,6 +277,8 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                 isSaving={isSaving}
                 isInterfaceHidden={isInterfaceHidden}
                 onToggleInterface={handleToggleInterface}
+                zoomValue={zoomValue}
+                onZoomChange={handleZoomChange}
             />
 
             <div className="notebook-editor__body">
@@ -275,6 +310,8 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                         onExecutionResultChange={setExecutionResult}
                         autoLayoutRequest={autoLayoutRequest}
                         onAutoLayoutRequestHandled={handleAutoLayoutRequestHandled}
+                        viewportRequest={viewportRequest}
+                        onViewportRequestHandled={handleViewportRequestHandled}
                     />
 
                     {!isInterfaceHidden && (

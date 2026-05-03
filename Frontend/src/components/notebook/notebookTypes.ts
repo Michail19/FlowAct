@@ -121,3 +121,16 @@ export type NotebookAutoLayoutRequest = {
     requestId: number;
     mode: NotebookAutoLayoutMode;
 };
+
+export type NotebookZoomValue = 'auto' | '75' | '100' | '125' | '150';
+
+export type NotebookViewportRequest =
+    | {
+    requestId: number;
+    mode: 'fit';
+}
+    | {
+    requestId: number;
+    mode: 'zoom';
+    zoom: number;
+};

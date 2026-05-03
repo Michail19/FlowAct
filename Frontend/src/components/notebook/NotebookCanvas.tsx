@@ -26,6 +26,7 @@ import type {
     NotebookAutoLayoutRequest,
     NotebookBlockRequest,
     NotebookNode,
+    NotebookViewportRequest,
 } from './notebookTypes';
 import type {
     NotebookExecutionLog,
@@ -71,6 +72,8 @@ type NotebookCanvasProps = {
     onExecutionResultChange?: (result: WorkflowExecutionResult | null) => void;
     autoLayoutRequest?: NotebookAutoLayoutRequest | null;
     onAutoLayoutRequestHandled?: (requestId: number) => void;
+    viewportRequest?: NotebookViewportRequest | null;
+    onViewportRequestHandled?: (requestId: number) => void;
 };
 
 function NotebookCanvas({
@@ -88,6 +91,8 @@ function NotebookCanvas({
                             onExecutionResultChange,
                             autoLayoutRequest = null,
                             onAutoLayoutRequestHandled,
+                            viewportRequest = null,
+                            onViewportRequestHandled,
                         }: NotebookCanvasProps) {
     const canvasRef = useRef<HTMLDivElement | null>(null);
     const nodeCounterRef = useRef(initialNodes.length);
@@ -282,6 +287,38 @@ function NotebookCanvas({
         onExecutionStatusChange?.('idle');
         onAutoLayoutRequestHandled?.(autoLayoutRequest.requestId);
     }, [autoLayoutRequest, edges, nodes, onAutoLayoutRequestHandled, onExecutionLogsChange, onExecutionStatusChange, reactFlowInstance, readonly, setEdges, setNodes]);
+
+    useEffect(() => {
+        if (!viewportRequest || !reactFlowInstance) {
+            return;
+        }
+
+        if (viewportRequest.mode === 'fit') {
+            window.requestAnimationFrame(() => {
+                reactFlowInstance.fitView({
+                    padding: 0.18,
+                });
+
+                onViewportRequestHandled?.(viewportRequest.requestId);
+            });
+
+            return;
+        }
+
+        const currentViewport = reactFlowInstance.getViewport();
+        const nextViewport: Viewport = {
+            ...currentViewport,
+            zoom: viewportRequest.zoom,
+        };
+
+        void reactFlowInstance.setViewport(nextViewport);
+        setViewport(nextViewport);
+        onViewportRequestHandled?.(viewportRequest.requestId);
+    }, [
+        onViewportRequestHandled,
+        reactFlowInstance,
+        viewportRequest,
+    ]);
 
     const getAvailableConditionBranch = useCallback(
         (sourceNodeId: string) => getAvailableConditionBranchForEdges(sourceNodeId, edges),
