@@ -431,6 +431,51 @@
     color: #ffffff;
 }
 
+.home-page__panel-title-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.home-page__sync-status {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: rgba(34, 211, 238, 0.12);
+    color: #22d3ee;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.home-page__profile svg {
+    display: block;
+}
+
+.home-page__create-button,
+.home-page__empty-create-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.home-page__create-button svg,
+.home-page__empty-create-button svg {
+    display: block;
+    flex: 0 0 auto;
+}
+
+.home-page__delete-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.home-page__delete-button svg {
+    display: block;
+}
+
 @media (hover: none) {
     .home-page__delete-button {
         opacity: 1;

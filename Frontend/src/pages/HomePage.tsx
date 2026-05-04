@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import {
@@ -6,8 +6,15 @@ import {
     deleteNotebookLocally,
     listNotebooksLocally,
     loadNotebookLocally,
+    saveNotebookLocally,
     type NotebookListItem,
 } from '../services/notebookStorage';
+import { notebookApi, type NotebookResponse } from '../services/notebookApi';
+import { workflowApi } from '../services/workflowApi';
+import { fromBackendWorkflowResponse } from '../components/notebook/backendWorkflowMapper';
+import type { NotebookPayloadDto } from '../components/notebook/notebookBackendTypes';
+import type { WorkflowResponse } from '../services/workflowApiTypes';
+import NotebookSvgIcon from '../components/notebook/NotebookSvgIcon';
 
 import './HomePage.css';
 
@@ -26,6 +33,55 @@ function getPreviewBlockClass(blockType: string) {
         'home-page__preview-block',
         `home-page__preview-block--${blockType}`,
     ].join(' ');
+}
+
+function findLocalNotebookByServerNotebookId(
+    serverNotebookId: string,
+): NotebookPayloadDto | null {
+    const localNotebooks = listNotebooksLocally();
+
+    for (const notebook of localNotebooks) {
+        const payload = loadNotebookLocally(notebook.id);
+
+        if (payload?.serverNotebookId === serverNotebookId) {
+            return payload;
+        }
+    }
+
+    return null;
+}
+
+function createLocalPayloadFromBackendNotebook(params: {
+    backendNotebook: NotebookResponse;
+    backendWorkflow?: WorkflowResponse;
+    fallbackPayload?: NotebookPayloadDto | null;
+}): NotebookPayloadDto {
+    const localNotebookId =
+        params.fallbackPayload?.id ?? params.backendNotebook.id;
+
+    if (params.backendWorkflow) {
+        return fromBackendWorkflowResponse({
+            localNotebookId,
+            notebook: params.backendNotebook,
+            workflow: params.backendWorkflow,
+            fallbackPayload: params.fallbackPayload,
+        });
+    }
+
+    return {
+        id: localNotebookId,
+        serverNotebookId: params.backendNotebook.id,
+        workflowId: params.fallbackPayload?.workflowId,
+        title: params.backendNotebook.name || 'Без названия',
+        version: params.fallbackPayload?.version ?? 1,
+        blocks: params.fallbackPayload?.blocks ?? [],
+        connections: params.fallbackPayload?.connections ?? [],
+        viewport: params.fallbackPayload?.viewport,
+        updatedAt:
+            params.backendNotebook.updatedAt ??
+            params.fallbackPayload?.updatedAt ??
+            new Date().toISOString(),
+    };
 }
 
 function NotebookPreview({ notebookId }: { notebookId: string }) {
@@ -122,11 +178,75 @@ function NotebookPreview({ notebookId }: { notebookId: string }) {
 
 function HomePage() {
     const navigate = useNavigate();
+
     const [notebooks, setNotebooks] = useState<NotebookListItem[]>(() =>
         listNotebooksLocally(),
     );
     const [search, setSearch] = useState('');
     const [notebookToDelete, setNotebookToDelete] = useState<NotebookListItem | null>(null);
+    const [isSyncing, setIsSyncing] = useState(false);
+
+    const syncNotebooksFromBackend = useCallback(async () => {
+        setIsSyncing(true);
+
+        try {
+            const backendNotebooks = await notebookApi.getNotebooks();
+
+            await Promise.all(
+                backendNotebooks.map(async (backendNotebook) => {
+                    const fallbackPayload = findLocalNotebookByServerNotebookId(
+                        backendNotebook.id,
+                    );
+
+                    let backendWorkflow: WorkflowResponse | undefined;
+
+                    try {
+                        const workflows = await workflowApi.getWorkflows(backendNotebook.id);
+                        backendWorkflow = workflows[0];
+                    } catch (error) {
+                        console.warn(
+                            `Failed to load workflows for notebook ${backendNotebook.id}`,
+                            error,
+                        );
+                    }
+
+                    const localPayload = createLocalPayloadFromBackendNotebook({
+                        backendNotebook,
+                        backendWorkflow,
+                        fallbackPayload,
+                    });
+
+                    saveNotebookLocally(localPayload);
+                }),
+            );
+
+            setNotebooks(listNotebooksLocally());
+
+            console.log('Home notebooks synced from backend:', backendNotebooks.length);
+        } catch (error) {
+            console.warn('Home backend sync failed, local notebooks are used:', error);
+            setNotebooks(listNotebooksLocally());
+        } finally {
+            setIsSyncing(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        let isCancelled = false;
+
+        const animationFrameId = window.requestAnimationFrame(() => {
+            if (isCancelled) {
+                return;
+            }
+
+            void syncNotebooksFromBackend();
+        });
+
+        return () => {
+            isCancelled = true;
+            window.cancelAnimationFrame(animationFrameId);
+        };
+    }, [syncNotebooksFromBackend]);
 
     const normalizedSearch = search.trim().toLowerCase();
     const isSearching = normalizedSearch.length > 0;
@@ -151,9 +271,22 @@ function HomePage() {
         setNotebookToDelete(notebook);
     };
 
-    const handleConfirmDeleteNotebook = () => {
+    const handleConfirmDeleteNotebook = async () => {
         if (!notebookToDelete) {
             return;
+        }
+
+        const payload = loadNotebookLocally(notebookToDelete.id);
+
+        try {
+            if (payload?.serverNotebookId) {
+                await notebookApi.deleteNotebook(payload.serverNotebookId);
+            }
+        } catch (error) {
+            console.warn(
+                `Failed to delete backend notebook ${payload?.serverNotebookId}`,
+                error,
+            );
         }
 
         deleteNotebookLocally(notebookToDelete.id);
@@ -181,7 +314,7 @@ function HomePage() {
                         aria-label="Профиль"
                         title="Профиль"
                     >
-                        ◕
+                        <NotebookSvgIcon name="user" size={18} />
                     </Link>
                 </header>
 
@@ -200,14 +333,23 @@ function HomePage() {
                                 type="button"
                                 onClick={handleCreateNotebook}
                             >
-                                + Создать notebook
+                                <NotebookSvgIcon name="plus" size={18} />
+                                <span>Создать notebook</span>
                             </button>
                         </div>
                     </div>
 
                     <section className="home-page__panel">
                         <div className="home-page__panel-header">
-                            <h2 className="home-page__panel-title">Notebook</h2>
+                            <div className="home-page__panel-title-row">
+                                <h2 className="home-page__panel-title">Notebook</h2>
+
+                                {isSyncing && (
+                                    <span className="home-page__sync-status">
+                                        Синхронизация...
+                                    </span>
+                                )}
+                            </div>
 
                             <input
                                 className="home-page__search"
@@ -235,7 +377,8 @@ function HomePage() {
                                         type="button"
                                         onClick={handleCreateNotebook}
                                     >
-                                        Создать notebook
+                                        <NotebookSvgIcon name="plus" size={18} />
+                                        <span>Создать notebook</span>
                                     </button>
                                 )}
                             </div>
@@ -270,7 +413,7 @@ function HomePage() {
                                             title="Удалить notebook"
                                             onClick={() => handleAskDeleteNotebook(notebook)}
                                         >
-                                            ×
+                                            <NotebookSvgIcon name="trash" size={15} />
                                         </button>
                                     </article>
                                 ))}

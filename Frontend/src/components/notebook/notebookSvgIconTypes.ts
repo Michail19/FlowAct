@@ -4,6 +4,7 @@ export const NOTEBOOK_SVG_ICON_NAMES = [
     'save',
     'loading',
     'home',
+    'plus',
     'user',
     'search',
     'undo',
