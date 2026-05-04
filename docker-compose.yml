@@ -104,7 +104,7 @@ services:
       FLOWACT_LLM_OPENROUTER_SITE_URL: ${FLOWACT_LLM_OPENROUTER_SITE_URL:-}
       FLOWACT_LLM_OPENROUTER_APP_NAME: ${FLOWACT_LLM_OPENROUTER_APP_NAME:-FlowAct}
     depends_on:
-      execution-service:
+      postgres:
         condition: service_healthy
       kafka:
         condition: service_healthy
