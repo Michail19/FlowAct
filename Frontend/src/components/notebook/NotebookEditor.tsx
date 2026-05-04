@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 
@@ -33,7 +33,10 @@ import type {
     WorkflowExecutionStatus,
     WorkflowRunRequest,
 } from './executionTypes';
-import { toBackendWorkflowRequest } from './backendWorkflowMapper';
+import {
+    fromBackendWorkflowResponse,
+    toBackendWorkflowRequest,
+} from './backendWorkflowMapper';
 import { workflowApi } from '../../services/workflowApi';
 
 import './NotebookEditor.css';
@@ -61,6 +64,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
     const viewportRequestIdRef = useRef(0);
     const searchRequestIdRef = useRef(0);
     const historyRequestIdRef = useRef(0);
+    const backendLoadKeyRef = useRef<string | null>(null);
 
     const [blockRequest, setBlockRequest] = useState<NotebookBlockRequest | null>(null);
     const [dismissedSuggestionIds, setDismissedSuggestionIds] = useState<string[]>([]);
@@ -106,6 +110,83 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
     const visibleSuggestion = dismissedSuggestionIds.includes(suggestion.id)
         ? null
         : suggestion;
+
+    useEffect(() => {
+        const sourcePayload = loadedNotebookPayload ?? initialNotebookPayload;
+        const serverNotebookId = sourcePayload?.serverNotebookId;
+
+        if (!serverNotebookId) {
+            return;
+        }
+
+        const workflowId = sourcePayload.workflowId;
+        const loadKey = `${serverNotebookId}:${workflowId ?? 'first-workflow'}`;
+
+        if (backendLoadKeyRef.current === loadKey) {
+            return;
+        }
+
+        backendLoadKeyRef.current = loadKey;
+
+        let isCancelled = false;
+
+        const animationFrameId = window.requestAnimationFrame(() => {
+            void (async () => {
+                try {
+                    const backendNotebook = await notebookApi.getNotebook(serverNotebookId);
+
+                    const backendWorkflow = workflowId
+                        ? await workflowApi.getWorkflow(serverNotebookId, workflowId)
+                        : (await workflowApi.getWorkflows(serverNotebookId))[0];
+
+                    if (!backendWorkflow) {
+                        return;
+                    }
+
+                    if (isCancelled) {
+                        return;
+                    }
+
+                    const restoredPayload = fromBackendWorkflowResponse({
+                        localNotebookId: notebookId,
+                        notebook: backendNotebook,
+                        workflow: backendWorkflow,
+                        fallbackPayload: sourcePayload,
+                    });
+
+                    const savedLocalNotebook = saveNotebookLocally(restoredPayload);
+
+                    setNotebookTitle(savedLocalNotebook.title);
+                    setLoadedNotebookPayload(savedLocalNotebook);
+                    setNotebookPayload(savedLocalNotebook);
+                    setSaveError(null);
+
+                    console.log('Notebook loaded from backend:', {
+                        serverNotebookId,
+                        workflowId: backendWorkflow.id,
+                    });
+                } catch (error) {
+                    if (isCancelled) {
+                        return;
+                    }
+
+                    console.warn(
+                        'Notebook backend loading failed, local copy is used:',
+                        error,
+                    );
+                }
+            })();
+        });
+
+        return () => {
+            isCancelled = true;
+            window.cancelAnimationFrame(animationFrameId);
+        };
+    }, [
+        initialNotebookPayload,
+        loadedNotebookPayload,
+        notebookId,
+    ]);
 
     const handleAddBlock = useCallback((blockType: NotebookBlockType) => {
         requestIdRef.current += 1;

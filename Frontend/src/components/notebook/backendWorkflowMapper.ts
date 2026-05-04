@@ -1,9 +1,21 @@
+import { getBlockDefinition } from './blockLibrary';
 import type {
+    NotebookBlockConfigDto,
     NotebookBlockDto,
     NotebookConnectionDto,
     NotebookPayloadDto,
 } from './notebookBackendTypes';
-import type { NotebookBlockType } from './notebookTypes';
+import type {
+    ActionBlockConfig,
+    ConditionBlockConfig,
+    DatabaseBlockConfig,
+    HttpBlockConfig,
+    LogBlockConfig,
+    LoopBlockConfig,
+    MergeBlockConfig,
+    NotebookBlockType,
+} from './notebookTypes';
+import type { NotebookResponse } from '../../services/notebookApi';
 import {
     DEFAULT_AI_MODEL_ID,
     isFreeAiModelId,
@@ -15,6 +27,7 @@ import type {
     BackendWorkflowBlockRequest,
     BackendWorkflowConnectionRequest,
     BackendWorkflowUpsertRequest,
+    WorkflowResponse,
 } from '../../services/workflowApiTypes';
 
 const UUID_REGEXP =
@@ -372,5 +385,369 @@ export function toBackendWorkflowRequest(
                 }
                 : undefined,
         },
+    };
+}
+
+const FRONTEND_BLOCK_TYPES = [
+    'start',
+    'end',
+    'ai',
+    'condition',
+    'action',
+    'database',
+    'email',
+    'log',
+    'http',
+    'loop',
+    'merge',
+] as const satisfies NotebookBlockType[];
+
+function isFrontendBlockType(value: unknown): value is NotebookBlockType {
+    return (
+        typeof value === 'string' &&
+        FRONTEND_BLOCK_TYPES.includes(value as NotebookBlockType)
+    );
+}
+
+function isBackendJsonObject(value: BackendJsonValue | undefined): value is BackendJsonObject {
+    return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function getConfigObject(
+    config: BackendJsonObject,
+    key: string,
+): BackendJsonObject | undefined {
+    const value = config[key];
+
+    return isBackendJsonObject(value) ? value : undefined;
+}
+
+function getConfigString(
+    config: BackendJsonObject | undefined,
+    key: string,
+    fallback = '',
+): string {
+    const value = config?.[key];
+
+    if (typeof value === 'string') {
+        return value;
+    }
+
+    if (typeof value === 'number' || typeof value === 'boolean') {
+        return String(value);
+    }
+
+    return fallback;
+}
+
+function getConfigStringArray(
+    config: BackendJsonObject | undefined,
+    key: string,
+): string[] {
+    const value = config?.[key];
+
+    if (!Array.isArray(value)) {
+        return [];
+    }
+
+    return value.filter((item): item is string => typeof item === 'string');
+}
+
+function stringifyForTextarea(value: BackendJsonValue | undefined, fallback = '') {
+    if (value === undefined || value === null) {
+        return fallback;
+    }
+
+    if (typeof value === 'string') {
+        return value;
+    }
+
+    return JSON.stringify(value, null, 2);
+}
+
+function getNumberFromPosition(
+    position: BackendWorkflowBlockRequest['position'],
+    key: 'x' | 'y',
+): number {
+    const value = position[key];
+
+    return typeof value === 'number' ? value : Number(value) || 0;
+}
+
+function getFrontendConfig(blockConfig: BackendJsonObject): BackendJsonObject | undefined {
+    return getConfigObject(blockConfig, 'frontend');
+}
+
+function getFrontendBlockTypeFromBackendBlock(
+    block: BackendWorkflowBlockRequest,
+): NotebookBlockType {
+    const frontendConfig = getFrontendConfig(block.config);
+    const frontendType = frontendConfig?.type;
+
+    if (isFrontendBlockType(frontendType)) {
+        return frontendType;
+    }
+
+    switch (block.type) {
+        case 'START':
+            return 'start';
+
+        case 'END':
+            return 'end';
+
+        case 'IF':
+            return 'condition';
+
+        case 'MERGE':
+            return 'merge';
+
+        case 'HTTP_REQUEST':
+            return 'http';
+
+        case 'LLM_REQUEST':
+        case 'ML_REQUEST':
+            return 'ai';
+
+        case 'TRANSFORM_JSON':
+        case 'SET_VARIABLE':
+        case 'MAP':
+        case 'FILTER':
+            return 'action';
+
+        case 'INPUT':
+        default:
+            return 'action';
+    }
+}
+
+function getFrontendBlockIdFromBackendBlock(block: BackendWorkflowBlockRequest) {
+    const frontendConfig = getFrontendConfig(block.config);
+    const frontendId = frontendConfig?.id;
+
+    return typeof frontendId === 'string' && frontendId.trim()
+        ? frontendId
+        : block.id;
+}
+
+function createConditionConfigFromBackendConfig(
+    config: BackendJsonObject,
+): NotebookBlockConfigDto['condition'] {
+    const frontendCondition = getConfigObject(config, 'frontendCondition');
+
+    if (frontendCondition) {
+        return {
+            leftValue: getConfigString(frontendCondition, 'leftValue', 'input.condition'),
+            operator:
+                getConfigString(frontendCondition, 'operator', 'exists') as ConditionBlockConfig['operator'],
+            rightValue: getConfigString(frontendCondition, 'rightValue'),
+        };
+    }
+
+    const variableName = getConfigString(config, 'variableName');
+    const inputKey = getConfigString(config, 'inputKey', 'condition');
+
+    return {
+        leftValue: variableName ? `variables.${variableName}` : `input.${inputKey}`,
+        operator: 'exists',
+        rightValue: getConfigString(config, 'expectedValue'),
+    };
+}
+
+function createFrontendBlockConfigFromBackendBlock(
+    block: BackendWorkflowBlockRequest,
+    frontendType: NotebookBlockType,
+): NotebookBlockConfigDto | undefined {
+    const config = block.config;
+
+    if (frontendType === 'ai') {
+        return {
+            ai: {
+                prompt: getConfigString(config, 'prompt'),
+                models:
+                    getConfigStringArray(config, 'models').length > 0
+                        ? getConfigStringArray(config, 'models')
+                        : [getConfigString(config, 'model', DEFAULT_AI_MODEL_ID)],
+            },
+        };
+    }
+
+    if (frontendType === 'condition') {
+        return {
+            condition: createConditionConfigFromBackendConfig(config),
+        };
+    }
+
+    if (frontendType === 'action') {
+        return {
+            action: {
+                actionType:
+                    getConfigString(config, 'actionType', 'transform') as ActionBlockConfig['actionType'],
+                parameters: getConfigString(config, 'parameters'),
+            },
+        };
+    }
+
+    if (frontendType === 'http') {
+        return {
+            http: {
+                method:
+                    getConfigString(config, 'method', 'GET') as HttpBlockConfig['method'],
+                url: getConfigString(config, 'url'),
+                headers: stringifyForTextarea(config.headers, '{}'),
+                body: stringifyForTextarea(config.body),
+            },
+        };
+    }
+
+    if (frontendType === 'loop') {
+        return {
+            loop: {
+                collectionPath: getConfigString(config, 'collectionPath', 'input.items'),
+                itemName: getConfigString(config, 'itemName', 'item'),
+                mode:
+                    getConfigString(config, 'mode', 'map') as LoopBlockConfig['mode'],
+            },
+        };
+    }
+
+    if (frontendType === 'merge') {
+        return {
+            merge: {
+                mode:
+                    getConfigString(config, 'mode', 'combine') as MergeBlockConfig['mode'],
+            },
+        };
+    }
+
+    if (frontendType === 'database') {
+        return {
+            database: {
+                operation:
+                    getConfigString(config, 'operation', 'select') as DatabaseBlockConfig['operation'],
+                tableName: getConfigString(config, 'tableName'),
+                query: getConfigString(config, 'query'),
+                payload: stringifyForTextarea(config.payload),
+            },
+        };
+    }
+
+    if (frontendType === 'email') {
+        return {
+            email: {
+                recipient: getConfigString(config, 'recipient'),
+                subject: getConfigString(config, 'subject'),
+                body: getConfigString(config, 'body'),
+            },
+        };
+    }
+
+    if (frontendType === 'log') {
+        return {
+            log: {
+                level:
+                    getConfigString(config, 'level', 'info') as LogBlockConfig['level'],
+                messageTemplate: getConfigString(config, 'messageTemplate', '{{result}}'),
+            },
+        };
+    }
+
+    return undefined;
+}
+
+function getConnectionLabelFromBackendCondition(condition?: string | null) {
+    if (condition === 'true') {
+        return 'Да';
+    }
+
+    if (condition === 'false') {
+        return 'Нет';
+    }
+
+    return undefined;
+}
+
+function getConnectionSourceHandleFromBackendCondition(condition?: string | null) {
+    if (condition === 'true') {
+        return 'yes';
+    }
+
+    if (condition === 'false') {
+        return 'no';
+    }
+
+    return undefined;
+}
+
+export function fromBackendWorkflowResponse(params: {
+    localNotebookId: string;
+    notebook: NotebookResponse;
+    workflow: WorkflowResponse;
+    fallbackPayload?: NotebookPayloadDto | null;
+}): NotebookPayloadDto {
+    const backendBlockIdToFrontendBlockId = new Map<string, string>();
+
+    params.workflow.blocks.forEach((block) => {
+        backendBlockIdToFrontendBlockId.set(
+            block.id,
+            getFrontendBlockIdFromBackendBlock(block),
+        );
+    });
+
+    const blocks: NotebookBlockDto[] = params.workflow.blocks.map((block) => {
+        const frontendType = getFrontendBlockTypeFromBackendBlock(block);
+        const definition = getBlockDefinition(frontendType);
+        const frontendConfig = getFrontendConfig(block.config);
+
+        return {
+            id: getFrontendBlockIdFromBackendBlock(block),
+            type: frontendType,
+            title: block.name || definition.title,
+            subtitle: getConfigString(
+                frontendConfig,
+                'subtitle',
+                definition.subtitle,
+            ),
+            description: getConfigString(
+                frontendConfig,
+                'description',
+                definition.description,
+            ),
+            position: {
+                x: getNumberFromPosition(block.position, 'x'),
+                y: getNumberFromPosition(block.position, 'y'),
+            },
+            config: createFrontendBlockConfigFromBackendBlock(block, frontendType),
+        };
+    });
+
+    const connections: NotebookConnectionDto[] = params.workflow.connections.map(
+        (connection) => ({
+            id: connection.id,
+            sourceBlockId:
+                backendBlockIdToFrontendBlockId.get(connection.fromBlockId) ??
+                connection.fromBlockId,
+            targetBlockId:
+                backendBlockIdToFrontendBlockId.get(connection.toBlockId) ??
+                connection.toBlockId,
+            sourceHandle: getConnectionSourceHandleFromBackendCondition(
+                connection.condition,
+            ),
+            label: getConnectionLabelFromBackendCondition(connection.condition),
+        }),
+    );
+
+    return {
+        id: params.localNotebookId,
+        serverNotebookId: params.notebook.id,
+        workflowId: params.workflow.id,
+        title: params.notebook.name || params.workflow.name || 'Без названия',
+        version: params.fallbackPayload?.version ?? 1,
+        blocks,
+        connections,
+        viewport: params.fallbackPayload?.viewport,
+        updatedAt:
+            params.workflow.updatedAt ??
+            params.notebook.updatedAt ??
+            new Date().toISOString(),
     };
 }

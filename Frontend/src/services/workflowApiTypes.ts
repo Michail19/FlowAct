@@ -99,14 +99,25 @@ export type WorkflowStatus =
     | 'ACTIVE'
     | 'ARCHIVED';
 
+export type BackendWorkflowBlockResponse = BackendWorkflowBlockRequest & {
+    workflowId?: string;
+    createdAt?: string;
+    updatedAt?: string;
+};
+
+export type BackendWorkflowConnectionResponse = BackendWorkflowConnectionRequest & {
+    workflowId?: string;
+    createdAt?: string;
+};
+
 export type WorkflowResponse = {
     id: string;
     notebookId: string;
     name: string;
     description: string | null;
     status: WorkflowStatus;
-    blocks: BackendWorkflowBlockRequest[];
-    connections: BackendWorkflowConnectionRequest[];
+    blocks: BackendWorkflowBlockResponse[];
+    connections: BackendWorkflowConnectionResponse[];
     createdAt: string;
     updatedAt: string;
 };
