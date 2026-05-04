@@ -4,6 +4,10 @@ import type {
     NotebookPayloadDto,
 } from './notebookBackendTypes';
 import type { NotebookBlockType } from './notebookTypes';
+import {
+    DEFAULT_AI_MODEL_ID,
+    isFreeAiModelId,
+} from './aiModels';
 import type {
     BackendBlockType,
     BackendJsonObject,
@@ -50,12 +54,16 @@ function createStableUuidFromString(input: string) {
     ].join('-');
 }
 
+function createStableId(input: string) {
+    return createStableUuidFromString(input);
+}
+
 function toBackendUuid(value: string, namespace: string) {
     if (isUuid(value)) {
         return value;
     }
 
-    return createStableUuidFromString(`${namespace}:${value}`);
+    return createStableId(`${namespace}:${value}`);
 }
 
 function parseJsonValue(value: string): BackendJsonValue {
@@ -161,14 +169,42 @@ function createBaseBlockConfig(block: NotebookBlockDto): BackendJsonObject {
     };
 }
 
+const LEGACY_FREE_MODEL_ALIASES: Record<string, string> = {
+    'openai-gpt-4o': 'openai/gpt-oss-120b:free',
+    'openai-gpt-4o-mini': 'openai/gpt-oss-20b:free',
+    'anthropic-claude-sonnet': DEFAULT_AI_MODEL_ID,
+    'google-gemini-pro': 'google/gemma-4-31b-it:free',
+    'mistral-large': DEFAULT_AI_MODEL_ID,
+    'deepseek-chat': DEFAULT_AI_MODEL_ID,
+};
+
+function normalizeAiModels(models?: string[]) {
+    const normalizedModels = Array.from(
+        new Set(
+            (models ?? [])
+                .map((modelId) => LEGACY_FREE_MODEL_ALIASES[modelId] ?? modelId)
+                .filter(isFreeAiModelId),
+        ),
+    );
+
+    if (normalizedModels.length > 0) {
+        return normalizedModels;
+    }
+
+    return [DEFAULT_AI_MODEL_ID];
+}
+
 function createBackendBlockConfig(block: NotebookBlockDto): BackendJsonObject {
     const baseConfig = createBaseBlockConfig(block);
 
     if (block.type === 'ai') {
+        const models = normalizeAiModels(block.config?.ai?.models);
+
         return {
             ...baseConfig,
             prompt: block.config?.ai?.prompt ?? '',
-            models: block.config?.ai?.models ?? [],
+            model: models[0],
+            models,
         };
     }
 
