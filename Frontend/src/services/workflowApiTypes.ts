@@ -110,6 +110,16 @@ export type BackendWorkflowConnectionResponse = BackendWorkflowConnectionRequest
     createdAt?: string;
 };
 
+export type WorkflowShortResponse = {
+    id: string;
+    notebookId: string;
+    name: string;
+    description: string | null;
+    status: WorkflowStatus;
+    createdAt: string;
+    updatedAt: string;
+};
+
 export type WorkflowResponse = {
     id: string;
     notebookId: string;

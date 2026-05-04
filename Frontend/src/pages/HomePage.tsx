@@ -201,8 +201,15 @@ function HomePage() {
                     let backendWorkflow: WorkflowResponse | undefined;
 
                     try {
-                        const workflows = await workflowApi.getWorkflows(backendNotebook.id);
-                        backendWorkflow = workflows[0];
+                        const workflowSummaries = await workflowApi.getWorkflows(backendNotebook.id);
+                        const firstWorkflowSummary = workflowSummaries[0];
+
+                        if (firstWorkflowSummary) {
+                            backendWorkflow = await workflowApi.getWorkflow(
+                                backendNotebook.id,
+                                firstWorkflowSummary.id,
+                            );
+                        }
                     } catch (error) {
                         console.warn(
                             `Failed to load workflows for notebook ${backendNotebook.id}`,

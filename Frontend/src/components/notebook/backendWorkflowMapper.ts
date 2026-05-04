@@ -684,16 +684,19 @@ export function fromBackendWorkflowResponse(params: {
     workflow: WorkflowResponse;
     fallbackPayload?: NotebookPayloadDto | null;
 }): NotebookPayloadDto {
+    const workflowBlocks = params.workflow.blocks ?? [];
+    const workflowConnections = params.workflow.connections ?? [];
+
     const backendBlockIdToFrontendBlockId = new Map<string, string>();
 
-    params.workflow.blocks.forEach((block) => {
+    workflowBlocks.forEach((block) => {
         backendBlockIdToFrontendBlockId.set(
             block.id,
             getFrontendBlockIdFromBackendBlock(block),
         );
     });
 
-    const blocks: NotebookBlockDto[] = params.workflow.blocks.map((block) => {
+    const blocks: NotebookBlockDto[] = workflowBlocks.map((block) => {
         const frontendType = getFrontendBlockTypeFromBackendBlock(block);
         const definition = getBlockDefinition(frontendType);
         const frontendConfig = getFrontendConfig(block.config);
@@ -720,7 +723,7 @@ export function fromBackendWorkflowResponse(params: {
         };
     });
 
-    const connections: NotebookConnectionDto[] = params.workflow.connections.map(
+    const connections: NotebookConnectionDto[] = workflowConnections.map(
         (connection) => ({
             id: connection.id,
             sourceBlockId:

@@ -135,9 +135,23 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                 try {
                     const backendNotebook = await notebookApi.getNotebook(serverNotebookId);
 
-                    const backendWorkflow = workflowId
-                        ? await workflowApi.getWorkflow(serverNotebookId, workflowId)
-                        : (await workflowApi.getWorkflows(serverNotebookId))[0];
+                    let backendWorkflow;
+
+                    if (workflowId) {
+                        backendWorkflow = await workflowApi.getWorkflow(serverNotebookId, workflowId);
+                    } else {
+                        const workflowSummaries = await workflowApi.getWorkflows(serverNotebookId);
+                        const firstWorkflowSummary = workflowSummaries[0];
+
+                        if (!firstWorkflowSummary) {
+                            return;
+                        }
+
+                        backendWorkflow = await workflowApi.getWorkflow(
+                            serverNotebookId,
+                            firstWorkflowSummary.id,
+                        );
+                    }
 
                     if (!backendWorkflow) {
                         return;

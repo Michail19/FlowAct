@@ -3,6 +3,7 @@ import type {
     BackendWorkflowUpsertRequest,
     WorkflowRequest,
     WorkflowResponse,
+    WorkflowShortResponse,
 } from './workflowApiTypes';
 
 function getWorkflowEndpoint(notebookId: string) {
@@ -47,7 +48,7 @@ export const workflowApi = {
     },
 
     getWorkflows(notebookId: string) {
-        return apiClient.get<WorkflowResponse[]>(getWorkflowEndpoint(notebookId));
+        return apiClient.get<WorkflowShortResponse[]>(getWorkflowEndpoint(notebookId));
     },
 
     validateWorkflow(notebookId: string, workflowId: string) {
