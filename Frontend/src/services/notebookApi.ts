@@ -1,31 +1,39 @@
-import type { NotebookPayloadDto } from '../components/notebook/notebookBackendTypes';
-
 import { apiClient } from './apiClient';
 
-const NOTEBOOKS_ENDPOINT = '/notebooks';
+const NOTEBOOKS_ENDPOINT = '/v1/notebooks';
+
+export type NotebookRequest = {
+    name: string;
+    description?: string | null;
+};
+
+export type NotebookResponse = {
+    id: string;
+    ownerUserId: string;
+    name: string;
+    description: string | null;
+    createdAt: string;
+    updatedAt: string;
+};
 
 export const notebookApi = {
     getNotebook(notebookId: string) {
-        return apiClient.get<NotebookPayloadDto>(`${NOTEBOOKS_ENDPOINT}/${notebookId}`);
+        return apiClient.get<NotebookResponse>(`${NOTEBOOKS_ENDPOINT}/${notebookId}`);
     },
 
-    createNotebook(payload: NotebookPayloadDto) {
-        return apiClient.post<NotebookPayloadDto>(NOTEBOOKS_ENDPOINT, payload);
+    getNotebooks() {
+        return apiClient.get<NotebookResponse[]>(NOTEBOOKS_ENDPOINT);
     },
 
-    updateNotebook(notebookId: string, payload: NotebookPayloadDto) {
-        return apiClient.put<NotebookPayloadDto>(
+    createNotebook(request: NotebookRequest) {
+        return apiClient.post<NotebookResponse>(NOTEBOOKS_ENDPOINT, request);
+    },
+
+    updateNotebook(notebookId: string, request: NotebookRequest) {
+        return apiClient.put<NotebookResponse>(
             `${NOTEBOOKS_ENDPOINT}/${notebookId}`,
-            payload,
+            request,
         );
-    },
-
-    saveNotebook(payload: NotebookPayloadDto) {
-        if (payload.id) {
-            return this.updateNotebook(payload.id, payload);
-        }
-
-        return this.createNotebook(payload);
     },
 
     deleteNotebook(notebookId: string) {

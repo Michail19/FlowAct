@@ -69,6 +69,18 @@ export type NotebookConnectionDto = {
 
 export type NotebookPayloadDto = {
     id?: string;
+
+    /**
+     * Локальный id нужен для frontend/localStorage/route.
+     * Backend notebook id храним отдельно, потому что backend сам создаёт UUID.
+     */
+    serverNotebookId?: string;
+
+    /**
+     * Backend workflow id для сохранения схемы блоков и связей.
+     */
+    workflowId?: string;
+
     title: string;
     version: number;
     blocks: NotebookBlockDto[];

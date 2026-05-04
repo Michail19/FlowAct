@@ -34,6 +34,7 @@ import type {
     WorkflowRunRequest,
 } from './executionTypes';
 import { toBackendWorkflowRequest } from './backendWorkflowMapper';
+import { workflowApi } from '../../services/workflowApi';
 
 import './NotebookEditor.css';
 
@@ -148,21 +149,69 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
             updatedAt: new Date().toISOString(),
         };
 
-        const backendWorkflowPayload = toBackendWorkflowRequest(payloadToSave);
-
-        console.log('Backend workflow contract:', backendWorkflowPayload);
-
         setIsSaving(true);
         setSaveError(null);
 
         try {
-            const savedNotebook = await notebookApi.saveNotebook(payloadToSave);
-            const savedLocalNotebook = saveNotebookLocally(savedNotebook);
+            const notebookRequest = {
+                name: payloadToSave.title,
+                description: `FlowAct notebook: ${payloadToSave.title}`,
+            };
+
+            let serverNotebookId = payloadToSave.serverNotebookId;
+
+            if (serverNotebookId) {
+                await notebookApi.updateNotebook(serverNotebookId, notebookRequest);
+            } else {
+                const createdNotebook = await notebookApi.createNotebook(notebookRequest);
+                serverNotebookId = createdNotebook.id;
+            }
+
+            const payloadWithServerNotebookId: NotebookPayloadDto = {
+                ...payloadToSave,
+                serverNotebookId,
+            };
+
+            const backendWorkflowPayload = toBackendWorkflowRequest(
+                payloadWithServerNotebookId,
+            );
+
+            console.log('Backend workflow contract:', backendWorkflowPayload);
+
+            let workflowId = payloadWithServerNotebookId.workflowId;
+
+            if (workflowId) {
+                const updatedWorkflow = await workflowApi.updateWorkflow(
+                    serverNotebookId,
+                    workflowId,
+                    backendWorkflowPayload,
+                );
+
+                workflowId = updatedWorkflow.id;
+            } else {
+                const createdWorkflow = await workflowApi.createWorkflow(
+                    serverNotebookId,
+                    backendWorkflowPayload,
+                );
+
+                workflowId = createdWorkflow.id;
+            }
+
+            const savedPayload: NotebookPayloadDto = {
+                ...payloadWithServerNotebookId,
+                workflowId,
+                updatedAt: new Date().toISOString(),
+            };
+
+            const savedLocalNotebook = saveNotebookLocally(savedPayload);
 
             setLoadedNotebookPayload(savedLocalNotebook);
             setNotebookPayload(savedLocalNotebook);
 
-            console.log('Notebook saved via API:', savedNotebook);
+            console.log('Notebook and workflow saved via API:', {
+                serverNotebookId,
+                workflowId,
+            });
         } catch (error) {
             const savedLocalNotebook = saveNotebookLocally(payloadToSave);
 

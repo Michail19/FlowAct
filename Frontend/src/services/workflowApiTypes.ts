@@ -93,3 +93,27 @@ export type ExecutionLogResponse = {
     error: string | null;
     createdAt: string;
 };
+
+export type WorkflowStatus =
+    | 'DRAFT'
+    | 'ACTIVE'
+    | 'ARCHIVED';
+
+export type WorkflowResponse = {
+    id: string;
+    notebookId: string;
+    name: string;
+    description: string | null;
+    status: WorkflowStatus;
+    blocks: BackendWorkflowBlockRequest[];
+    connections: BackendWorkflowConnectionRequest[];
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type WorkflowRequest = {
+    name: string;
+    description?: string | null;
+    blocks: BackendWorkflowBlockRequest[];
+    connections: BackendWorkflowConnectionRequest[];
+};

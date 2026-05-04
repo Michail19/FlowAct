@@ -352,13 +352,18 @@ export function toBackendWorkflowRequest(
     );
 
     return {
-        id: payload.id ? toBackendUuid(payload.id, 'workflow') : undefined,
+        id: payload.workflowId
+            ? toBackendUuid(payload.workflowId, 'workflow')
+            : undefined,
+        notebookId: payload.serverNotebookId,
         name: payload.title,
         blocks,
         connections,
         metadata: {
             frontendVersion: payload.version,
             frontendUpdatedAt: payload.updatedAt,
+            localNotebookId: payload.id,
+            description: '',
             viewport: payload.viewport
                 ? {
                     x: payload.viewport.x,
