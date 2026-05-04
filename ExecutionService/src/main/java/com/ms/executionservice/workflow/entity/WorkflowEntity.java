@@ -2,6 +2,7 @@ package com.ms.executionservice.workflow.entity;
 
 import com.ms.executionservice.common.entity.BaseEntity;
 import com.ms.executionservice.execution.entity.ExecutionEntity;
+import com.ms.executionservice.notebooks.entity.NotebookEntity;
 import com.ms.executionservice.workflow.enumtype.WorkflowStatus;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -14,11 +15,11 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.util.ArrayList;
 import java.util.List;
