@@ -5,44 +5,57 @@ export type AiModelOption = {
     description: string;
 };
 
-export const DEFAULT_AI_MODEL_ID = 'openai-gpt-4o';
+export const DEFAULT_AI_MODEL_ID = 'openrouter/free';
 
 export const AI_MODEL_OPTIONS: AiModelOption[] = [
     {
-        id: 'openai-gpt-4o',
-        name: 'GPT-4o',
+        id: 'openrouter/free',
+        name: 'OpenRouter Free Router',
+        provider: 'OpenRouter',
+        description:
+            'Автоматически выбирает доступную бесплатную модель. Лучший вариант для MVP и локального тестирования.',
+    },
+    {
+        id: 'openai/gpt-oss-120b:free',
+        name: 'gpt-oss-120b Free',
         provider: 'OpenAI',
-        description: 'Универсальная модель для текста и сложной логики.',
+        description:
+            'Бесплатная open-weight модель OpenAI для сложной логики, рассуждений и агентных сценариев.',
     },
     {
-        id: 'openai-gpt-4o-mini',
-        name: 'GPT-4o mini',
+        id: 'openai/gpt-oss-20b:free',
+        name: 'gpt-oss-20b Free',
         provider: 'OpenAI',
-        description: 'Быстрая модель для простых операций и черновиков.',
+        description:
+            'Более лёгкая бесплатная модель OpenAI для быстрых ответов, черновиков и простых операций.',
     },
     {
-        id: 'anthropic-claude-sonnet',
-        name: 'Claude Sonnet',
-        provider: 'Anthropic',
-        description: 'Подходит для анализа, длинных текстов и аккуратных ответов.',
-    },
-    {
-        id: 'google-gemini-pro',
-        name: 'Gemini Pro',
+        id: 'google/gemma-4-31b-it:free',
+        name: 'Gemma 4 31B Free',
         provider: 'Google',
-        description: 'Альтернативная модель для генерации и обработки текста.',
+        description:
+            'Бесплатная мультимодальная модель Google для текста, анализа документов и работы с изображениями.',
     },
     {
-        id: 'mistral-large',
-        name: 'Mistral Large',
-        provider: 'Mistral',
-        description: 'Модель для текстовых задач и рассуждений.',
+        id: 'z-ai/glm-4.5-air:free',
+        name: 'GLM 4.5 Air Free',
+        provider: 'Z.ai',
+        description:
+            'Бесплатная модель для агентных сценариев, рассуждений и автоматизации рабочих процессов.',
     },
     {
-        id: 'deepseek-chat',
-        name: 'DeepSeek Chat',
-        provider: 'DeepSeek',
-        description: 'Модель для диалоговых и программных задач.',
+        id: 'qwen/qwen3-coder:free',
+        name: 'Qwen3 Coder Free',
+        provider: 'Qwen',
+        description:
+            'Бесплатная модель, оптимизированная для кода, tool-use и технических workflow-задач.',
+    },
+    {
+        id: 'minimax/minimax-m2.5:free',
+        name: 'MiniMax M2.5 Free',
+        provider: 'MiniMax',
+        description:
+            'Бесплатная модель для офисных, текстовых, табличных и прикладных productivity-задач.',
     },
 ];
 
@@ -52,4 +65,8 @@ export function getAiModelOption(modelId: string): AiModelOption | undefined {
 
 export function getAiModelName(modelId: string): string {
     return getAiModelOption(modelId)?.name ?? modelId;
+}
+
+export function isFreeAiModelId(modelId: string): boolean {
+    return modelId === 'openrouter/free' || modelId.endsWith(':free');
 }
