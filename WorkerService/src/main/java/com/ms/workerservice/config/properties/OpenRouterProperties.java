@@ -9,6 +9,10 @@ public record OpenRouterProperties(
         String apiKey,
         String defaultModel,
         String siteUrl,
-        String appName
+        String appName,
+        Boolean allowPaidModels
 ) {
+    public boolean isPaidModelAllowed() {
+        return Boolean.TRUE.equals(allowPaidModels);
+    }
 }
