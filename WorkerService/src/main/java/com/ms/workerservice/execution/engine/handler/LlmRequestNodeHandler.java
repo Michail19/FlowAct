@@ -20,6 +20,17 @@ import java.util.Map;
 @Component
 public class LlmRequestNodeHandler implements NodeHandler {
 
+    private static final String FREE_ROUTER_MODEL = "openrouter/free";
+
+    private static final Map<String, String> LEGACY_FREE_MODEL_ALIASES = Map.of(
+            "openai-gpt-4o", "openai/gpt-oss-120b:free",
+            "openai-gpt-4o-mini", "openai/gpt-oss-20b:free",
+            "anthropic-claude-sonnet", FREE_ROUTER_MODEL,
+            "google-gemini-pro", "google/gemma-4-31b-it:free",
+            "mistral-large", FREE_ROUTER_MODEL,
+            "deepseek-chat", FREE_ROUTER_MODEL
+    );
+
     private final JsonHelper jsonHelper;
     private final RestClient restClient;
     private final OpenRouterProperties openRouterProperties;
@@ -69,6 +80,7 @@ public class LlmRequestNodeHandler implements NodeHandler {
                         }
                         if (openRouterProperties.appName() != null && !openRouterProperties.appName().isBlank()) {
                             headers.add("X-Title", openRouterProperties.appName());
+                            headers.add("X-OpenRouter-Title", openRouterProperties.appName());
                         }
                     })
                     .body(requestBody)
@@ -107,7 +119,7 @@ public class LlmRequestNodeHandler implements NodeHandler {
             ResolvedInput input,
             ExecutionContext context
     ) {
-        String model = stringOrDefault(config.get("model"), openRouterProperties.defaultModel());
+        String model = resolveModel(config);
         String systemPrompt = stringOrNull(config.get("systemPrompt"));
         String userPrompt = resolveUserPrompt(config, input, context);
 
@@ -124,6 +136,47 @@ public class LlmRequestNodeHandler implements NodeHandler {
         }
 
         return requestBody;
+    }
+
+    private String resolveModel(Map<String, Object> config) {
+        String configuredModel = stringOrNull(config.get("model"));
+
+        if (configuredModel == null) {
+            configuredModel = getFirstConfiguredModel(config.get("models"));
+        }
+
+        String defaultModel = stringOrDefault(openRouterProperties.defaultModel(), FREE_ROUTER_MODEL);
+        String model = normalizeModelId(stringOrDefault(configuredModel, defaultModel));
+
+        if (!openRouterProperties.isPaidModelAllowed() && !isFreeModel(model)) {
+            throw new IllegalStateException(
+                    "Paid OpenRouter model is blocked by configuration: " + model
+                            + ". Use openrouter/free or a model id ending with :free."
+            );
+        }
+
+        return model;
+    }
+
+    private String getFirstConfiguredModel(Object modelsValue) {
+        if (modelsValue instanceof List<?> models) {
+            return models.stream()
+                    .filter(model -> model != null && !String.valueOf(model).isBlank())
+                    .map(String::valueOf)
+                    .findFirst()
+                    .orElse(null);
+        }
+
+        return null;
+    }
+
+    private String normalizeModelId(String model) {
+        String trimmedModel = model.trim();
+        return LEGACY_FREE_MODEL_ALIASES.getOrDefault(trimmedModel, trimmedModel);
+    }
+
+    private boolean isFreeModel(String model) {
+        return FREE_ROUTER_MODEL.equals(model) || model.endsWith(":free");
     }
 
     private List<Map<String, Object>> buildMessages(String systemPrompt, String userPrompt) {
