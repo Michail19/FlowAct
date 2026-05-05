@@ -38,6 +38,7 @@ import {
     toBackendWorkflowRequest,
 } from './backendWorkflowMapper';
 import { workflowApi } from '../../services/workflowApi';
+import { createExecutionLog } from './workflowExecution';
 
 import './NotebookEditor.css';
 
@@ -232,103 +233,182 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         );
     }, []);
 
-    const handleSaveNotebook = useCallback(async () => {
-        if (!notebookPayload) {
-            return;
-        }
+    const saveNotebookToBackend = useCallback(
+        async (options: { fallbackToLocal?: boolean } = {}) => {
+            if (!notebookPayload) {
+                return null;
+            }
 
-        const payloadToSave: NotebookPayloadDto = {
-            ...notebookPayload,
-            id: notebookId,
-            title: notebookTitle,
-            updatedAt: new Date().toISOString(),
-        };
+            const payloadToSave: NotebookPayloadDto = {
+                ...notebookPayload,
+                id: notebookId,
+                title: notebookTitle,
+                updatedAt: new Date().toISOString(),
+            };
+
+            try {
+                const notebookRequest = {
+                    name: payloadToSave.title,
+                    description: `FlowAct notebook: ${payloadToSave.title}`,
+                };
+
+                let serverNotebookId = payloadToSave.serverNotebookId;
+
+                if (serverNotebookId) {
+                    await notebookApi.updateNotebook(serverNotebookId, notebookRequest);
+                } else {
+                    const createdNotebook = await notebookApi.createNotebook(notebookRequest);
+                    serverNotebookId = createdNotebook.id;
+                }
+
+                const payloadWithServerNotebookId: NotebookPayloadDto = {
+                    ...payloadToSave,
+                    serverNotebookId,
+                };
+
+                const backendWorkflowPayload = toBackendWorkflowRequest(
+                    payloadWithServerNotebookId,
+                );
+
+                console.log('Backend workflow contract:', backendWorkflowPayload);
+
+                let workflowId = payloadWithServerNotebookId.workflowId;
+
+                if (workflowId) {
+                    const updatedWorkflow = await workflowApi.updateWorkflow(
+                        serverNotebookId,
+                        workflowId,
+                        backendWorkflowPayload,
+                    );
+
+                    workflowId = updatedWorkflow.id;
+                } else {
+                    const createdWorkflow = await workflowApi.createWorkflow(
+                        serverNotebookId,
+                        backendWorkflowPayload,
+                    );
+
+                    workflowId = createdWorkflow.id;
+                }
+
+                const savedPayload: NotebookPayloadDto = {
+                    ...payloadWithServerNotebookId,
+                    workflowId,
+                    updatedAt: new Date().toISOString(),
+                };
+
+                const savedLocalNotebook = saveNotebookLocally(savedPayload);
+
+                setLoadedNotebookPayload(savedLocalNotebook);
+                setNotebookPayload(savedLocalNotebook);
+                setSaveError(null);
+
+                console.log('Notebook and workflow saved via API:', {
+                    serverNotebookId,
+                    workflowId,
+                });
+
+                return savedLocalNotebook;
+            } catch (error) {
+                if (options.fallbackToLocal === false) {
+                    setSaveError('Не удалось сохранить workflow перед запуском.');
+                    throw error;
+                }
+
+                const savedLocalNotebook = saveNotebookLocally(payloadToSave);
+
+                setLoadedNotebookPayload(savedLocalNotebook);
+                setNotebookPayload(savedLocalNotebook);
+                setSaveError('Backend недоступен, notebook сохранён локально.');
+
+                console.warn('Notebook saved locally because API is unavailable:', error);
+
+                return savedLocalNotebook;
+            }
+        },
+        [notebookId, notebookPayload, notebookTitle],
+    );
+
+    const handleSaveNotebook = useCallback(async () => {
+        setIsSaving(true);
+        setSaveError(null);
+
+        try {
+            await saveNotebookToBackend({
+                fallbackToLocal: true,
+            });
+        } finally {
+            setIsSaving(false);
+        }
+    }, [saveNotebookToBackend]);
+
+    const handleRunWorkflow = useCallback(async () => {
+        runRequestIdRef.current += 1;
+        const requestId = runRequestIdRef.current;
+
+        setExecutionResult(null);
+        setIsRunPanelOpen(true);
+        setExecutionStatus('pending');
+        setExecutionLogs([
+            createExecutionLog({
+                level: 'info',
+                status: 'pending',
+                message: 'Сохранение workflow перед запуском.',
+            }),
+        ]);
 
         setIsSaving(true);
         setSaveError(null);
 
         try {
-            const notebookRequest = {
-                name: payloadToSave.title,
-                description: `FlowAct notebook: ${payloadToSave.title}`,
-            };
+            const savedPayload = await saveNotebookToBackend({
+                fallbackToLocal: false,
+            });
 
-            let serverNotebookId = payloadToSave.serverNotebookId;
-
-            if (serverNotebookId) {
-                await notebookApi.updateNotebook(serverNotebookId, notebookRequest);
-            } else {
-                const createdNotebook = await notebookApi.createNotebook(notebookRequest);
-                serverNotebookId = createdNotebook.id;
+            if (!savedPayload?.serverNotebookId || !savedPayload.workflowId) {
+                throw new Error('Workflow не имеет serverNotebookId или workflowId.');
             }
 
-            const payloadWithServerNotebookId: NotebookPayloadDto = {
-                ...payloadToSave,
-                serverNotebookId,
-            };
-
-            const backendWorkflowPayload = toBackendWorkflowRequest(
-                payloadWithServerNotebookId,
-            );
-
-            console.log('Backend workflow contract:', backendWorkflowPayload);
-
-            let workflowId = payloadWithServerNotebookId.workflowId;
-
-            if (workflowId) {
-                const updatedWorkflow = await workflowApi.updateWorkflow(
-                    serverNotebookId,
-                    workflowId,
-                    backendWorkflowPayload,
-                );
-
-                workflowId = updatedWorkflow.id;
-            } else {
-                const createdWorkflow = await workflowApi.createWorkflow(
-                    serverNotebookId,
-                    backendWorkflowPayload,
-                );
-
-                workflowId = createdWorkflow.id;
-            }
-
-            const savedPayload: NotebookPayloadDto = {
-                ...payloadWithServerNotebookId,
-                workflowId,
-                updatedAt: new Date().toISOString(),
-            };
-
-            const savedLocalNotebook = saveNotebookLocally(savedPayload);
-
-            setLoadedNotebookPayload(savedLocalNotebook);
-            setNotebookPayload(savedLocalNotebook);
-
-            console.log('Notebook and workflow saved via API:', {
-                serverNotebookId,
-                workflowId,
+            setRunRequest({
+                requestId,
+                serverNotebookId: savedPayload.serverNotebookId,
+                workflowId: savedPayload.workflowId,
+                inputData: {},
             });
         } catch (error) {
-            const savedLocalNotebook = saveNotebookLocally(payloadToSave);
+            const finishedAt = new Date();
 
-            setLoadedNotebookPayload(savedLocalNotebook);
-            setNotebookPayload(savedLocalNotebook);
-            setSaveError('Backend недоступен, notebook сохранён локально.');
+            setExecutionStatus('error');
+            setExecutionLogs([
+                createExecutionLog({
+                    level: 'error',
+                    status: 'error',
+                    message:
+                        error instanceof Error
+                            ? `Не удалось запустить workflow: ${error.message}`
+                            : 'Не удалось запустить workflow.',
+                }),
+            ]);
+            setExecutionResult({
+                id: `${finishedAt.getTime()}-backend-run-error`,
+                status: 'error',
+                startedAt: finishedAt.toISOString(),
+                finishedAt: finishedAt.toISOString(),
+                durationMs: 0,
+                totalBlocks: 0,
+                completedBlocks: 0,
+                failedBlocks: 1,
+                warningsCount: 0,
+                errorsCount: 1,
+                summary: 'Рабочий процесс не был запущен',
+                output: 'Не удалось сохранить workflow или отправить запрос на запуск.',
+            });
 
-            console.warn('Notebook saved locally because API is unavailable:', error);
+            console.warn('Workflow backend run failed:', error);
         } finally {
             setIsSaving(false);
         }
-    }, [notebookId, notebookPayload, notebookTitle]);
-
-    const handleRunWorkflow = useCallback(() => {
-        runRequestIdRef.current += 1;
-
-        setExecutionResult(null);
-        setIsRunPanelOpen(true);
-        setRunRequest({
-            requestId: runRequestIdRef.current,
-        });
-    }, []);
+    }, [saveNotebookToBackend]);
 
     const handleRunRequestHandled = useCallback((requestId: number) => {
         setRunRequest((currentRequest) =>

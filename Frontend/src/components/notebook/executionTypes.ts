@@ -37,6 +37,9 @@ export type ApiExecutionLogStatus =
 
 export type WorkflowRunRequest = {
     requestId: number;
+    serverNotebookId?: string;
+    workflowId?: string;
+    inputData?: Record<string, unknown>;
 };
 
 export type NotebookExecutionLogLevel = 'info' | 'success' | 'warning' | 'error';

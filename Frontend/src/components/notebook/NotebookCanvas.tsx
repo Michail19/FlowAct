@@ -57,6 +57,17 @@ import {
     getWorkflowExecutionPlan,
     sleep,
 } from './workflowExecution';
+import { executionApi } from '../../services/executionApi';
+import type { BackendJsonObject } from '../../services/workflowApiTypes';
+import {
+    toNotebookExecutionLog,
+    toWorkflowExecutionResult,
+} from './executionApiMapper';
+import { toBackendWorkflowRequest } from './backendWorkflowMapper';
+import {
+    mapApiExecutionLogStatus,
+    mapApiExecutionStatus,
+} from './executionTypes';
 
 import '@xyflow/react/dist/style.css';
 import './NotebookCanvas.css';
@@ -276,6 +287,44 @@ function pushHistorySnapshot(params: {
     writeHistoryStorageState(params.notebookId, nextState);
 
     return nextState;
+}
+
+const BACKEND_EXECUTION_POLL_INTERVAL_MS = 900;
+const BACKEND_EXECUTION_MAX_POLLS = 120;
+
+function isBackendExecutionFinished(status: ReturnType<typeof mapApiExecutionStatus>) {
+    return status === 'success' || status === 'error' || status === 'cancelled';
+}
+
+function createBackendBlockIdToFrontendBlockIdMap(params: {
+    notebookId?: string;
+    notebookTitle: string;
+    nodes: NotebookNode[];
+    edges: Edge[];
+    viewport?: Viewport;
+    serverNotebookId: string;
+    workflowId: string;
+}) {
+    const frontendPayload = toNotebookPayload({
+        notebookId: params.notebookId,
+        title: params.notebookTitle,
+        nodes: params.nodes,
+        edges: params.edges,
+        viewport: params.viewport,
+    });
+
+    const backendPayload = toBackendWorkflowRequest({
+        ...frontendPayload,
+        serverNotebookId: params.serverNotebookId,
+        workflowId: params.workflowId,
+    });
+
+    return new Map(
+        backendPayload.blocks.map((backendBlock, index) => [
+            backendBlock.id,
+            frontendPayload.blocks[index]?.id ?? backendBlock.id,
+        ]),
+    );
 }
 
 function NotebookCanvas({
@@ -921,6 +970,251 @@ function NotebookCanvas({
         ],
     );
 
+    const handleRunBackendWorkflow = useCallback(
+        async (request: WorkflowRunRequest) => {
+            if (!request.serverNotebookId || !request.workflowId) {
+                return false;
+            }
+
+            if (isWorkflowRunningRef.current) {
+                onRunRequestHandled?.(request.requestId);
+                return true;
+            }
+
+            isWorkflowRunningRef.current = true;
+
+            const startedAt = new Date();
+
+            const backendBlockIdToFrontendBlockId = createBackendBlockIdToFrontendBlockIdMap({
+                notebookId,
+                notebookTitle,
+                nodes,
+                edges,
+                viewport,
+                serverNotebookId: request.serverNotebookId,
+                workflowId: request.workflowId,
+            });
+
+            const frontendTitleByNodeId = new Map(
+                nodes.map((node) => [node.id, node.data.title]),
+            );
+
+            const startLog = createExecutionLog({
+                level: 'info',
+                status: 'running',
+                message: 'Запуск workflow через ExecutionService.',
+            });
+
+            try {
+                onExecutionResultChange?.(null);
+                onExecutionStatusChange?.('running');
+                onExecutionLogsChange?.([startLog]);
+
+                setNodes((currentNodes) =>
+                    currentNodes.map((node) => ({
+                        ...node,
+                        data: {
+                            ...node.data,
+                            status: 'pending',
+                        },
+                    })),
+                );
+
+                const createdExecution = await executionApi.run(
+                    request.serverNotebookId,
+                    request.workflowId,
+                    {
+                        inputData: (request.inputData ?? {}) as BackendJsonObject,
+                    },
+                );
+
+                let currentExecution = createdExecution;
+
+                for (
+                    let pollIndex = 0;
+                    pollIndex < BACKEND_EXECUTION_MAX_POLLS;
+                    pollIndex += 1
+                ) {
+                    const workflowStatus = mapApiExecutionStatus(currentExecution.status);
+
+                    onExecutionStatusChange?.(workflowStatus);
+
+                    const backendLogs = await executionApi.getLogs(
+                        request.serverNotebookId,
+                        request.workflowId,
+                        currentExecution.id,
+                    );
+
+                    const mappedLogs = backendLogs.map((log) => {
+                        const frontendBlockId =
+                            backendBlockIdToFrontendBlockId.get(log.blockId) ?? log.blockId;
+
+                        return {
+                            ...toNotebookExecutionLog(log),
+                            blockId: frontendBlockId,
+                            blockTitle: frontendTitleByNodeId.get(frontendBlockId),
+                        };
+                    });
+
+                    onExecutionLogsChange?.([startLog, ...mappedLogs]);
+
+                    const statusByFrontendNodeId = new Map(
+                        backendLogs.map((log) => {
+                            const frontendBlockId =
+                                backendBlockIdToFrontendBlockId.get(log.blockId) ??
+                                log.blockId;
+
+                            return [
+                                frontendBlockId,
+                                mapApiExecutionLogStatus(log.status),
+                            ] as const;
+                        }),
+                    );
+
+                    setNodes((currentNodes) =>
+                        currentNodes.map((node) => {
+                            const nextStatus = statusByFrontendNodeId.get(node.id);
+
+                            if (!nextStatus) {
+                                return node;
+                            }
+
+                            return {
+                                ...node,
+                                data: {
+                                    ...node.data,
+                                    status: nextStatus,
+                                },
+                            };
+                        }),
+                    );
+
+                    if (isBackendExecutionFinished(workflowStatus)) {
+                        const result = toWorkflowExecutionResult(currentExecution);
+
+                        if (result) {
+                            onExecutionResultChange?.({
+                                ...result,
+                                totalBlocks: nodes.length,
+                                completedBlocks: backendLogs.filter(
+                                    (log) => log.status === 'SUCCESS',
+                                ).length,
+                                failedBlocks: backendLogs.filter(
+                                    (log) => log.status === 'FAILED',
+                                ).length,
+                                warningsCount: backendLogs.filter(
+                                    (log) =>
+                                        log.status === 'SKIPPED' ||
+                                        log.status === 'WAITING',
+                                ).length,
+                                errorsCount: backendLogs.filter(
+                                    (log) => log.status === 'FAILED',
+                                ).length,
+                            });
+                        }
+
+                        if (workflowStatus === 'error') {
+                            setNodes((currentNodes) =>
+                                currentNodes.map((node) =>
+                                    statusByFrontendNodeId.has(node.id)
+                                        ? node
+                                        : {
+                                            ...node,
+                                            data: {
+                                                ...node.data,
+                                                status: 'skipped',
+                                            },
+                                        },
+                                ),
+                            );
+                        }
+
+                        return true;
+                    }
+
+                    await sleep(BACKEND_EXECUTION_POLL_INTERVAL_MS);
+
+                    currentExecution = await executionApi.getById(
+                        request.serverNotebookId,
+                        request.workflowId,
+                        currentExecution.id,
+                    );
+                }
+
+                const finishedAt = new Date();
+
+                onExecutionStatusChange?.('waiting');
+                onExecutionResultChange?.({
+                    id: `${finishedAt.getTime()}-backend-timeout`,
+                    status: 'error',
+                    startedAt: startedAt.toISOString(),
+                    finishedAt: finishedAt.toISOString(),
+                    durationMs: finishedAt.getTime() - startedAt.getTime(),
+                    totalBlocks: nodes.length,
+                    completedBlocks: 0,
+                    failedBlocks: 1,
+                    warningsCount: 1,
+                    errorsCount: 1,
+                    summary: 'Backend execution не завершился за отведённое время',
+                    output: 'Polling остановлен по лимиту попыток.',
+                });
+
+                return true;
+            } catch (error) {
+                const finishedAt = new Date();
+
+                onExecutionStatusChange?.('error');
+                onExecutionLogsChange?.([
+                    startLog,
+                    createExecutionLog({
+                        level: 'error',
+                        status: 'error',
+                        message:
+                            error instanceof Error
+                                ? `Backend execution failed: ${error.message}`
+                                : 'Backend execution failed.',
+                    }),
+                ]);
+                onExecutionResultChange?.({
+                    id: `${finishedAt.getTime()}-backend-error`,
+                    status: 'error',
+                    startedAt: startedAt.toISOString(),
+                    finishedAt: finishedAt.toISOString(),
+                    durationMs: finishedAt.getTime() - startedAt.getTime(),
+                    totalBlocks: nodes.length,
+                    completedBlocks: 0,
+                    failedBlocks: 1,
+                    warningsCount: 0,
+                    errorsCount: 1,
+                    summary: 'Ошибка запуска через ExecutionService',
+                    output:
+                        error instanceof Error
+                            ? error.message
+                            : 'Неизвестная ошибка backend execution.',
+                });
+
+                console.warn('Backend execution failed:', error);
+
+                return true;
+            } finally {
+                isWorkflowRunningRef.current = false;
+                onRunRequestHandled?.(request.requestId);
+            }
+        },
+        [
+            edges,
+            nodes,
+            notebookId,
+            notebookTitle,
+            onExecutionLogsChange,
+            onExecutionResultChange,
+            onExecutionStatusChange,
+            onRunRequestHandled,
+            setNodes,
+            viewport,
+        ],
+    );
+
     const handleRunWorkflow = useCallback(
         async (requestId: number) => {
             if (isWorkflowRunningRef.current) {
@@ -1291,8 +1585,17 @@ function NotebookCanvas({
             return;
         }
 
+        if (runRequest.serverNotebookId && runRequest.workflowId) {
+            void handleRunBackendWorkflow(runRequest);
+            return;
+        }
+
         void handleRunWorkflow(runRequest.requestId);
-    }, [handleRunWorkflow, runRequest]);
+    }, [
+        handleRunBackendWorkflow,
+        handleRunWorkflow,
+        runRequest,
+    ]);
 
     const visibleNodes = useMemo(
         () =>
