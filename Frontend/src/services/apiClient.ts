@@ -1,3 +1,5 @@
+import { getDevAuthHeaders, isDevAuthEnabled } from "../auth/devAuthStub";
+
 const DEFAULT_API_BASE_URL = '/api';
 
 type ApiRequestOptions = RequestInit & {
@@ -44,7 +46,7 @@ async function request<T>(path: string, options: ApiRequestOptions = {}): Promis
 
     const requestHeaders = new Headers(headers);
 
-    if (json !== undefined) {
+    if (!requestHeaders.has("Content-Type") || json !== undefined) {
         requestHeaders.set('Content-Type', 'application/json');
     }
 
@@ -54,6 +56,18 @@ async function request<T>(path: string, options: ApiRequestOptions = {}): Promis
         if (token) {
             requestHeaders.set('Authorization', `Bearer ${token}`);
         }
+    }
+
+    // Временная dev-заглушка.
+    // Потом этот блок можно будет удалить или заменить на нормальный AuthProvider.
+    if (isDevAuthEnabled()) {
+        const devHeaders = getDevAuthHeaders();
+
+        Object.entries(devHeaders).forEach(([key, value]) => {
+            if (!requestHeaders.has(key)) {
+                requestHeaders.set(key, value);
+            }
+        });
     }
 
     const response = await fetch(`${getApiBaseUrl()}${path}`, {

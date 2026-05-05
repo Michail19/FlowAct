@@ -119,6 +119,9 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_API_BASE_URL: /api
+        VITE_DEV_AUTH_ENABLED: "true"
+        VITE_DEV_USER_ID: "11111111-1111-1111-1111-111111111111"
+        VITE_DEV_AUTH_TOKEN: "dev-token"
     container_name: flowact-frontend
     ports:
       - "3000:80"
