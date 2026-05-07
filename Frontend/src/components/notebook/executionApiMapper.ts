@@ -103,8 +103,71 @@ export function toWorkflowExecutionResult(
                     : 'Рабочий процесс завершился с ошибкой',
         output:
             execution.errorMessage ??
-            (execution.outputData
-                ? JSON.stringify(execution.outputData)
-                : 'Backend не вернул outputData.'),
+            extractReadableExecutionOutput(execution.outputData),
     };
+}
+
+function tryParseJson(value: string): unknown {
+    try {
+        return JSON.parse(value);
+    } catch {
+        return value;
+    }
+}
+
+function getNestedValue(source: unknown, path: string[]): unknown {
+    let currentValue = source;
+
+    for (const key of path) {
+        if (Array.isArray(currentValue)) {
+            const index = Number(key);
+
+            if (Number.isNaN(index) || index < 0 || index >= currentValue.length) {
+                return undefined;
+            }
+
+            currentValue = currentValue[index];
+            continue;
+        }
+
+        if (
+            !currentValue ||
+            typeof currentValue !== 'object' ||
+            !(key in currentValue)
+        ) {
+            return undefined;
+        }
+
+        currentValue = (currentValue as Record<string, unknown>)[key];
+    }
+
+    return currentValue;
+}
+
+function extractReadableExecutionOutput(outputData: unknown): string {
+    const normalizedOutput =
+        typeof outputData === 'string' ? tryParseJson(outputData) : outputData;
+
+    const preferredPaths = [
+        ['value', 'text'],
+        ['text'],
+        ['value', 'body', 'choices', '0', 'message', 'content'],
+        ['body', 'choices', '0', 'message', 'content'],
+        ['value', 'body', 'extract'],
+        ['body', 'extract'],
+    ];
+
+    for (const path of preferredPaths) {
+        const value = getNestedValue(normalizedOutput, path);
+
+        if (typeof value === 'string' && value.trim()) {
+            return value;
+        }
+    }
+
+    if (normalizedOutput && typeof normalizedOutput === 'object') {
+        return JSON.stringify(normalizedOutput, null, 2);
+    }
+
+    return String(normalizedOutput ?? 'Backend не вернул outputData.');
 }
