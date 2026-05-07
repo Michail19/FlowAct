@@ -56,6 +56,20 @@ function mapApiLogStatusToWorkflowStatus(
     }
 }
 
+function getShortLogMessage(log: ExecutionLogResponse): string {
+    if (!log.output) {
+        return `Статус блока: ${log.status}`;
+    }
+
+    const text = extractReadableExecutionOutput(log.output).output;
+
+    if (text.length <= 180) {
+        return text;
+    }
+
+    return `${text.slice(0, 180).trim()}...`;
+}
+
 export function toNotebookExecutionLog(
     log: ExecutionLogResponse,
 ): NotebookExecutionLog {
@@ -66,7 +80,7 @@ export function toNotebookExecutionLog(
         blockId: log.blockId,
         message:
             log.error ??
-            (log.output ? JSON.stringify(log.output) : `Статус блока: ${log.status}`),
+            getShortLogMessage(log),
         createdAt: log.createdAt,
     };
 }
@@ -82,6 +96,14 @@ export function toWorkflowExecutionResult(
 
     const startedAt = execution.startedAt ?? execution.createdAt;
     const finishedAt = execution.finishedAt ?? execution.updatedAt;
+
+    const readableOutput = execution.errorMessage
+        ? {
+            output: execution.errorMessage,
+            outputFormat: 'text' as const,
+            rawOutput: stringifyRawOutput(execution.outputData),
+        }
+        : extractReadableExecutionOutput(execution.outputData);
 
     return {
         id: execution.id,
@@ -101,9 +123,9 @@ export function toWorkflowExecutionResult(
                 : status === 'cancelled'
                     ? 'Рабочий процесс отменён'
                     : 'Рабочий процесс завершился с ошибкой',
-        output:
-            execution.errorMessage ??
-            extractReadableExecutionOutput(execution.outputData),
+        output: readableOutput.output,
+        outputFormat: readableOutput.outputFormat,
+        rawOutput: readableOutput.rawOutput,
     };
 }
 
@@ -144,9 +166,11 @@ function getNestedValue(source: unknown, path: string[]): unknown {
     return currentValue;
 }
 
-function extractReadableExecutionOutput(outputData: unknown): string {
+function extractReadableExecutionOutput(outputData: unknown): ReadableExecutionOutput {
     const normalizedOutput =
         typeof outputData === 'string' ? tryParseJson(outputData) : outputData;
+
+    const rawOutput = stringifyRawOutput(normalizedOutput);
 
     const preferredPaths = [
         ['value', 'text'],
@@ -155,19 +179,49 @@ function extractReadableExecutionOutput(outputData: unknown): string {
         ['body', 'choices', '0', 'message', 'content'],
         ['value', 'body', 'extract'],
         ['body', 'extract'],
+        ['value', 'body', 'title'],
+        ['body', 'title'],
     ];
 
     for (const path of preferredPaths) {
         const value = getNestedValue(normalizedOutput, path);
 
         if (typeof value === 'string' && value.trim()) {
-            return value;
+            return {
+                output: value,
+                outputFormat: 'text',
+                rawOutput,
+            };
         }
     }
 
-    if (normalizedOutput && typeof normalizedOutput === 'object') {
-        return JSON.stringify(normalizedOutput, null, 2);
+    return {
+        output: rawOutput,
+        outputFormat: 'json',
+        rawOutput,
+    };
+}
+
+type ReadableExecutionOutput = {
+    output: string;
+    outputFormat: 'text' | 'json';
+    rawOutput: string;
+};
+
+function stringifyRawOutput(value: unknown): string {
+    if (value === undefined || value === null) {
+        return 'Backend не вернул outputData.';
     }
 
-    return String(normalizedOutput ?? 'Backend не вернул outputData.');
+    if (typeof value === 'string') {
+        const parsedValue = tryParseJson(value);
+
+        if (typeof parsedValue === 'string') {
+            return value;
+        }
+
+        return JSON.stringify(parsedValue, null, 2);
+    }
+
+    return JSON.stringify(value, null, 2);
 }

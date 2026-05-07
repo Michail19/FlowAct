@@ -67,6 +67,8 @@ export type WorkflowExecutionResult = {
     errorsCount: number;
     summary: string;
     output: string;
+    outputFormat?: 'text' | 'json';
+    rawOutput?: string;
 };
 
 export function mapApiExecutionStatus(status: ApiExecutionStatus): WorkflowExecutionStatus {

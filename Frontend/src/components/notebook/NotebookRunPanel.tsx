@@ -75,6 +75,7 @@ function NotebookRunPanel({
                               onRunWorkflow,
                           }: NotebookRunPanelProps) {
     const [activeTab, setActiveTab] = useState<RunPanelTab>('logs');
+    const [isTechnicalOutputOpen, setIsTechnicalOutputOpen] = useState(false);
 
     if (!isOpen) {
         return null;
@@ -198,9 +199,31 @@ function NotebookRunPanel({
                                 <strong className="notebook-run-panel__result-title">
                                     {result.summary}
                                 </strong>
-                                <p className="notebook-run-panel__result-output">
+                                <div className="notebook-run-panel__result-output">
                                     {result.output}
-                                </p>
+                                </div>
+
+                                {result.rawOutput && result.rawOutput !== result.output && (
+                                    <div className="notebook-run-panel__technical">
+                                        <button
+                                            className="notebook-run-panel__technical-toggle"
+                                            type="button"
+                                            onClick={() =>
+                                                setIsTechnicalOutputOpen((currentValue) => !currentValue)
+                                            }
+                                        >
+                                            {isTechnicalOutputOpen
+                                                ? 'Скрыть технические данные'
+                                                : 'Показать технические данные'}
+                                        </button>
+
+                                        {isTechnicalOutputOpen && (
+                                            <pre className="notebook-run-panel__technical-json">
+                                                {result.rawOutput}
+                                            </pre>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             <dl className="notebook-run-panel__metrics">
