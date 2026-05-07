@@ -265,6 +265,20 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         notebookId,
     ]);
 
+    useEffect(() => {
+        if (!saveSuccessMessage) {
+            return;
+        }
+
+        const timeoutId = window.setTimeout(() => {
+            setSaveSuccessMessage(null);
+        }, 4000);
+
+        return () => {
+            window.clearTimeout(timeoutId);
+        };
+    }, [saveSuccessMessage]);
+
     const handleAddBlock = useCallback((blockType: NotebookBlockType) => {
         requestIdRef.current += 1;
 
