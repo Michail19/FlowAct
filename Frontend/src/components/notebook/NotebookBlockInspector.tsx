@@ -134,88 +134,97 @@ function NotebookBlockInspector({
                     процесс, чтобы увидеть входные и выходные данные.
                 </p>
             ) : (
-                <>
-                    {latestLog.error && (
-                        <section className="notebook-block-inspector__section notebook-block-inspector__section--error">
-                            <h3>Ошибка</h3>
-                            <div className="notebook-block-inspector__content">
-                                {latestLog.error}
-                            </div>
-                        </section>
+                <div className="notebook-block-inspector__body">
+                    {!latestLog ? (
+                        <p className="notebook-block-inspector__empty">
+                            У этого блока пока нет данных выполнения. Запустите рабочий
+                            процесс, чтобы увидеть входные и выходные данные.
+                        </p>
+                    ) : (
+                        <>
+                            {latestLog.error && (
+                                <section className="notebook-block-inspector__section notebook-block-inspector__section--error">
+                                    <h3>Ошибка</h3>
+                                    <div className="notebook-block-inspector__content">
+                                        {latestLog.error}
+                                    </div>
+                                </section>
+                            )}
+
+                            <section className="notebook-block-inspector__section">
+                                <h3>Входные данные</h3>
+
+                                {latestLog.input ? (
+                                    <div className="notebook-block-inspector__content">
+                                        {latestLog.input}
+                                    </div>
+                                ) : (
+                                    <p className="notebook-block-inspector__empty-small">
+                                        Входные данные не сохранены или отсутствуют.
+                                    </p>
+                                )}
+
+                                {latestLog.rawInput && latestLog.rawInput !== latestLog.input && (
+                                    <div className="notebook-block-inspector__raw">
+                                        <button
+                                            className="notebook-block-inspector__raw-toggle"
+                                            type="button"
+                                            onClick={() =>
+                                                setIsRawInputOpen((currentValue) => !currentValue)
+                                            }
+                                        >
+                                            {isRawInputOpen
+                                                ? 'Скрыть raw input'
+                                                : 'Показать raw input'}
+                                        </button>
+
+                                        {isRawInputOpen && (
+                                            <pre className="notebook-block-inspector__json">
+                                {latestLog.rawInput}
+                            </pre>
+                                        )}
+                                    </div>
+                                )}
+                            </section>
+
+                            <section className="notebook-block-inspector__section">
+                                <h3>Выходные данные</h3>
+
+                                {latestLog.output ? (
+                                    <div className="notebook-block-inspector__content">
+                                        {latestLog.output}
+                                    </div>
+                                ) : (
+                                    <p className="notebook-block-inspector__empty-small">
+                                        Выходные данные отсутствуют.
+                                    </p>
+                                )}
+
+                                {latestLog.rawOutput && latestLog.rawOutput !== latestLog.output && (
+                                    <div className="notebook-block-inspector__raw">
+                                        <button
+                                            className="notebook-block-inspector__raw-toggle"
+                                            type="button"
+                                            onClick={() =>
+                                                setIsRawOutputOpen((currentValue) => !currentValue)
+                                            }
+                                        >
+                                            {isRawOutputOpen
+                                                ? 'Скрыть raw output'
+                                                : 'Показать raw output'}
+                                        </button>
+
+                                        {isRawOutputOpen && (
+                                            <pre className="notebook-block-inspector__json">
+                                {latestLog.rawOutput}
+                            </pre>
+                                        )}
+                                    </div>
+                                )}
+                            </section>
+                        </>
                     )}
-
-                    <section className="notebook-block-inspector__section">
-                        <h3>Входные данные</h3>
-
-                        {latestLog.input ? (
-                            <div className="notebook-block-inspector__content">
-                                {latestLog.input}
-                            </div>
-                        ) : (
-                            <p className="notebook-block-inspector__empty-small">
-                                Входные данные не сохранены или отсутствуют.
-                            </p>
-                        )}
-
-                        {latestLog.rawInput && latestLog.rawInput !== latestLog.input && (
-                            <div className="notebook-block-inspector__raw">
-                                <button
-                                    className="notebook-block-inspector__raw-toggle"
-                                    type="button"
-                                    onClick={() =>
-                                        setIsRawInputOpen((currentValue) => !currentValue)
-                                    }
-                                >
-                                    {isRawInputOpen
-                                        ? 'Скрыть raw input'
-                                        : 'Показать raw input'}
-                                </button>
-
-                                {isRawInputOpen && (
-                                    <pre className="notebook-block-inspector__json">
-                                        {latestLog.rawInput}
-                                    </pre>
-                                )}
-                            </div>
-                        )}
-                    </section>
-
-                    <section className="notebook-block-inspector__section">
-                        <h3>Выходные данные</h3>
-
-                        {latestLog.output ? (
-                            <div className="notebook-block-inspector__content">
-                                {latestLog.output}
-                            </div>
-                        ) : (
-                            <p className="notebook-block-inspector__empty-small">
-                                Выходные данные отсутствуют.
-                            </p>
-                        )}
-
-                        {latestLog.rawOutput && latestLog.rawOutput !== latestLog.output && (
-                            <div className="notebook-block-inspector__raw">
-                                <button
-                                    className="notebook-block-inspector__raw-toggle"
-                                    type="button"
-                                    onClick={() =>
-                                        setIsRawOutputOpen((currentValue) => !currentValue)
-                                    }
-                                >
-                                    {isRawOutputOpen
-                                        ? 'Скрыть raw output'
-                                        : 'Показать raw output'}
-                                </button>
-
-                                {isRawOutputOpen && (
-                                    <pre className="notebook-block-inspector__json">
-                                        {latestLog.rawOutput}
-                                    </pre>
-                                )}
-                            </div>
-                        )}
-                    </section>
-                </>
+                </div>
             )}
         </aside>
     );
