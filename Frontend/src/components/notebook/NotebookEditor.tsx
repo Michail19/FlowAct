@@ -235,14 +235,20 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
 
     const saveNotebookToBackend = useCallback(
         async (options: { fallbackToLocal?: boolean } = {}) => {
-            if (!notebookPayload) {
+            const basePayload = notebookPayload ?? loadedNotebookPayload;
+
+            if (!basePayload) {
                 return null;
             }
 
             const payloadToSave: NotebookPayloadDto = {
-                ...notebookPayload,
+                ...basePayload,
                 id: notebookId,
                 title: notebookTitle,
+                serverNotebookId:
+                    basePayload.serverNotebookId ?? loadedNotebookPayload?.serverNotebookId,
+                workflowId:
+                    basePayload.workflowId ?? loadedNotebookPayload?.workflowId,
                 updatedAt: new Date().toISOString(),
             };
 
@@ -326,7 +332,12 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                 return savedLocalNotebook;
             }
         },
-        [notebookId, notebookPayload, notebookTitle],
+        [
+            loadedNotebookPayload,
+            notebookId,
+            notebookPayload,
+            notebookTitle,
+        ],
     );
 
     const handleSaveNotebook = useCallback(async () => {
@@ -335,8 +346,16 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
 
         try {
             await saveNotebookToBackend({
-                fallbackToLocal: true,
+                fallbackToLocal: false,
             });
+        } catch (error) {
+            setSaveError(
+                error instanceof Error
+                    ? `Не удалось сохранить workflow: ${error.message}`
+                    : 'Не удалось сохранить workflow.',
+            );
+
+            console.warn('Strict backend save failed:', error);
         } finally {
             setIsSaving(false);
         }
@@ -368,6 +387,11 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
             if (!savedPayload?.serverNotebookId || !savedPayload.workflowId) {
                 throw new Error('Workflow не имеет serverNotebookId или workflowId.');
             }
+
+            await workflowApi.activateWorkflow(
+                savedPayload.serverNotebookId,
+                savedPayload.workflowId,
+            );
 
             setRunRequest({
                 requestId,

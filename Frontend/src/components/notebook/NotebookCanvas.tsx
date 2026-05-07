@@ -478,7 +478,11 @@ function NotebookCanvas({
             viewport,
         });
 
-        onNotebookChange(payload);
+        onNotebookChange({
+            ...payload,
+            serverNotebookId: initialPayload?.serverNotebookId,
+            workflowId: initialPayload?.workflowId,
+        });
     }, [
         edges,
         nodes,
@@ -486,6 +490,7 @@ function NotebookCanvas({
         notebookTitle,
         onNotebookChange,
         viewport,
+        initialPayload,
     ]);
 
     useEffect(() => {

@@ -162,6 +162,7 @@ public class WorkflowService {
 
         if (!oldConnections.isEmpty()) {
             workflowConnectionRepository.deleteAll(oldConnections);
+            workflowConnectionRepository.flush();
         }
 
         List<WorkflowBlockEntity> oldBlocks =
@@ -169,6 +170,7 @@ public class WorkflowService {
 
         if (!oldBlocks.isEmpty()) {
             workflowBlockRepository.deleteAll(oldBlocks);
+            workflowBlockRepository.flush();
         }
 
         Map<UUID, WorkflowBlockEntity> blocksById = new HashMap<>();
