@@ -42,6 +42,7 @@ import {
 import { workflowApi } from '../../services/workflowApi';
 import { createExecutionLog } from './workflowExecution';
 import { ApiError } from '../../services/apiClient';
+import type { WorkflowStatus } from '../../services/workflowApiTypes';
 
 import './NotebookEditor.css';
 
@@ -162,6 +163,10 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
     });
     const [inspectedBlock, setInspectedBlock] =
         useState<NotebookBlockInspectionTarget | null>(null);
+    const [workflowStatus, setWorkflowStatus] =
+        useState<WorkflowStatus | null>(
+            initialNotebookPayload?.workflowStatus ?? null,
+        );
 
     const suggestion = useMemo(
         () => ({
@@ -240,6 +245,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                     setNotebookTitle(savedLocalNotebook.title);
                     setLoadedNotebookPayload(savedLocalNotebook);
                     setNotebookPayload(savedLocalNotebook);
+                    setWorkflowStatus(backendWorkflow.status);
                     setSaveError(null);
 
                     console.log('Notebook loaded from backend:', {
@@ -359,6 +365,8 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                 console.log('Backend workflow contract:', backendWorkflowPayload);
 
                 let workflowId = payloadWithServerNotebookId.workflowId;
+                let nextWorkflowStatus: WorkflowStatus | undefined =
+                    payloadWithServerNotebookId.workflowStatus;
 
                 if (workflowId) {
                     const updatedWorkflow = await workflowApi.updateWorkflow(
@@ -368,6 +376,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                     );
 
                     workflowId = updatedWorkflow.id;
+                    nextWorkflowStatus = updatedWorkflow.status;
                 } else {
                     const createdWorkflow = await workflowApi.createWorkflow(
                         serverNotebookId,
@@ -375,11 +384,13 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                     );
 
                     workflowId = createdWorkflow.id;
+                    nextWorkflowStatus = createdWorkflow.status;
                 }
 
                 const savedPayload: NotebookPayloadDto = {
                     ...payloadWithServerNotebookId,
                     workflowId,
+                    workflowStatus: nextWorkflowStatus,
                     updatedAt: new Date().toISOString(),
                 };
 
@@ -387,6 +398,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
 
                 setLoadedNotebookPayload(savedLocalNotebook);
                 setNotebookPayload(savedLocalNotebook);
+                setWorkflowStatus(nextWorkflowStatus ?? null);
                 setSaveError(null);
 
                 console.log('Notebook and workflow saved via API:', {
@@ -456,10 +468,23 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                 throw new Error('Workflow не имеет serverNotebookId или workflowId.');
             }
 
-            await workflowApi.activateWorkflow(
+            const activatedWorkflow = await workflowApi.activateWorkflow(
                 savedPayload.serverNotebookId,
                 savedPayload.workflowId,
             );
+
+            setWorkflowStatus(activatedWorkflow.status);
+
+            const activatedPayload: NotebookPayloadDto = {
+                ...savedPayload,
+                workflowStatus: activatedWorkflow.status,
+                updatedAt: new Date().toISOString(),
+            };
+
+            const savedLocalNotebook = saveNotebookLocally(activatedPayload);
+
+            setLoadedNotebookPayload(savedLocalNotebook);
+            setNotebookPayload(savedLocalNotebook);
 
             setRunRequest({
                 requestId,
@@ -639,6 +664,26 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         );
     }, []);
 
+    const handleNotebookChange = useCallback((payload: NotebookPayloadDto) => {
+        setNotebookPayload((currentPayload) => {
+            const previousPayload = currentPayload ?? loadedNotebookPayload;
+
+            const nextPayload: NotebookPayloadDto = {
+                ...payload,
+                workflowStatus:
+                    previousPayload?.workflowStatus === 'ARCHIVED'
+                        ? 'ARCHIVED'
+                        : 'DRAFT',
+            };
+
+            return nextPayload;
+        });
+
+        setWorkflowStatus((currentStatus) =>
+            currentStatus === 'ARCHIVED' ? 'ARCHIVED' : 'DRAFT',
+        );
+    }, [loadedNotebookPayload]);
+
     return (
         <main
             className={
@@ -655,6 +700,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                 onSave={handleSaveNotebook}
                 isSaving={isSaving}
                 isInterfaceHidden={isInterfaceHidden}
+                workflowStatus={workflowStatus}
                 onToggleInterface={handleToggleInterface}
                 zoomValue={zoomValue}
                 onZoomChange={handleZoomChange}
@@ -690,7 +736,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                         notebookId={notebookId}
                         notebookTitle={notebookTitle}
                         initialPayload={loadedNotebookPayload}
-                        onNotebookChange={setNotebookPayload}
+                        onNotebookChange={handleNotebookChange}
                         runRequest={runRequest}
                         onRunRequestHandled={handleRunRequestHandled}
                         onExecutionStatusChange={setExecutionStatus}

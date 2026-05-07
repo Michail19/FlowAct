@@ -52,8 +52,16 @@ public class ExecutionService {
         WorkflowEntity workflow = workflowRepository.findByIdAndNotebook_Id(workflowId, notebookId)
                 .orElseThrow(() -> new EntityNotFoundException("Workflow not found"));
 
+        if (workflow.getStatus() == WorkflowStatus.ARCHIVED) {
+            throw new IllegalStateException(
+                    "Workflow находится в архиве и не может быть запущен"
+            );
+        }
+
         if (workflow.getStatus() != WorkflowStatus.ACTIVE) {
-            throw new IllegalStateException("Workflow is not active");
+            throw new IllegalStateException(
+                    "Workflow находится в статусе DRAFT. Сначала сохраните и активируйте схему."
+            );
         }
 
         ExecutionEntity execution = ExecutionEntity.builder()

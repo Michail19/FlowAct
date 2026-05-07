@@ -12,6 +12,7 @@ import type {
     MergeBlockConfig,
     NotebookBlockType,
 } from './notebookTypes';
+import type { WorkflowStatus } from '../../services/workflowApiTypes';
 
 export type NotebookBlockPositionDto = {
     x: number;
@@ -87,4 +88,6 @@ export type NotebookPayloadDto = {
     connections: NotebookConnectionDto[];
     viewport?: Viewport;
     updatedAt: string;
+
+    workflowStatus?: WorkflowStatus;
 };

@@ -743,6 +743,7 @@ export function fromBackendWorkflowResponse(params: {
         id: params.localNotebookId,
         serverNotebookId: params.notebook.id,
         workflowId: params.workflow.id,
+        workflowStatus: params.workflow.status,
         title: params.notebook.name || params.workflow.name || 'Без названия',
         version: params.fallbackPayload?.version ?? 1,
         blocks,
