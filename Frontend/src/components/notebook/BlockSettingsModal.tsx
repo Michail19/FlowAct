@@ -318,6 +318,13 @@ function BlockSettingsModal({
                                     />
                                 </label>
                             </div>
+
+                            <p className="block-settings-modal__hint">
+                                В левом значении можно указывать путь к данным:
+                                <code>input.status</code>,
+                                <code>input.body.type</code>,
+                                <code>variables.mode</code>.
+                            </p>
                         </section>
                     )}
 
@@ -686,6 +693,14 @@ function BlockSettingsModal({
                                     }
                                     placeholder="Результат выполнения: {{result}}"
                                 />
+
+                                <p className="block-settings-modal__hint">
+                                    Можно использовать шаблоны:
+                                    <code>{'{{input}}'}</code>,
+                                    <code>{'{{input.text}}'}</code>,
+                                    <code>{'{{last}}'}</code>.
+                                    Например: <code>{'Результат: {{input.text}}'}</code>
+                                </p>
                             </label>
                         </section>
                     )}

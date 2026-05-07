@@ -1040,6 +1040,74 @@ function NotebookCanvas({
                     })),
                 );
 
+                const validationIssues = validateWorkflow(nodes, edges);
+                const blockingIssues = validationIssues.filter(
+                    (issue) => issue.severity === 'error',
+                );
+
+                if (blockingIssues.length > 0) {
+                    const firstIssue = blockingIssues[0];
+
+                    onExecutionStatusChange?.('error');
+                    onExecutionLogsChange?.([
+                        createExecutionLog({
+                            level: 'error',
+                            status: 'error',
+                            blockId: firstIssue.blockId,
+                            blockTitle: firstIssue.blockTitle,
+                            message: firstIssue.message,
+                        }),
+                        ...blockingIssues.slice(1, 5).map((issue) =>
+                            createExecutionLog({
+                                level: issue.severity === 'error' ? 'error' : 'warning',
+                                status: 'error',
+                                blockId: issue.blockId,
+                                blockTitle: issue.blockTitle,
+                                message: issue.message,
+                            }),
+                        ),
+                    ]);
+
+                    setNodes((currentNodes) =>
+                        currentNodes.map((node) =>
+                            blockingIssues.some((issue) => issue.blockId === node.id)
+                                ? {
+                                    ...node,
+                                    data: {
+                                        ...node.data,
+                                        status: 'error',
+                                    },
+                                }
+                                : node,
+                        ),
+                    );
+
+                    onExecutionResultChange?.({
+                        id: `${Date.now()}-validation-error`,
+                        status: 'error',
+                        startedAt: startedAt.toISOString(),
+                        finishedAt: new Date().toISOString(),
+                        durationMs: 0,
+                        totalBlocks: nodes.length,
+                        completedBlocks: 0,
+                        failedBlocks: blockingIssues.length,
+                        warningsCount: validationIssues.filter(
+                            (issue) => issue.severity === 'warning',
+                        ).length,
+                        errorsCount: blockingIssues.length,
+                        summary: 'Схема не готова к запуску',
+                        output:
+                            blockingIssues.length === 1
+                                ? firstIssue.message
+                                : `${firstIssue.message}\n\nИ ещё ошибок: ${blockingIssues.length - 1}`,
+                        outputFormat: 'text',
+                        rawOutput: JSON.stringify(validationIssues, null, 2),
+                    });
+
+                    onRunRequestHandled?.(request.requestId);
+                    return true;
+                }
+
                 const createdExecution = await executionApi.run(
                     request.serverNotebookId,
                     request.workflowId,

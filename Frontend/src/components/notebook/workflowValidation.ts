@@ -98,6 +98,42 @@ function hasCycle(nodes: NotebookNode[], edges: Edge[]): boolean {
     return nodes.some((node) => visit(node.id));
 }
 
+function isValidJsonObject(value: string | undefined) {
+    if (!value || !value.trim()) {
+        return true;
+    }
+
+    try {
+        const parsedValue = JSON.parse(value);
+
+        return (
+            !!parsedValue &&
+            typeof parsedValue === 'object' &&
+            !Array.isArray(parsedValue)
+        );
+    } catch {
+        return false;
+    }
+}
+
+function isProbablyValidHttpUrl(value: string | undefined) {
+    if (!value || !value.trim()) {
+        return false;
+    }
+
+    if (value.includes('{{')) {
+        return true;
+    }
+
+    try {
+        const url = new URL(value);
+
+        return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch {
+        return false;
+    }
+}
+
 export function validateWorkflow(nodes: NotebookNode[], edges: Edge[]): WorkflowValidationIssue[] {
     const issues: WorkflowValidationIssue[] = [];
     const nodeIds = new Set(nodes.map((node) => node.id));
@@ -254,14 +290,47 @@ export function validateWorkflow(nodes: NotebookNode[], edges: Edge[]): Workflow
             }
         }
 
-        if (node.data.blockType === 'http' && !node.data.config?.http?.url.trim()) {
+        if (
+            node.data.blockType === 'http' &&
+            !isProbablyValidHttpUrl(node.data.config?.http?.url)
+        ) {
             issues.push(
                 createIssue({
                     id: `node-${node.id}-http-url-missing`,
                     severity: 'error',
                     blockId: node.id,
                     blockTitle: node.data.title,
-                    message: `У блока "${node.data.title}" не задан URL HTTP-запроса.`,
+                    message: `У блока "${node.data.title}" не задан корректный HTTP/HTTPS URL.`,
+                }),
+            );
+        }
+
+        if (
+            node.data.blockType === 'http' &&
+            !isValidJsonObject(node.data.config?.http?.headers)
+        ) {
+            issues.push(
+                createIssue({
+                    id: `node-${node.id}-http-headers-invalid`,
+                    severity: 'error',
+                    blockId: node.id,
+                    blockTitle: node.data.title,
+                    message: `У блока "${node.data.title}" поле Headers должно быть валидным JSON-объектом.`,
+                }),
+            );
+        }
+
+        if (
+            node.data.blockType === 'ai' &&
+            !node.data.aiConfig?.prompt?.trim()
+        ) {
+            issues.push(
+                createIssue({
+                    id: `node-${node.id}-ai-prompt-missing`,
+                    severity: 'error',
+                    blockId: node.id,
+                    blockTitle: node.data.title,
+                    message: `У блока "${node.data.title}" не задан текст запроса для AI.`,
                 }),
             );
         }

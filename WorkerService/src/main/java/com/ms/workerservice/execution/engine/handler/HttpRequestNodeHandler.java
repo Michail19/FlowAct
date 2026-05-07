@@ -81,14 +81,52 @@ public class HttpRequestNodeHandler implements NodeHandler {
             errorOutput.put("error", ex.getMessage());
 
             throw new IllegalStateException(
-                    "HTTP request failed with status " + ex.getStatusCode().value()
-                            + ": " + jsonHelper.toJson(errorOutput),
+                    buildHttpErrorMessage(url, ex, errorOutput),
                     ex
             );
 
         } catch (Exception ex) {
             throw new IllegalStateException("HTTP request failed: " + ex.getMessage(), ex);
         }
+    }
+
+    private String buildHttpErrorMessage(
+            String url,
+            RestClientResponseException ex,
+            Map<String, Object> errorOutput
+    ) {
+        Object body = errorOutput.get("body");
+        String bodyText = body != null ? String.valueOf(body) : "";
+
+        String pageTitle = extractHtmlTitle(bodyText);
+
+        if (pageTitle != null && !pageTitle.isBlank()) {
+            return "HTTP-запрос к " + url + " завершился ошибкой "
+                    + ex.getStatusCode().value()
+                    + ". Сервер вернул страницу: \"" + pageTitle + "\".";
+        }
+
+        return "HTTP-запрос к " + url + " завершился ошибкой "
+                + ex.getStatusCode().value()
+                + ". Проверьте URL, headers и доступность сервиса.";
+    }
+
+    private String extractHtmlTitle(String html) {
+        if (html == null || html.isBlank()) {
+            return null;
+        }
+
+        java.util.regex.Matcher matcher = java.util.regex.Pattern
+                .compile("<title>(.*?)</title>", java.util.regex.Pattern.CASE_INSENSITIVE | java.util.regex.Pattern.DOTALL)
+                .matcher(html);
+
+        if (!matcher.find()) {
+            return null;
+        }
+
+        return matcher.group(1)
+                .replaceAll("\\s+", " ")
+                .trim();
     }
 
     private ResponseEntity<String> executeRequest(

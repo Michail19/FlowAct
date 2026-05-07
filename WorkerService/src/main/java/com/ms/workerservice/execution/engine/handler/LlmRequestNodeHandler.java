@@ -61,7 +61,9 @@ public class LlmRequestNodeHandler implements NodeHandler {
             ExecutionContext context
     ) {
         if (openRouterProperties.apiKey() == null || openRouterProperties.apiKey().isBlank()) {
-            throw new IllegalStateException("OpenRouter API key is not configured");
+            throw new IllegalStateException(
+                    "Не настроен OpenRouter API key. Укажите ключ в переменной окружения WorkerService."
+            );
         }
 
         Map<String, Object> config = jsonHelper.toMap(block.getConfig());
@@ -223,7 +225,9 @@ public class LlmRequestNodeHandler implements NodeHandler {
             return contextText;
         }
 
-        throw new IllegalStateException("LLM_REQUEST requires prompt, variableName, or input value");
+        throw new IllegalStateException(
+                "AI-блок не получил текст запроса. Заполните поле prompt или подключите входящий блок с данными."
+        );
     }
 
     private Object resolvePromptContextValue(
