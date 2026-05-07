@@ -912,7 +912,7 @@ function NotebookCanvas({
                 blockId: node.id,
                 blockTitle: node.data.title,
                 blockType: node.data.blockType,
-                blockStatus: node.data.status,
+                blockStatus: node.data.status ?? 'idle',
             });
         },
         [onBlockInspect],
