@@ -197,27 +197,66 @@ public class LlmRequestNodeHandler implements NodeHandler {
             ResolvedInput input,
             ExecutionContext context
     ) {
-        if (config.containsKey("prompt")) {
-            return String.valueOf(config.get("prompt"));
+        String configuredPrompt = stringOrNull(config.get("prompt"));
+        Object contextValue = resolvePromptContextValue(config, input, context);
+        String contextText = contextValue != null ? stringifyPromptValue(contextValue) : null;
+
+        if (configuredPrompt != null) {
+            if (contextText == null) {
+                return configuredPrompt;
+            }
+
+            if (containsInputPlaceholder(configuredPrompt)) {
+                return configuredPrompt
+                        .replace("{{input}}", contextText)
+                        .replace("{{value}}", contextText)
+                        .replace("{{inputs}}", stringifyPromptValue(input.getInputs()))
+                        .replace("{{variables}}", stringifyPromptValue(context.getVariables()));
+            }
+
+            return configuredPrompt
+                    + "\n\nДанные из предыдущего блока:\n"
+                    + contextText;
         }
 
+        if (contextText != null) {
+            return contextText;
+        }
+
+        throw new IllegalStateException("LLM_REQUEST requires prompt, variableName, or input value");
+    }
+
+    private Object resolvePromptContextValue(
+            Map<String, Object> config,
+            ResolvedInput input,
+            ExecutionContext context
+    ) {
         Object variableName = config.get("variableName");
+
         if (variableName != null && !String.valueOf(variableName).isBlank()) {
             Object variableValue = context.getVariable(String.valueOf(variableName));
+
             if (variableValue != null) {
-                return stringifyPromptValue(variableValue);
+                return variableValue;
             }
         }
 
         if (input.getValue() != null) {
-            return stringifyPromptValue(input.getValue());
+            return input.getValue();
         }
 
         if (!input.getInputs().isEmpty()) {
-            return stringifyPromptValue(input.getInputs());
+            return input.getInputs();
         }
 
-        throw new IllegalStateException("LLM_REQUEST requires prompt, variableName, or input value");
+        return null;
+    }
+
+    private boolean containsInputPlaceholder(String prompt) {
+        return prompt.contains("{{input}}")
+                || prompt.contains("{{value}}")
+                || prompt.contains("{{inputs}}")
+                || prompt.contains("{{variables}}");
     }
 
     private String stringifyPromptValue(Object value) {
