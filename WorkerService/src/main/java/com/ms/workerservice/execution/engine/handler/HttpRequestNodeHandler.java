@@ -4,6 +4,7 @@ import com.ms.workerservice.common.util.JsonHelper;
 import com.ms.workerservice.execution.engine.ExecutionContext;
 import com.ms.workerservice.execution.engine.NodeResult;
 import com.ms.workerservice.execution.engine.ResolvedInput;
+import com.ms.workerservice.execution.engine.TemplateRenderer;
 import com.ms.workerservice.workflow.entity.WorkflowBlockEntity;
 import com.ms.workerservice.workflow.enumtype.BlockType;
 import org.springframework.http.HttpMethod;
@@ -21,10 +22,16 @@ public class HttpRequestNodeHandler implements NodeHandler {
 
     private final JsonHelper jsonHelper;
     private final RestClient restClient;
+    private final TemplateRenderer templateRenderer;
 
-    public HttpRequestNodeHandler(JsonHelper jsonHelper, RestClient restClient) {
+    public HttpRequestNodeHandler(
+            JsonHelper jsonHelper,
+            RestClient restClient,
+            TemplateRenderer templateRenderer
+    ) {
         this.jsonHelper = jsonHelper;
         this.restClient = restClient;
+        this.templateRenderer = templateRenderer;
     }
 
     @Override
@@ -40,12 +47,17 @@ public class HttpRequestNodeHandler implements NodeHandler {
     ) {
         Map<String, Object> config = jsonHelper.toMap(block.getConfig());
 
-        String url = getRequiredString(config, "url");
-        String methodRaw = String.valueOf(config.getOrDefault("method", "GET")).trim().toUpperCase();
+        String rawUrl = getRequiredString(config, "url");
+        String url = templateRenderer.render(rawUrl, input, context);
+
+        String methodRaw = String.valueOf(config.getOrDefault("method", "GET"))
+                .trim()
+                .toUpperCase();
+
         HttpMethod method = HttpMethod.valueOf(methodRaw);
 
-        Map<String, String> headers = extractHeaders(config);
-        Object body = resolveBody(config, input);
+        Map<String, String> headers = extractHeaders(config, input, context);
+        Object body = resolveBody(config, input, context);
 
         try {
             ResponseEntity<String> response = executeRequest(url, method, headers, body);
@@ -108,9 +120,13 @@ public class HttpRequestNodeHandler implements NodeHandler {
                 || method == HttpMethod.PATCH;
     }
 
-    private Object resolveBody(Map<String, Object> config, ResolvedInput input) {
+    private Object resolveBody(
+            Map<String, Object> config,
+            ResolvedInput input,
+            ExecutionContext context
+    ) {
         if (config.containsKey("body")) {
-            return config.get("body");
+            return templateRenderer.renderValue(config.get("body"), input, context);
         }
 
         if (input.getValue() != null) {
@@ -140,7 +156,11 @@ public class HttpRequestNodeHandler implements NodeHandler {
     }
 
     @SuppressWarnings("unchecked")
-    private Map<String, String> extractHeaders(Map<String, Object> config) {
+    private Map<String, String> extractHeaders(
+            Map<String, Object> config,
+            ResolvedInput input,
+            ExecutionContext context
+    ) {
         Object rawHeaders = config.get("headers");
 
         if (!(rawHeaders instanceof Map<?, ?> map)) {
@@ -148,9 +168,18 @@ public class HttpRequestNodeHandler implements NodeHandler {
         }
 
         Map<String, String> headers = new LinkedHashMap<>();
+
         for (Map.Entry<?, ?> entry : map.entrySet()) {
-            headers.put(String.valueOf(entry.getKey()), String.valueOf(entry.getValue()));
+            String key = String.valueOf(entry.getKey());
+            String value = templateRenderer.render(
+                    String.valueOf(entry.getValue()),
+                    input,
+                    context
+            );
+
+            headers.put(key, value);
         }
+
         return headers;
     }
 

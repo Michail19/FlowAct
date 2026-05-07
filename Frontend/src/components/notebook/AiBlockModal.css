@@ -258,6 +258,23 @@
     background: var(--color-danger);
 }
 
+.ai-block-modal__hint {
+    margin-top: 8px;
+    color: var(--color-muted);
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.ai-block-modal__hint code {
+    display: inline-flex;
+    margin: 3px 4px 0 0;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: rgba(15, 23, 42, 0.45);
+    color: var(--color-primary);
+    font-size: 11px;
+}
+
 @media (max-width: 767px) {
     .ai-block-modal {
         align-items: flex-end;

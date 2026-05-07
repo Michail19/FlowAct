@@ -5,6 +5,7 @@ import com.ms.workerservice.config.properties.OpenRouterProperties;
 import com.ms.workerservice.execution.engine.ExecutionContext;
 import com.ms.workerservice.execution.engine.NodeResult;
 import com.ms.workerservice.execution.engine.ResolvedInput;
+import com.ms.workerservice.execution.engine.TemplateRenderer;
 import com.ms.workerservice.workflow.entity.WorkflowBlockEntity;
 import com.ms.workerservice.workflow.enumtype.BlockType;
 import org.springframework.http.MediaType;
@@ -34,15 +35,18 @@ public class LlmRequestNodeHandler implements NodeHandler {
     private final JsonHelper jsonHelper;
     private final RestClient restClient;
     private final OpenRouterProperties openRouterProperties;
+    private final TemplateRenderer templateRenderer;
 
     public LlmRequestNodeHandler(
             JsonHelper jsonHelper,
             RestClient restClient,
-            OpenRouterProperties openRouterProperties
+            OpenRouterProperties openRouterProperties,
+            TemplateRenderer templateRenderer
     ) {
         this.jsonHelper = jsonHelper;
         this.restClient = restClient;
         this.openRouterProperties = openRouterProperties;
+        this.templateRenderer = templateRenderer;
     }
 
     @Override
@@ -202,16 +206,12 @@ public class LlmRequestNodeHandler implements NodeHandler {
         String contextText = contextValue != null ? stringifyPromptValue(contextValue) : null;
 
         if (configuredPrompt != null) {
-            if (contextText == null) {
-                return configuredPrompt;
+            if (templateRenderer.containsPlaceholders(configuredPrompt)) {
+                return templateRenderer.render(configuredPrompt, input, context);
             }
 
-            if (containsInputPlaceholder(configuredPrompt)) {
-                return configuredPrompt
-                        .replace("{{input}}", contextText)
-                        .replace("{{value}}", contextText)
-                        .replace("{{inputs}}", stringifyPromptValue(input.getInputs()))
-                        .replace("{{variables}}", stringifyPromptValue(context.getVariables()));
+            if (contextText == null) {
+                return configuredPrompt;
             }
 
             return configuredPrompt

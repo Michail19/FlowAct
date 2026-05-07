@@ -555,8 +555,10 @@ function BlockSettingsModal({
                             </label>
 
                             <p className="block-settings-modal__hint">
-                                На backend этот блок будет соответствовать HTTP_REQUEST.
-                                Поля headers и body позже будут преобразованы в объект перед отправкой.
+                                В URL, headers и body можно использовать данные предыдущих блоков:
+                                <code>{'{{input.id}}'}</code>,
+                                <code>{'{{input.text}}'}</code>,
+                                <code>{'{{variables.token}}'}</code>.
                             </p>
                         </section>
                     )}

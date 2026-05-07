@@ -114,6 +114,13 @@ function AiBlockModal({ initialTitle, initialConfig, onSave, onClose }: AiBlockM
                 <div className="ai-block-modal__body">
                     <label className="ai-block-modal__prompt">
                         <span className="ai-block-modal__visible-label">Текст запроса</span>
+                        <div className="ai-block-modal__hint">
+                            Доступные переменные:
+                            <code>{'{{input}}'}</code>,
+                            <code>{'{{input.text}}'}</code>,
+                            <code>{'{{input.body.extract}}'}</code>,
+                            <code>{'{{variables.name}}'}</code>.
+                        </div>
                         <textarea
                             className="ai-block-modal__textarea"
                             value={prompt}
