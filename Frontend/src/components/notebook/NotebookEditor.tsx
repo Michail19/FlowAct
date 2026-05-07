@@ -39,12 +39,73 @@ import {
 } from './backendWorkflowMapper';
 import { workflowApi } from '../../services/workflowApi';
 import { createExecutionLog } from './workflowExecution';
+import { ApiError } from '../../services/apiClient';
 
 import './NotebookEditor.css';
 
 type NotebookEditorProps = {
     notebookId: string;
 };
+
+function getApiPayloadMessage(payload: unknown): string | null {
+    if (!payload) {
+        return null;
+    }
+
+    if (typeof payload === 'string') {
+        return payload;
+    }
+
+    if (typeof payload !== 'object') {
+        return null;
+    }
+
+    const payloadObject = payload as Record<string, unknown>;
+
+    const message =
+        payloadObject.message ??
+        payloadObject.error ??
+        payloadObject.detail ??
+        payloadObject.title;
+
+    return typeof message === 'string' && message.trim()
+        ? message
+        : null;
+}
+
+function getBackendSaveErrorMessage(error: unknown): string {
+    if (error instanceof ApiError) {
+        const payloadMessage = getApiPayloadMessage(error.payload);
+
+        if (payloadMessage) {
+            return `Не удалось сохранить workflow: ${payloadMessage}`;
+        }
+
+        if (error.status === 400) {
+            return 'Не удалось сохранить workflow: backend отклонил данные схемы.';
+        }
+
+        if (error.status === 404) {
+            return 'Не удалось сохранить workflow: notebook или workflow не найден на backend.';
+        }
+
+        if (error.status === 409) {
+            return 'Не удалось сохранить workflow: конфликт состояния данных.';
+        }
+
+        if (error.status >= 500) {
+            return 'Не удалось сохранить workflow: внутренняя ошибка backend.';
+        }
+
+        return `Не удалось сохранить workflow: HTTP ${error.status}.`;
+    }
+
+    if (error instanceof Error) {
+        return `Не удалось сохранить workflow: ${error.message}`;
+    }
+
+    return 'Не удалось сохранить workflow.';
+}
 
 function NotebookEditor({ notebookId }: NotebookEditorProps) {
     const isMobile = useMediaQuery('(max-width: 767px)');
@@ -74,6 +135,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         useState<NotebookPayloadDto | null>(initialNotebookPayload);
     const [isSaving, setIsSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
+    const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
     const [runRequest, setRunRequest] = useState<WorkflowRunRequest | null>(null);
     const [executionStatus, setExecutionStatus] = useState<WorkflowExecutionStatus>('idle');
     const [executionLogs, setExecutionLogs] = useState<NotebookExecutionLog[]>([]);
@@ -234,11 +296,11 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
     }, []);
 
     const saveNotebookToBackend = useCallback(
-        async (options: { fallbackToLocal?: boolean } = {}) => {
+        async () => {
             const basePayload = notebookPayload ?? loadedNotebookPayload;
 
             if (!basePayload) {
-                return null;
+                throw new Error('Нет данных notebook для сохранения.');
             }
 
             const payloadToSave: NotebookPayloadDto = {
@@ -316,20 +378,12 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
 
                 return savedLocalNotebook;
             } catch (error) {
-                if (options.fallbackToLocal === false) {
-                    setSaveError('Не удалось сохранить workflow перед запуском.');
-                    throw error;
-                }
+                const message = getBackendSaveErrorMessage(error);
 
-                const savedLocalNotebook = saveNotebookLocally(payloadToSave);
+                setSaveError(message);
+                console.warn('Notebook backend save failed:', error);
 
-                setLoadedNotebookPayload(savedLocalNotebook);
-                setNotebookPayload(savedLocalNotebook);
-                setSaveError('Backend недоступен, notebook сохранён локально.');
-
-                console.warn('Notebook saved locally because API is unavailable:', error);
-
-                return savedLocalNotebook;
+                throw error;
             }
         },
         [
@@ -343,18 +397,16 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
     const handleSaveNotebook = useCallback(async () => {
         setIsSaving(true);
         setSaveError(null);
+        setSaveSuccessMessage(null);
 
         try {
-            await saveNotebookToBackend({
-                fallbackToLocal: false,
-            });
+            await saveNotebookToBackend();
+            setSaveSuccessMessage('Workflow сохранён.');
         } catch (error) {
-            setSaveError(
-                error instanceof Error
-                    ? `Не удалось сохранить workflow: ${error.message}`
-                    : 'Не удалось сохранить workflow.',
-            );
+            const message = getBackendSaveErrorMessage(error);
 
+            setSaveError(message);
+            setSaveSuccessMessage(null);
             console.warn('Strict backend save failed:', error);
         } finally {
             setIsSaving(false);
@@ -380,9 +432,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         setSaveError(null);
 
         try {
-            const savedPayload = await saveNotebookToBackend({
-                fallbackToLocal: false,
-            });
+            const savedPayload = await saveNotebookToBackend();
 
             if (!savedPayload?.serverNotebookId || !savedPayload.workflowId) {
                 throw new Error('Workflow не имеет serverNotebookId или workflowId.');
@@ -663,6 +713,12 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                     {saveError && !isInterfaceHidden && (
                         <div className="notebook-editor__save-message">
                             {saveError}
+                        </div>
+                    )}
+
+                    {saveSuccessMessage && !saveError && !isInterfaceHidden && (
+                        <div className="notebook-editor__save-message notebook-editor__save-message--success">
+                            {saveSuccessMessage}
                         </div>
                     )}
 
