@@ -56,23 +56,32 @@ function mapApiLogStatusToWorkflowStatus(
     }
 }
 
-function getShortLogMessage(log: ExecutionLogResponse): string {
-    if (!log.output) {
+function getShortLogMessage(
+    log: ExecutionLogResponse,
+    readableOutput?: string,
+): string {
+    if (!readableOutput) {
         return `Статус блока: ${log.status}`;
     }
 
-    const text = extractReadableExecutionOutput(log.output).output;
-
-    if (text.length <= 180) {
-        return text;
+    if (readableOutput.length <= 180) {
+        return readableOutput;
     }
 
-    return `${text.slice(0, 180).trim()}...`;
+    return `${readableOutput.slice(0, 180).trim()}...`;
 }
 
 export function toNotebookExecutionLog(
     log: ExecutionLogResponse,
 ): NotebookExecutionLog {
+    const readableInput = log.input
+        ? extractReadableExecutionOutput(log.input)
+        : null;
+
+    const readableOutput = log.output
+        ? extractReadableExecutionOutput(log.output)
+        : null;
+
     return {
         id: log.id,
         level: getLogLevelByApiStatus(log.status),
@@ -80,7 +89,13 @@ export function toNotebookExecutionLog(
         blockId: log.blockId,
         message:
             log.error ??
-            getShortLogMessage(log),
+            getShortLogMessage(log, readableOutput?.output),
+        input: readableInput?.output,
+        rawInput: readableInput?.rawOutput,
+        output: readableOutput?.output,
+        rawOutput: readableOutput?.rawOutput,
+        outputFormat: readableOutput?.outputFormat,
+        error: log.error,
         createdAt: log.createdAt,
     };
 }
@@ -166,7 +181,9 @@ function getNestedValue(source: unknown, path: string[]): unknown {
     return currentValue;
 }
 
-function extractReadableExecutionOutput(outputData: unknown): ReadableExecutionOutput {
+export function extractReadableExecutionOutput(
+    outputData: unknown,
+): ReadableExecutionOutput {
     const normalizedOutput =
         typeof outputData === 'string' ? tryParseJson(outputData) : outputData;
 

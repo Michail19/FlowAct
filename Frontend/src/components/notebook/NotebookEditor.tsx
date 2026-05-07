@@ -27,7 +27,9 @@ import {
     saveNotebookLocally,
 } from '../../services/notebookStorage';
 import NotebookRunPanel from './NotebookRunPanel';
+import NotebookBlockInspector from './NotebookBlockInspector';
 import type {
+    NotebookBlockInspectionTarget,
     NotebookExecutionLog,
     WorkflowExecutionResult,
     WorkflowExecutionStatus,
@@ -158,6 +160,8 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         canUndo: false,
         canRedo: false,
     });
+    const [inspectedBlock, setInspectedBlock] =
+        useState<NotebookBlockInspectionTarget | null>(null);
 
     const suggestion = useMemo(
         () => ({
@@ -516,6 +520,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         setExecutionLogs([]);
         setExecutionResult(null);
         setExecutionStatus('idle');
+        setInspectedBlock(null);
     }, []);
 
     const handleAutoLayout = useCallback((mode: NotebookAutoLayoutMode = 'arrange-connect') => {
@@ -691,6 +696,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                         onExecutionStatusChange={setExecutionStatus}
                         onExecutionLogsChange={setExecutionLogs}
                         onExecutionResultChange={setExecutionResult}
+                        onBlockInspect={setInspectedBlock}
                         autoLayoutRequest={autoLayoutRequest}
                         onAutoLayoutRequestHandled={handleAutoLayoutRequestHandled}
                         viewportRequest={viewportRequest}
@@ -714,6 +720,13 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                             onRunWorkflow={handleRunWorkflow}
                         />
                     )}
+
+                    <NotebookBlockInspector
+                        block={inspectedBlock}
+                        logs={executionLogs}
+                        isMobile={isMobile}
+                        onClose={() => setInspectedBlock(null)}
+                    />
 
                     {!isInterfaceHidden && (
                         <NotebookSuggestion

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import {
     ReactFlow,
     Background,
@@ -33,6 +33,7 @@ import type {
     NotebookViewportRequest,
 } from './notebookTypes';
 import type {
+    NotebookBlockInspectionTarget,
     NotebookExecutionLog,
     WorkflowExecutionResult,
     WorkflowExecutionStatus,
@@ -94,6 +95,7 @@ type NotebookCanvasProps = {
     historyRequest?: NotebookHistoryRequest | null;
     onHistoryRequestHandled?: (requestId: number) => void;
     onHistoryStateChange?: (state: NotebookHistoryState) => void;
+    onBlockInspect?: (block: NotebookBlockInspectionTarget) => void;
 };
 
 function normalizeSearchQuery(query: string) {
@@ -349,6 +351,7 @@ function NotebookCanvas({
                             historyRequest = null,
                             onHistoryRequestHandled,
                             onHistoryStateChange,
+                            onBlockInspect,
                         }: NotebookCanvasProps) {
     const canvasRef = useRef<HTMLDivElement | null>(null);
     const nodeCounterRef = useRef(initialNodes.length);
@@ -901,6 +904,18 @@ function NotebookCanvas({
             );
         },
         [readonly, setEdges, setNodes],
+    );
+
+    const handleNodeClick = useCallback(
+        (_event: MouseEvent, node: NotebookNode) => {
+            onBlockInspect?.({
+                blockId: node.id,
+                blockTitle: node.data.title,
+                blockType: node.data.blockType,
+                blockStatus: node.data.status,
+            });
+        },
+        [onBlockInspect],
     );
 
     const handleRunNode = useCallback(
@@ -1752,6 +1767,7 @@ function NotebookCanvas({
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnect}
+                onNodeClick={handleNodeClick}
                 onEdgeDoubleClick={(event, edge) => {
                     event.preventDefault();
                     event.stopPropagation();
