@@ -105,8 +105,16 @@ function AiBlockModal({ initialTitle, initialConfig, onSave, onClose }: AiBlockM
             prompt,
             models: normalizeModels(selectedModels),
             inputMode,
-            maxInputChars,
+            maxInputChars: normalizeMaxInputChars(maxInputChars),
         });
+    };
+
+    const normalizeMaxInputChars = (value: number) => {
+        if (Number.isNaN(value)) {
+            return 12000;
+        }
+
+        return Math.min(Math.max(value, 1000), 50000);
     };
 
     return createPortal(
@@ -215,7 +223,9 @@ function AiBlockModal({ initialTitle, initialConfig, onSave, onClose }: AiBlockM
                                         step={1000}
                                         value={maxInputChars}
                                         onChange={(event) =>
-                                            setMaxInputChars(Number(event.target.value) || 12000)
+                                            setMaxInputChars(
+                                                normalizeMaxInputChars(Number(event.target.value)),
+                                            )
                                         }
                                     />
                                 </label>
@@ -249,8 +259,8 @@ function AiBlockModal({ initialTitle, initialConfig, onSave, onClose }: AiBlockM
                                                     {model?.name ?? modelId}
                                                 </strong>
                                                 <span className="ai-block-modal__model-provider">
-                                    {model?.provider ?? 'Custom'}
-                                </span>
+                                                    {model?.provider ?? 'Custom'}
+                                                </span>
                                             </div>
 
                                             <button

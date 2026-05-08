@@ -24,6 +24,7 @@ public class LlmRequestNodeHandler implements NodeHandler {
     private static final String FREE_ROUTER_MODEL = "openrouter/free";
     private static final int DEFAULT_MAX_INPUT_CHARS = 12_000;
     private static final int HARD_MAX_INPUT_CHARS = 50_000;
+    private static final int MIN_INPUT_CHARS = 1_000;
 
     private static final Map<String, String> LEGACY_FREE_MODEL_ALIASES = Map.of(
             "openai-gpt-4o", "openai/gpt-oss-120b:free",
@@ -372,8 +373,8 @@ public class LlmRequestNodeHandler implements NodeHandler {
         try {
             int value = Integer.parseInt(String.valueOf(rawValue));
 
-            if (value < 1_000) {
-                return 1_000;
+            if (value < MIN_INPUT_CHARS) {
+                return MIN_INPUT_CHARS;
             }
 
             return Math.min(value, HARD_MAX_INPUT_CHARS);

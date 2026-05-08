@@ -10,8 +10,8 @@
 }
 
 .ai-block-modal__content {
-    width: min(1080px, 96vw);
-    max-height: calc(100vh - 48px);
+    width: min(1180px, 96vw);
+    height: min(820px, calc(100vh - 48px));
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -65,19 +65,18 @@
 .ai-block-modal__layout {
     min-height: 0;
     display: grid;
-    grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.9fr);
-    gap: 14px;
+    grid-template-columns: minmax(0, 1.55fr) minmax(340px, 0.9fr);
+    gap: 16px;
     margin-top: 12px;
-    overflow: hidden;
+    overflow: auto;
+    padding-right: 4px;
 }
 
 .ai-block-modal__main-panel {
     min-width: 0;
-    min-height: 0;
     display: flex;
     flex-direction: column;
     gap: 12px;
-    overflow: hidden;
 }
 
 .ai-block-modal__field,
@@ -107,9 +106,7 @@
 }
 
 .ai-block-modal__prompt-card {
-    min-height: 0;
     display: flex;
-    flex: 1;
     flex-direction: column;
     padding: 12px;
     border-radius: 14px;
@@ -170,7 +167,8 @@
 
 .ai-block-modal__textarea {
     width: 100%;
-    min-height: 280px;
+    min-height: 260px;
+    max-height: 360px;
     margin-top: 12px;
     padding: 14px;
     resize: vertical;
@@ -218,7 +216,6 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
-    overflow: hidden;
 }
 
 .ai-block-modal__section {
@@ -251,7 +248,7 @@
 }
 
 .ai-block-modal__available-list {
-    min-height: 0;
+    max-height: 430px;
     overflow: auto;
     padding-right: 3px;
 }

@@ -110,6 +110,38 @@ function getBackendSaveErrorMessage(error: unknown): string {
     return 'Не удалось сохранить workflow.';
 }
 
+function normalizePayloadForStatus(payload: NotebookPayloadDto | null | undefined) {
+    if (!payload) {
+        return null;
+    }
+
+    return {
+        title: payload.title,
+        blocks: payload.blocks.map((block) => ({
+            id: block.id,
+            type: block.type,
+            title: block.title,
+            subtitle: block.subtitle ?? '',
+            description: block.description ?? '',
+            position: block.position,
+            config: block.config ?? {},
+        })),
+        connections: payload.connections.map((connection) => ({
+            id: connection.id,
+            sourceBlockId: connection.sourceBlockId,
+            targetBlockId: connection.targetBlockId,
+            sourceHandle: connection.sourceHandle ?? '',
+            targetHandle: connection.targetHandle ?? '',
+            label: connection.label ?? '',
+        })),
+        viewport: payload.viewport ?? null,
+    };
+}
+
+function getPayloadFingerprint(payload: NotebookPayloadDto | null | undefined) {
+    return JSON.stringify(normalizePayloadForStatus(payload));
+}
+
 function NotebookEditor({ notebookId }: NotebookEditorProps) {
     const isMobile = useMediaQuery('(max-width: 767px)');
     const isDesktop = useMediaQuery('(min-width: 1024px)');
@@ -488,8 +520,8 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
 
             setRunRequest({
                 requestId,
-                serverNotebookId: savedPayload.serverNotebookId,
-                workflowId: savedPayload.workflowId,
+                serverNotebookId: activatedPayload.serverNotebookId!,
+                workflowId: activatedPayload.workflowId!,
                 inputData: {},
             });
         } catch (error) {
@@ -665,24 +697,38 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
     }, []);
 
     const handleNotebookChange = useCallback((payload: NotebookPayloadDto) => {
-        setNotebookPayload((currentPayload) => {
-            const previousPayload = currentPayload ?? loadedNotebookPayload;
+        const loadedFingerprint = getPayloadFingerprint(loadedNotebookPayload);
+        const nextFingerprint = getPayloadFingerprint(payload);
 
-            const nextPayload: NotebookPayloadDto = {
-                ...payload,
-                workflowStatus:
-                    previousPayload?.workflowStatus === 'ARCHIVED'
-                        ? 'ARCHIVED'
-                        : 'DRAFT',
-            };
+        const hasRealChanges =
+            Boolean(loadedNotebookPayload) &&
+            loadedFingerprint !== nextFingerprint;
 
-            return nextPayload;
-        });
+        const previousStatus =
+            loadedNotebookPayload?.workflowStatus ??
+            workflowStatus ??
+            payload.workflowStatus ??
+            null;
 
-        setWorkflowStatus((currentStatus) =>
-            currentStatus === 'ARCHIVED' ? 'ARCHIVED' : 'DRAFT',
-        );
-    }, [loadedNotebookPayload]);
+        const nextWorkflowStatus: WorkflowStatus | null =
+            previousStatus === 'ARCHIVED'
+                ? 'ARCHIVED'
+                : hasRealChanges
+                    ? 'DRAFT'
+                    : previousStatus;
+
+        const nextPayload: NotebookPayloadDto = {
+            ...payload,
+            serverNotebookId:
+                payload.serverNotebookId ?? loadedNotebookPayload?.serverNotebookId,
+            workflowId:
+                payload.workflowId ?? loadedNotebookPayload?.workflowId,
+            workflowStatus: nextWorkflowStatus ?? undefined,
+        };
+
+        setNotebookPayload(nextPayload);
+        setWorkflowStatus(nextWorkflowStatus);
+    }, [loadedNotebookPayload, workflowStatus]);
 
     return (
         <main
