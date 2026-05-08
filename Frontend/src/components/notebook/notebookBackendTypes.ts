@@ -17,10 +17,6 @@ import type { WorkflowStatus } from '../../services/workflowApiTypes';
 
 export type NotebookBlockPositionDto = {
     x: number;
-};
-
-export type NotebookBlockPositionDto = {
-    x: number;
     y: number;
 };
 
