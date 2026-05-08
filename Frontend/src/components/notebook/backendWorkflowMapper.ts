@@ -6,7 +6,7 @@ import type {
     NotebookPayloadDto,
 } from './notebookBackendTypes';
 import type {
-    ActionBlockConfig,
+    ActionBlockConfig, AiBlockConfig,
     ConditionBlockConfig,
     DatabaseBlockConfig,
     HttpBlockConfig,
@@ -218,6 +218,8 @@ function createBackendBlockConfig(block: NotebookBlockDto): BackendJsonObject {
             prompt: block.config?.ai?.prompt ?? '',
             model: models[0],
             models,
+            inputMode: block.config?.ai?.inputMode ?? 'smart',
+            maxInputChars: block.config?.ai?.maxInputChars ?? 12000,
         };
     }
 
@@ -567,6 +569,10 @@ function createFrontendBlockConfigFromBackendBlock(
                     getConfigStringArray(config, 'models').length > 0
                         ? getConfigStringArray(config, 'models')
                         : [getConfigString(config, 'model', DEFAULT_AI_MODEL_ID)],
+                inputMode:
+                    getConfigString(config, 'inputMode', 'smart') as AiBlockConfig['inputMode'],
+                maxInputChars:
+                    Number(config.maxInputChars) || 12000,
             },
         };
     }

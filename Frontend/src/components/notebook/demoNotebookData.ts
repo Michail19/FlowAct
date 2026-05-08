@@ -4,8 +4,10 @@ import { DEFAULT_AI_MODEL_ID } from './aiModels';
 import type { AiBlockConfig, NotebookNode } from './notebookTypes';
 
 export const defaultAiConfig: AiBlockConfig = {
-    prompt: 'Проанализируй входящий текст пользователя и подготовь структурированный ответ.',
+    prompt: '',
     models: [DEFAULT_AI_MODEL_ID],
+    inputMode: 'smart',
+    maxInputChars: 12000,
 };
 
 export const retryAiConfig: AiBlockConfig = {

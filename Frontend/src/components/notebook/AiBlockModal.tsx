@@ -33,6 +33,13 @@ function AiBlockModal({ initialTitle, initialConfig, onSave, onClose }: AiBlockM
     const [selectedModels, setSelectedModels] = useState<string[]>(
         normalizeModels(initialConfig.models),
     );
+    const [inputMode, setInputMode] = useState(
+        initialConfig.inputMode ?? 'smart',
+    );
+
+    const [maxInputChars, setMaxInputChars] = useState(
+        initialConfig.maxInputChars ?? 12000,
+    );
 
     const selectedModelSet = useMemo(() => new Set(selectedModels), [selectedModels]);
 
@@ -80,6 +87,8 @@ function AiBlockModal({ initialTitle, initialConfig, onSave, onClose }: AiBlockM
         onSave(normalizedTitle, {
             prompt,
             models: normalizeModels(selectedModels),
+            inputMode,
+            maxInputChars,
         });
     };
 
@@ -97,7 +106,7 @@ function AiBlockModal({ initialTitle, initialConfig, onSave, onClose }: AiBlockM
                         AI-функция
                     </h2>
                     <button className="ai-block-modal__close" type="button" onClick={onClose}>
-                        ×
+                        X
                     </button>
                 </header>
 
@@ -127,6 +136,40 @@ function AiBlockModal({ initialTitle, initialConfig, onSave, onClose }: AiBlockM
                             onChange={(event) => setPrompt(event.target.value)}
                             placeholder="<Введите текст запроса>"
                         />
+                        <div className="ai-block-modal__context-settings">
+                            <label className="ai-block-modal__context-field">
+                                <span className="ai-block-modal__visible-label">Контекст для AI</span>
+                                <select
+                                    className="ai-block-modal__select"
+                                    value={inputMode}
+                                    onChange={(event) =>
+                                        setInputMode(
+                                            event.target.value as 'none' | 'smart' | 'full' | 'templateOnly',
+                                        )
+                                    }
+                                >
+                                    <option value="smart">Умный краткий</option>
+                                    <option value="templateOnly">Только по шаблону</option>
+                                    <option value="full">Полный вход</option>
+                                    <option value="none">Без входных данных</option>
+                                </select>
+                            </label>
+
+                            <label className="ai-block-modal__context-field">
+                                <span className="ai-block-modal__visible-label">Лимит символов входа</span>
+                                <input
+                                    className="ai-block-modal__title-input"
+                                    type="number"
+                                    min={1000}
+                                    max={50000}
+                                    step={1000}
+                                    value={maxInputChars}
+                                    onChange={(event) =>
+                                        setMaxInputChars(Number(event.target.value) || 12000)
+                                    }
+                                />
+                            </label>
+                        </div>
                     </label>
 
                     <aside className="ai-block-modal__models-panel">
@@ -203,6 +246,12 @@ function AiBlockModal({ initialTitle, initialConfig, onSave, onClose }: AiBlockM
                                 )}
                             </div>
                         </section>
+
+                        <p className="ai-block-modal__hint">
+                            Рекомендуемый режим — <b>Умный краткий</b>. Для точного контроля используйте
+                            шаблоны вроде <code>{'{{input.body.extract}}'}</code> и режим
+                            <b>Только по шаблону</b>.
+                        </p>
                     </aside>
                 </div>
 

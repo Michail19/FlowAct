@@ -22,9 +22,13 @@ export type NotebookBlockStatus =
     | 'skipped'
     | 'waiting';
 
+export type AiInputMode = 'none' | 'smart' | 'full' | 'templateOnly';
+
 export type AiBlockConfig = {
     prompt: string;
     models: string[];
+    inputMode?: AiInputMode;
+    maxInputChars?: number;
 };
 
 export type ConditionOperator =
