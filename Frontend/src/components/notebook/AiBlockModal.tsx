@@ -27,6 +27,13 @@ function normalizeModels(models: string[]): string[] {
     return [DEFAULT_AI_MODEL_ID];
 }
 
+const VARIABLE_HINTS = [
+    '{{input}}',
+    '{{input.text}}',
+    '{{input.body.extract}}',
+    '{{variables.name}}',
+];
+
 function AiBlockModal({ initialTitle, initialConfig, onSave, onClose }: AiBlockModalProps) {
     const [title, setTitle] = useState(initialTitle);
     const [prompt, setPrompt] = useState(initialConfig.prompt);
@@ -81,6 +88,16 @@ function AiBlockModal({ initialTitle, initialConfig, onSave, onClose }: AiBlockM
         });
     };
 
+    const handleInsertVariable = (variableName: string) => {
+        setPrompt((currentPrompt) => {
+            if (!currentPrompt.trim()) {
+                return variableName;
+            }
+
+            return `${currentPrompt}\n${variableName}`;
+        });
+    };
+
     const handleSave = () => {
         const normalizedTitle = title.trim() || 'AI-функция';
 
@@ -106,89 +123,134 @@ function AiBlockModal({ initialTitle, initialConfig, onSave, onClose }: AiBlockM
                         AI-функция
                     </h2>
                     <button className="ai-block-modal__close" type="button" onClick={onClose}>
-                        X
+                        ×
                     </button>
                 </header>
 
-                <label className="ai-block-modal__title-field">
-                    <span className="ai-block-modal__visible-label">Название блока</span>
-                    <input
-                        className="ai-block-modal__title-input"
-                        value={title}
-                        onChange={(event) => setTitle(event.target.value)}
-                        placeholder="Название блока"
-                    />
-                </label>
+                <div className="ai-block-modal__layout">
+                    <section className="ai-block-modal__main-panel">
+                        <label className="ai-block-modal__field">
+                            <span className="ai-block-modal__visible-label">Название блока</span>
+                            <input
+                                className="ai-block-modal__title-input"
+                                value={title}
+                                onChange={(event) => setTitle(event.target.value)}
+                                placeholder="Название блока"
+                            />
+                        </label>
 
-                <div className="ai-block-modal__body">
-                    <label className="ai-block-modal__prompt">
-                        <span className="ai-block-modal__visible-label">Текст запроса</span>
-                        <div className="ai-block-modal__hint">
-                            Доступные переменные:
-                            <code>{'{{input}}'}</code>,
-                            <code>{'{{input.text}}'}</code>,
-                            <code>{'{{input.body.extract}}'}</code>,
-                            <code>{'{{variables.name}}'}</code>.
-                        </div>
-                        <textarea
-                            className="ai-block-modal__textarea"
-                            value={prompt}
-                            onChange={(event) => setPrompt(event.target.value)}
-                            placeholder="<Введите текст запроса>"
-                        />
-                        <div className="ai-block-modal__context-settings">
-                            <label className="ai-block-modal__context-field">
-                                <span className="ai-block-modal__visible-label">Контекст для AI</span>
-                                <select
-                                    className="ai-block-modal__select"
-                                    value={inputMode}
-                                    onChange={(event) =>
-                                        setInputMode(
-                                            event.target.value as 'none' | 'smart' | 'full' | 'templateOnly',
-                                        )
-                                    }
-                                >
-                                    <option value="smart">Умный краткий</option>
-                                    <option value="templateOnly">Только по шаблону</option>
-                                    <option value="full">Полный вход</option>
-                                    <option value="none">Без входных данных</option>
-                                </select>
-                            </label>
+                        <section className="ai-block-modal__prompt-card">
+                            <div className="ai-block-modal__prompt-top">
+                                <div>
+                                    <span className="ai-block-modal__visible-label">
+                                        Текст запроса
+                                    </span>
+                                    <p className="ai-block-modal__microcopy">
+                                        Опиши задачу для модели. Для точного контроля вставляй
+                                        переменные из предыдущих блоков.
+                                    </p>
+                                </div>
+                            </div>
 
-                            <label className="ai-block-modal__context-field">
-                                <span className="ai-block-modal__visible-label">Лимит символов входа</span>
-                                <input
-                                    className="ai-block-modal__title-input"
-                                    type="number"
-                                    min={1000}
-                                    max={50000}
-                                    step={1000}
-                                    value={maxInputChars}
-                                    onChange={(event) =>
-                                        setMaxInputChars(Number(event.target.value) || 12000)
-                                    }
-                                />
-                            </label>
-                        </div>
-                    </label>
+                            <div className="ai-block-modal__variables">
+                                <span className="ai-block-modal__variables-label">
+                                    Доступные переменные
+                                </span>
+
+                                <div className="ai-block-modal__variables-list">
+                                    {VARIABLE_HINTS.map((variableName) => (
+                                        <button
+                                            className="ai-block-modal__variable-chip"
+                                            type="button"
+                                            key={variableName}
+                                            onClick={() => handleInsertVariable(variableName)}
+                                        >
+                                            {variableName}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <textarea
+                                className="ai-block-modal__textarea"
+                                value={prompt}
+                                onChange={(event) => setPrompt(event.target.value)}
+                                placeholder="Например: Используй {{input.body.extract}} и сделай краткое описание."
+                            />
+
+                            <div className="ai-block-modal__context-settings">
+                                <label className="ai-block-modal__context-field">
+                                    <span className="ai-block-modal__visible-label">
+                                        Контекст для AI
+                                    </span>
+                                    <select
+                                        className="ai-block-modal__select"
+                                        value={inputMode}
+                                        onChange={(event) =>
+                                            setInputMode(
+                                                event.target.value as
+                                                    | 'none'
+                                                    | 'smart'
+                                                    | 'full'
+                                                    | 'templateOnly',
+                                            )
+                                        }
+                                    >
+                                        <option value="smart">Умный краткий</option>
+                                        <option value="templateOnly">Только по шаблону</option>
+                                        <option value="full">Полный вход</option>
+                                        <option value="none">Без входных данных</option>
+                                    </select>
+                                </label>
+
+                                <label className="ai-block-modal__context-field">
+                                    <span className="ai-block-modal__visible-label">
+                                        Лимит символов входа
+                                    </span>
+                                    <input
+                                        className="ai-block-modal__title-input"
+                                        type="number"
+                                        min={1000}
+                                        max={50000}
+                                        step={1000}
+                                        value={maxInputChars}
+                                        onChange={(event) =>
+                                            setMaxInputChars(Number(event.target.value) || 12000)
+                                        }
+                                    />
+                                </label>
+                            </div>
+
+                            <p className="ai-block-modal__compact-hint">
+                                Совет: для точного контроля используй{' '}
+                                <code>{'{{input.body.extract}}'}</code> и режим{' '}
+                                <strong>«Только по шаблону»</strong>.
+                            </p>
+                        </section>
+                    </section>
 
                     <aside className="ai-block-modal__models-panel">
                         <section className="ai-block-modal__section">
-                            <h3 className="ai-block-modal__section-title">Выбранные нейросети</h3>
+                            <h3 className="ai-block-modal__section-title">
+                                Выбранные нейросети
+                            </h3>
 
                             <div className="ai-block-modal__selected-list">
                                 {selectedModels.map((modelId) => {
                                     const model = getAiModelOption(modelId);
 
                                     return (
-                                        <article className="ai-block-modal__selected-model" key={modelId}>
+                                        <article
+                                            className="ai-block-modal__selected-model"
+                                            key={modelId}
+                                        >
                                             <div className="ai-block-modal__model-info">
                                                 <strong className="ai-block-modal__model-name">
                                                     {model?.name ?? modelId}
                                                 </strong>
                                                 <span className="ai-block-modal__model-provider">
-                                                    {model?.provider ?? 'Custom'}
-                                                </span>
+                                    {model?.provider ?? 'Custom'}
+                                </span>
                                             </div>
 
                                             <button
@@ -211,19 +273,24 @@ function AiBlockModal({ initialTitle, initialConfig, onSave, onClose }: AiBlockM
                         </section>
 
                         <section className="ai-block-modal__section ai-block-modal__section--available">
-                            <h3 className="ai-block-modal__section-title">Доступные нейросети</h3>
+                            <h3 className="ai-block-modal__section-title">
+                                Доступные нейросети
+                            </h3>
 
                             <div className="ai-block-modal__available-list">
                                 {availableModels.length > 0 ? (
                                     availableModels.map((model) => (
-                                        <article className="ai-block-modal__available-model" key={model.id}>
+                                        <article
+                                            className="ai-block-modal__available-model"
+                                            key={model.id}
+                                        >
                                             <div className="ai-block-modal__model-info">
                                                 <strong className="ai-block-modal__model-name">
                                                     {model.name}
                                                 </strong>
                                                 <span className="ai-block-modal__model-provider">
-                                                    {model.provider}
-                                                </span>
+                                    {model.provider}
+                                </span>
                                                 <p className="ai-block-modal__model-description">
                                                     {model.description}
                                                 </p>
@@ -246,12 +313,6 @@ function AiBlockModal({ initialTitle, initialConfig, onSave, onClose }: AiBlockM
                                 )}
                             </div>
                         </section>
-
-                        <p className="ai-block-modal__hint">
-                            Рекомендуемый режим — <b>Умный краткий</b>. Для точного контроля используйте
-                            шаблоны вроде <code>{'{{input.body.extract}}'}</code> и режим
-                            <b>Только по шаблону</b>.
-                        </p>
                     </aside>
                 </div>
 
