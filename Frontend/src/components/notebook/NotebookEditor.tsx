@@ -375,6 +375,15 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         );
     }, []);
 
+    const validateCurrentNotebook = useCallback(() => {
+        const payload = notebookPayload ?? loadedNotebookPayload;
+        const issues = validateNotebookPayload(payload);
+
+        setValidationIssues(issues);
+
+        return issues;
+    }, [loadedNotebookPayload, notebookPayload]);
+
     const saveNotebookToBackend = useCallback(
         async () => {
             const basePayload = notebookPayload ?? loadedNotebookPayload;
@@ -505,7 +514,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         } finally {
             setIsSaving(false);
         }
-    }, [saveNotebookToBackend]);
+    }, [saveNotebookToBackend, validateCurrentNotebook]);
 
     const handleRunWorkflow = useCallback(async () => {
         runRequestIdRef.current += 1;
@@ -531,7 +540,6 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
 
             if (blockingIssues.length > 0) {
                 const finishedAt = new Date();
-                const firstIssue = blockingIssues[0];
 
                 setExecutionStatus('error');
                 setIsRunPanelOpen(true);
@@ -641,7 +649,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         } finally {
             setIsSaving(false);
         }
-    }, [saveNotebookToBackend]);
+    }, [saveNotebookToBackend, validateCurrentNotebook]);
 
     const handleRunRequestHandled = useCallback((requestId: number) => {
         setRunRequest((currentRequest) =>
@@ -813,15 +821,6 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         setNotebookPayload(nextPayload);
         setWorkflowStatus(nextWorkflowStatus);
     }, [loadedNotebookPayload, workflowStatus]);
-
-    const validateCurrentNotebook = useCallback(() => {
-        const payload = notebookPayload ?? loadedNotebookPayload;
-        const issues = validateNotebookPayload(payload);
-
-        setValidationIssues(issues);
-
-        return issues;
-    }, [loadedNotebookPayload, notebookPayload]);
 
     return (
         <main
