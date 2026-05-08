@@ -215,12 +215,21 @@ function BlockSettingsModal({
     const handleSave = () => {
         onSave({
             title: title.trim() || 'Блок',
-            subtitle: subtitle.trim(),
+            subtitle: getEffectiveSubtitle(),
             description: description.trim(),
             config: getConfigByBlockType(),
         });
     };
 
+    const getEffectiveSubtitle = () => {
+        if (blockType === 'http') {
+            return `${httpConfig.method} ${httpConfig.url}`.trim();
+        }
+
+        return subtitle.trim();
+    };
+
+    const shouldShowSubtitleField = blockType !== 'http';
     const shouldShowDescriptionField = blockType !== 'http';
 
     return createPortal(
@@ -249,15 +258,17 @@ function BlockSettingsModal({
                         />
                     </label>
 
-                    <label className="block-settings-modal__field">
-                        <span className="block-settings-modal__label">Краткое описание</span>
-                        <input
-                            className="block-settings-modal__input"
-                            value={subtitle}
-                            onChange={(event) => setSubtitle(event.target.value)}
-                            placeholder="Краткое описание"
-                        />
-                    </label>
+                    {shouldShowSubtitleField && (
+                        <label className="block-settings-modal__field">
+                            <span className="block-settings-modal__label">Краткое описание</span>
+                            <input
+                                className="block-settings-modal__input"
+                                value={subtitle}
+                                onChange={(event) => setSubtitle(event.target.value)}
+                                placeholder="Краткое описание"
+                            />
+                        </label>
+                    )}
 
                     {shouldShowDescriptionField && (
                         <label className="block-settings-modal__field">
@@ -641,20 +652,22 @@ function BlockSettingsModal({
                                 />
                             </label>
 
-                            <label className="block-settings-modal__field">
-                                <span className="block-settings-modal__label">Body JSON / текст</span>
-                                <textarea
-                                    className="block-settings-modal__textarea block-settings-modal__textarea--http-body"
-                                    value={httpConfig.body}
-                                    onChange={(event) =>
-                                        setHttpConfig((currentConfig) => ({
-                                            ...currentConfig,
-                                            body: event.target.value,
-                                        }))
-                                    }
-                                    placeholder='{"text": "{{input.text}}"}'
-                                />
-                            </label>
+                            {httpConfig.method !== 'GET' && httpConfig.method !== 'DELETE' && (
+                                <label className="block-settings-modal__field">
+                                    <span className="block-settings-modal__label">Body JSON / текст</span>
+                                    <textarea
+                                        className="block-settings-modal__textarea block-settings-modal__textarea--http-body"
+                                        value={httpConfig.body}
+                                        onChange={(event) =>
+                                            setHttpConfig((currentConfig) => ({
+                                                ...currentConfig,
+                                                body: event.target.value,
+                                            }))
+                                        }
+                                        placeholder='{"text": "{{input.text}}"}'
+                                    />
+                                </label>
+                            )}
 
                             <p className="block-settings-modal__hint">
                                 Доступны шаблоны:
