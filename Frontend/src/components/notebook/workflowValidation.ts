@@ -305,6 +305,36 @@ export function validateWorkflow(nodes: NotebookNode[], edges: Edge[]): Workflow
 
         if (
             node.data.blockType === 'http' &&
+            !isProbablyValidHttpUrl(node.data.config?.http?.url)
+        ) {
+            issues.push(
+                createIssue({
+                    id: `node-${node.id}-http-url-invalid`,
+                    severity: 'error',
+                    blockId: node.id,
+                    blockTitle: node.data.title,
+                    message: `У блока "${node.data.title}" не задан корректный HTTP/HTTPS URL.`,
+                }),
+            );
+        }
+
+        if (
+            node.data.blockType === 'http' &&
+            !isValidJsonObject(node.data.config?.http?.headers)
+        ) {
+            issues.push(
+                createIssue({
+                    id: `node-${node.id}-http-headers-invalid`,
+                    severity: 'error',
+                    blockId: node.id,
+                    blockTitle: node.data.title,
+                    message: `У блока "${node.data.title}" поле Headers должно быть валидным JSON-объектом.`,
+                }),
+            );
+        }
+
+        if (
+            node.data.blockType === 'http' &&
             !isNumberInRange(node.data.config?.http?.timeoutMs, 1000, 60000)
         ) {
             issues.push(
