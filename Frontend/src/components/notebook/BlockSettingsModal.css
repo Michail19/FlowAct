@@ -12,6 +12,7 @@
 
 .block-settings-modal__content {
     width: min(720px, calc(100vw - 24px));
+    height: auto;
     max-height: calc(100vh - 24px);
     display: flex;
     flex-direction: column;
@@ -66,7 +67,7 @@
 .block-settings-modal__body {
     min-height: 0;
     display: flex;
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     flex-direction: column;
     gap: 10px;
     overflow-y: auto;
