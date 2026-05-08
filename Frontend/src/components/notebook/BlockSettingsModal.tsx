@@ -85,7 +85,7 @@ function getDefaultHttpConfig(config?: NotebookBlockConfig): HttpBlockConfig {
     return {
         method: config?.http?.method ?? 'GET',
         url: config?.http?.url ?? '',
-        headers: config?.http?.headers ?? '{\n  "Content-Type": "application/json"\n}',
+        headers: config?.http?.headers ?? '{\n  "Accept": "application/json"\n}',
         body: config?.http?.body ?? '',
         timeoutMs: config?.http?.timeoutMs ?? 10000,
         maxResponseChars: config?.http?.maxResponseChars ?? 50000,
@@ -221,6 +221,8 @@ function BlockSettingsModal({
         });
     };
 
+    const shouldShowDescriptionField = blockType !== 'http';
+
     return createPortal(
         <div
             className="block-settings-modal"
@@ -257,15 +259,17 @@ function BlockSettingsModal({
                         />
                     </label>
 
-                    <label className="block-settings-modal__field">
-                        <span className="block-settings-modal__label">Описание</span>
-                        <textarea
-                            className="block-settings-modal__textarea"
-                            value={description}
-                            onChange={(event) => setDescription(event.target.value)}
-                            placeholder="Что делает этот блок"
-                        />
-                    </label>
+                    {shouldShowDescriptionField && (
+                        <label className="block-settings-modal__field">
+                            <span className="block-settings-modal__label">Описание</span>
+                            <textarea
+                                className="block-settings-modal__textarea"
+                                value={description}
+                                onChange={(event) => setDescription(event.target.value)}
+                                placeholder="Что делает этот блок"
+                            />
+                        </label>
+                    )}
 
                     {blockType === 'condition' && (
                         <section className="block-settings-modal__type-section">
@@ -496,9 +500,11 @@ function BlockSettingsModal({
 
                     {blockType === 'http' && (
                         <section className="block-settings-modal__type-section">
-                            <h3 className="block-settings-modal__section-title">HTTP-запрос</h3>
+                            <h3 className="block-settings-modal__section-title">
+                                Параметры запроса
+                            </h3>
 
-                            <div className="block-settings-modal__grid">
+                            <div className="block-settings-modal__grid block-settings-modal__grid--http-primary">
                                 <label className="block-settings-modal__field">
                                     <span className="block-settings-modal__label">Метод</span>
                                     <select
@@ -535,68 +541,77 @@ function BlockSettingsModal({
                                 </label>
                             </div>
 
-                            <div className="block-settings-modal__grid">
-                                <label className="block-settings-modal__field">
-                                    <span className="block-settings-modal__label">Режим ответа</span>
-                                    <select
-                                        className="block-settings-modal__input"
-                                        value={httpConfig.responseMode ?? 'auto'}
-                                        onChange={(event) =>
-                                            setHttpConfig((currentConfig) => ({
-                                                ...currentConfig,
-                                                responseMode: event.target.value as HttpBlockConfig['responseMode'],
-                                            }))
-                                        }
-                                    >
-                                        <option value="auto">Auto — определить автоматически</option>
-                                        <option value="json">JSON — ожидать JSON</option>
-                                        <option value="text">Text — оставить текстом</option>
-                                    </select>
-                                </label>
+                            <div className="block-settings-modal__subsection">
+                                <h4 className="block-settings-modal__subsection-title">
+                                    Обработка ответа
+                                </h4>
 
-                                <label className="block-settings-modal__field">
-                                    <span className="block-settings-modal__label">Таймаут, мс</span>
-                                    <input
-                                        className="block-settings-modal__input"
-                                        type="number"
-                                        min={1000}
-                                        max={60000}
-                                        step={1000}
-                                        value={httpConfig.timeoutMs ?? 10000}
-                                        onChange={(event) =>
-                                            setHttpConfig((currentConfig) => ({
-                                                ...currentConfig,
-                                                timeoutMs: Math.min(
-                                                    Math.max(Number(event.target.value) || 10000, 1000),
-                                                    60000,
-                                                ),
-                                            }))
-                                        }
-                                    />
-                                </label>
+                                <div className="block-settings-modal__grid block-settings-modal__grid--http-secondary">
+                                    <label className="block-settings-modal__field">
+                                        <span className="block-settings-modal__label">Режим ответа</span>
+                                        <select
+                                            className="block-settings-modal__input"
+                                            value={httpConfig.responseMode ?? 'auto'}
+                                            onChange={(event) =>
+                                                setHttpConfig((currentConfig) => ({
+                                                    ...currentConfig,
+                                                    responseMode:
+                                                        event.target.value as HttpBlockConfig['responseMode'],
+                                                }))
+                                            }
+                                        >
+                                            <option value="auto">Auto</option>
+                                            <option value="json">JSON</option>
+                                            <option value="text">Text</option>
+                                        </select>
+                                    </label>
 
-                                <label className="block-settings-modal__field">
-                                    <span className="block-settings-modal__label">Лимит ответа, символов</span>
-                                    <input
-                                        className="block-settings-modal__input"
-                                        type="number"
-                                        min={1000}
-                                        max={200000}
-                                        step={1000}
-                                        value={httpConfig.maxResponseChars ?? 50000}
-                                        onChange={(event) =>
-                                            setHttpConfig((currentConfig) => ({
-                                                ...currentConfig,
-                                                maxResponseChars: Math.min(
-                                                    Math.max(Number(event.target.value) || 50000, 1000),
-                                                    200000,
-                                                ),
-                                            }))
-                                        }
-                                    />
-                                </label>
+                                    <label className="block-settings-modal__field">
+                                        <span className="block-settings-modal__label">Таймаут, мс</span>
+                                        <input
+                                            className="block-settings-modal__input"
+                                            type="number"
+                                            min={1000}
+                                            max={60000}
+                                            step={1000}
+                                            value={httpConfig.timeoutMs ?? 10000}
+                                            onChange={(event) =>
+                                                setHttpConfig((currentConfig) => ({
+                                                    ...currentConfig,
+                                                    timeoutMs: Math.min(
+                                                        Math.max(Number(event.target.value) || 10000, 1000),
+                                                        60000,
+                                                    ),
+                                                }))
+                                            }
+                                        />
+                                    </label>
 
-                                <label className="block-settings-modal__checkbox-field">
+                                    <label className="block-settings-modal__field">
+                    <span className="block-settings-modal__label">
+                        Лимит ответа, символов
+                    </span>
+                                        <input
+                                            className="block-settings-modal__input"
+                                            type="number"
+                                            min={1000}
+                                            max={200000}
+                                            step={1000}
+                                            value={httpConfig.maxResponseChars ?? 50000}
+                                            onChange={(event) =>
+                                                setHttpConfig((currentConfig) => ({
+                                                    ...currentConfig,
+                                                    maxResponseChars: Math.min(
+                                                        Math.max(Number(event.target.value) || 50000, 1000),
+                                                        200000,
+                                                    ),
+                                                }))
+                                            }
+                                        />
+                                    </label>
+                                </div>
+
+                                <label className="block-settings-modal__checkbox-field block-settings-modal__checkbox-field--full">
                                     <input
                                         type="checkbox"
                                         checked={httpConfig.continueOnError ?? false}
@@ -614,7 +629,7 @@ function BlockSettingsModal({
                             <label className="block-settings-modal__field">
                                 <span className="block-settings-modal__label">Headers JSON</span>
                                 <textarea
-                                    className="block-settings-modal__textarea"
+                                    className="block-settings-modal__textarea block-settings-modal__textarea--http-headers"
                                     value={httpConfig.headers}
                                     onChange={(event) =>
                                         setHttpConfig((currentConfig) => ({
@@ -622,14 +637,14 @@ function BlockSettingsModal({
                                             headers: event.target.value,
                                         }))
                                     }
-                                    placeholder='{"Authorization": "Bearer {{token}}"}'
+                                    placeholder='{"Authorization": "Bearer {{variables.token}}"}'
                                 />
                             </label>
 
                             <label className="block-settings-modal__field">
                                 <span className="block-settings-modal__label">Body JSON / текст</span>
                                 <textarea
-                                    className="block-settings-modal__textarea"
+                                    className="block-settings-modal__textarea block-settings-modal__textarea--http-body"
                                     value={httpConfig.body}
                                     onChange={(event) =>
                                         setHttpConfig((currentConfig) => ({
@@ -642,8 +657,8 @@ function BlockSettingsModal({
                             </label>
 
                             <p className="block-settings-modal__hint">
-                                В URL, headers и body можно использовать данные предыдущих блоков:
-                                <code>{'{{input.id}}'}</code>,
+                                Доступны шаблоны:
+                                <code>{'{{input}}'}</code>,
                                 <code>{'{{input.text}}'}</code>,
                                 <code>{'{{variables.token}}'}</code>.
                             </p>
