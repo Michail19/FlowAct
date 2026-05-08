@@ -222,7 +222,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         useState<WorkflowStatus | null>(
             initialNotebookPayload?.workflowStatus ?? null,
         );
-    const [validationIssues, setValidationIssues] = useState<WorkflowValidationIssue[]>([]);
+    const [, setValidationIssues] = useState<WorkflowValidationIssue[]>([]);
 
     const suggestion = useMemo(
         () => ({
@@ -344,6 +344,20 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
             window.clearTimeout(timeoutId);
         };
     }, [saveSuccessMessage]);
+
+    useEffect(() => {
+        if (!saveError) {
+            return;
+        }
+
+        const timeoutId = window.setTimeout(() => {
+            setSaveError(null);
+        }, 5000);
+
+        return () => {
+            window.clearTimeout(timeoutId);
+        };
+    }, [saveError]);
 
     const handleAddBlock = useCallback((blockType: NotebookBlockType) => {
         requestIdRef.current += 1;
@@ -578,7 +592,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                 });
 
                 setSaveError(
-                    `Схема не готова к запуску. Исправьте ошибок: ${blockingIssues.length}.`,
+                    `Схема не готова к запуску: найдено ошибок ${blockingIssues.length}. Подробности показаны в панели выполнения.`,
                 );
 
                 return;
@@ -930,16 +944,6 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                     {saveSuccessMessage && !saveError && !isInterfaceHidden && (
                         <div className="notebook-editor__save-message notebook-editor__save-message--success">
                             {saveSuccessMessage}
-                        </div>
-                    )}
-
-                    {validationIssues.length > 0 && !isInterfaceHidden && (
-                        <div className="notebook-editor__validation-message">
-                            <strong>Проверка схемы</strong>
-                            <span>
-                                Ошибок: {validationIssues.filter((issue) => issue.severity === 'error').length},
-                                предупреждений: {validationIssues.filter((issue) => issue.severity === 'warning').length}
-                            </span>
                         </div>
                     )}
 

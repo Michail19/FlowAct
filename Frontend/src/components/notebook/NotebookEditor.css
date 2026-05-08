@@ -50,28 +50,6 @@
     color: #04111f;
 }
 
-.notebook-editor__validation-message {
-    position: absolute;
-    z-index: 12;
-    right: 16px;
-    top: 58px;
-    display: flex;
-    max-width: 380px;
-    flex-direction: column;
-    gap: 4px;
-    padding: 10px 14px;
-    border-radius: 12px;
-    background: rgba(250, 204, 21, 0.92);
-    color: #172033;
-    font-size: 13px;
-    line-height: 1.35;
-    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.22);
-}
-
-.notebook-editor__validation-message strong {
-    font-size: 14px;
-}
-
 @media (max-width: 767px) {
     .notebook-editor {
         max-width: 430px;
