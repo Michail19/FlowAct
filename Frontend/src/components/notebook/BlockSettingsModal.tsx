@@ -87,6 +87,10 @@ function getDefaultHttpConfig(config?: NotebookBlockConfig): HttpBlockConfig {
         url: config?.http?.url ?? '',
         headers: config?.http?.headers ?? '{\n  "Content-Type": "application/json"\n}',
         body: config?.http?.body ?? '',
+        timeoutMs: config?.http?.timeoutMs ?? 10000,
+        maxResponseChars: config?.http?.maxResponseChars ?? 50000,
+        responseMode: config?.http?.responseMode ?? 'auto',
+        continueOnError: config?.http?.continueOnError ?? false,
     };
 }
 
@@ -528,6 +532,82 @@ function BlockSettingsModal({
                                         }
                                         placeholder="https://api.example.com/data"
                                     />
+                                </label>
+                            </div>
+
+                            <div className="block-settings-modal__grid">
+                                <label className="block-settings-modal__field">
+                                    <span className="block-settings-modal__label">Режим ответа</span>
+                                    <select
+                                        className="block-settings-modal__input"
+                                        value={httpConfig.responseMode ?? 'auto'}
+                                        onChange={(event) =>
+                                            setHttpConfig((currentConfig) => ({
+                                                ...currentConfig,
+                                                responseMode: event.target.value as HttpBlockConfig['responseMode'],
+                                            }))
+                                        }
+                                    >
+                                        <option value="auto">Auto — определить автоматически</option>
+                                        <option value="json">JSON — ожидать JSON</option>
+                                        <option value="text">Text — оставить текстом</option>
+                                    </select>
+                                </label>
+
+                                <label className="block-settings-modal__field">
+                                    <span className="block-settings-modal__label">Таймаут, мс</span>
+                                    <input
+                                        className="block-settings-modal__input"
+                                        type="number"
+                                        min={1000}
+                                        max={60000}
+                                        step={1000}
+                                        value={httpConfig.timeoutMs ?? 10000}
+                                        onChange={(event) =>
+                                            setHttpConfig((currentConfig) => ({
+                                                ...currentConfig,
+                                                timeoutMs: Math.min(
+                                                    Math.max(Number(event.target.value) || 10000, 1000),
+                                                    60000,
+                                                ),
+                                            }))
+                                        }
+                                    />
+                                </label>
+
+                                <label className="block-settings-modal__field">
+                                    <span className="block-settings-modal__label">Лимит ответа, символов</span>
+                                    <input
+                                        className="block-settings-modal__input"
+                                        type="number"
+                                        min={1000}
+                                        max={200000}
+                                        step={1000}
+                                        value={httpConfig.maxResponseChars ?? 50000}
+                                        onChange={(event) =>
+                                            setHttpConfig((currentConfig) => ({
+                                                ...currentConfig,
+                                                maxResponseChars: Math.min(
+                                                    Math.max(Number(event.target.value) || 50000, 1000),
+                                                    200000,
+                                                ),
+                                            }))
+                                        }
+                                    />
+                                </label>
+
+                                <label className="block-settings-modal__checkbox-field">
+                                    <input
+                                        type="checkbox"
+                                        checked={httpConfig.continueOnError ?? false}
+                                        onChange={(event) =>
+                                            setHttpConfig((currentConfig) => ({
+                                                ...currentConfig,
+                                                continueOnError: event.target.checked,
+                                            }))
+                                        }
+                                    />
+                                    <span>Не останавливать workflow при HTTP 4xx/5xx</span>
                                 </label>
                             </div>
 

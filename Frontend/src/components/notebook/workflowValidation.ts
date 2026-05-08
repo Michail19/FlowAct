@@ -135,6 +135,18 @@ function isProbablyValidHttpUrl(value: string | undefined) {
     }
 }
 
+function isNumberInRange(
+    value: number | undefined,
+    min: number,
+    max: number,
+) {
+    if (value === undefined) {
+        return true;
+    }
+
+    return Number.isFinite(value) && value >= min && value <= max;
+}
+
 export function validateWorkflow(nodes: NotebookNode[], edges: Edge[]): WorkflowValidationIssue[] {
     const issues: WorkflowValidationIssue[] = [];
     const nodeIds = new Set(nodes.map((node) => node.id));
@@ -293,30 +305,30 @@ export function validateWorkflow(nodes: NotebookNode[], edges: Edge[]): Workflow
 
         if (
             node.data.blockType === 'http' &&
-            !isProbablyValidHttpUrl(node.data.config?.http?.url)
+            !isNumberInRange(node.data.config?.http?.timeoutMs, 1000, 60000)
         ) {
             issues.push(
                 createIssue({
-                    id: `node-${node.id}-http-url-missing`,
+                    id: `node-${node.id}-http-timeout-invalid`,
                     severity: 'error',
                     blockId: node.id,
                     blockTitle: node.data.title,
-                    message: `У блока "${node.data.title}" не задан корректный HTTP/HTTPS URL.`,
+                    message: `У блока "${node.data.title}" таймаут должен быть от 1000 до 60000 мс.`,
                 }),
             );
         }
 
         if (
             node.data.blockType === 'http' &&
-            !isValidJsonObject(node.data.config?.http?.headers)
+            !isNumberInRange(node.data.config?.http?.maxResponseChars, 1000, 200000)
         ) {
             issues.push(
                 createIssue({
-                    id: `node-${node.id}-http-headers-invalid`,
+                    id: `node-${node.id}-http-response-limit-invalid`,
                     severity: 'error',
                     blockId: node.id,
                     blockTitle: node.data.title,
-                    message: `У блока "${node.data.title}" поле Headers должно быть валидным JSON-объектом.`,
+                    message: `У блока "${node.data.title}" лимит ответа должен быть от 1000 до 200000 символов.`,
                 }),
             );
         }

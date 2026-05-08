@@ -260,6 +260,10 @@ function createBackendBlockConfig(block: NotebookBlockDto): BackendJsonObject {
             url: http?.url ?? '',
             headers: http?.headers ? parseJsonObject(http.headers) : {},
             body: http?.body ? parseJsonValue(http.body) : null,
+            timeoutMs: http?.timeoutMs ?? 10000,
+            maxResponseChars: http?.maxResponseChars ?? 50000,
+            responseMode: http?.responseMode ?? 'auto',
+            continueOnError: http?.continueOnError ?? false,
         };
     }
 
@@ -601,6 +605,11 @@ function createFrontendBlockConfigFromBackendBlock(
                 url: getConfigString(config, 'url'),
                 headers: stringifyForTextarea(config.headers, '{}'),
                 body: stringifyForTextarea(config.body),
+                timeoutMs: Number(config.timeoutMs) || 10000,
+                maxResponseChars: Number(config.maxResponseChars) || 50000,
+                responseMode:
+                    getConfigString(config, 'responseMode', 'auto') as HttpBlockConfig['responseMode'],
+                continueOnError: config.continueOnError === true,
             },
         };
     }

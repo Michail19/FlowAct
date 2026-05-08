@@ -68,11 +68,17 @@ export type LogBlockConfig = {
     messageTemplate: string;
 };
 
+export type HttpResponseMode = 'auto' | 'json' | 'text';
+
 export type HttpBlockConfig = {
     method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
     url: string;
     headers: string;
     body: string;
+    timeoutMs?: number;
+    maxResponseChars?: number;
+    responseMode?: HttpResponseMode;
+    continueOnError?: boolean;
 };
 
 export type LoopBlockConfig = {

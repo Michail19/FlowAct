@@ -151,6 +151,19 @@
     line-height: 1.45;
 }
 
+.block-settings-modal__checkbox-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--color-muted);
+    font-size: 13px;
+}
+
+.block-settings-modal__checkbox-field input {
+    width: 16px;
+    height: 16px;
+}
+
 @media (max-width: 640px) {
     .block-settings-modal__grid {
         grid-template-columns: 1fr;
