@@ -1,6 +1,7 @@
 import type { Edge } from '@xyflow/react';
 
 import type { NotebookNode } from './notebookTypes';
+import type { NotebookPayloadDto } from './notebookBackendTypes';
 
 export type WorkflowValidationSeverity = 'error' | 'warning';
 
@@ -422,4 +423,45 @@ export function validateWorkflow(nodes: NotebookNode[], edges: Edge[]): Workflow
     }
 
     return issues;
+}
+
+export function validateNotebookPayload(
+    payload: NotebookPayloadDto | null | undefined,
+): WorkflowValidationIssue[] {
+    if (!payload) {
+        return [
+            createIssue({
+                id: 'notebook-payload-missing',
+                severity: 'error',
+                message: 'Нет данных схемы для проверки.',
+            }),
+        ];
+    }
+
+    const nodes: NotebookNode[] = payload.blocks.map((block) => ({
+        id: block.id,
+        type: block.type === 'ai' ? 'aiBlock' : 'customBlock',
+        position: block.position,
+        data: {
+            title: block.title,
+            subtitle: block.subtitle,
+            description: block.description,
+            blockType: block.type,
+            status: 'idle',
+            aiConfig: block.config?.ai,
+            config: block.config,
+        },
+    }));
+
+    const edges: Edge[] = payload.connections.map((connection) => ({
+        id: connection.id,
+        source: connection.sourceBlockId,
+        target: connection.targetBlockId,
+        sourceHandle: connection.sourceHandle,
+        targetHandle: connection.targetHandle,
+        label: connection.label,
+        type: 'smoothstep',
+    }));
+
+    return validateWorkflow(nodes, edges);
 }

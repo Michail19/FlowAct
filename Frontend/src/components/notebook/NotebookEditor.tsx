@@ -43,6 +43,10 @@ import { workflowApi } from '../../services/workflowApi';
 import { createExecutionLog } from './workflowExecution';
 import { ApiError } from '../../services/apiClient';
 import type { WorkflowStatus } from '../../services/workflowApiTypes';
+import {
+    validateNotebookPayload,
+    type WorkflowValidationIssue,
+} from './workflowValidation';
 
 import './NotebookEditor.css';
 
@@ -142,6 +146,25 @@ function getPayloadFingerprint(payload: NotebookPayloadDto | null | undefined) {
     return JSON.stringify(normalizePayloadForStatus(payload));
 }
 
+function getBlockingValidationIssues(issues: WorkflowValidationIssue[]) {
+    return issues.filter((issue) => issue.severity === 'error');
+}
+
+function getValidationErrorSummary(issues: WorkflowValidationIssue[]) {
+    const blockingIssues = getBlockingValidationIssues(issues);
+    const firstIssue = blockingIssues[0];
+
+    if (!firstIssue) {
+        return null;
+    }
+
+    if (blockingIssues.length === 1) {
+        return firstIssue.message;
+    }
+
+    return `${firstIssue.message}\n\nИ ещё ошибок: ${blockingIssues.length - 1}`;
+}
+
 function NotebookEditor({ notebookId }: NotebookEditorProps) {
     const isMobile = useMediaQuery('(max-width: 767px)');
     const isDesktop = useMediaQuery('(min-width: 1024px)');
@@ -199,6 +222,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         useState<WorkflowStatus | null>(
             initialNotebookPayload?.workflowStatus ?? null,
         );
+    const [validationIssues, setValidationIssues] = useState<WorkflowValidationIssue[]>([]);
 
     const suggestion = useMemo(
         () => ({
@@ -463,7 +487,15 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
 
         try {
             await saveNotebookToBackend();
-            setSaveSuccessMessage('Workflow сохранён.');
+
+            const issues = validateCurrentNotebook();
+            const blockingIssues = getBlockingValidationIssues(issues);
+
+            setSaveSuccessMessage(
+                blockingIssues.length > 0
+                    ? `Workflow сохранён как черновик. Ошибок схемы: ${blockingIssues.length}.`
+                    : 'Workflow сохранён.',
+            );
         } catch (error) {
             const message = getBackendSaveErrorMessage(error);
 
@@ -494,6 +526,58 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         setSaveError(null);
 
         try {
+            const validationIssues = validateCurrentNotebook();
+            const blockingIssues = getBlockingValidationIssues(validationIssues);
+
+            if (blockingIssues.length > 0) {
+                const finishedAt = new Date();
+                const firstIssue = blockingIssues[0];
+
+                setExecutionStatus('error');
+                setIsRunPanelOpen(true);
+
+                setExecutionLogs(
+                    blockingIssues.slice(0, 5).map((issue) =>
+                        createExecutionLog({
+                            level: issue.severity === 'error' ? 'error' : 'warning',
+                            status: 'error',
+                            blockId: issue.blockId,
+                            blockTitle: issue.blockTitle,
+                            message: issue.message,
+                        }),
+                    ),
+                );
+
+                setExecutionResult({
+                    id: `${finishedAt.getTime()}-frontend-validation-error`,
+                    status: 'error',
+                    startedAt: finishedAt.toISOString(),
+                    finishedAt: finishedAt.toISOString(),
+                    durationMs: 0,
+                    totalBlocks: 0,
+                    completedBlocks: 0,
+                    failedBlocks: blockingIssues.length,
+                    warningsCount: validationIssues.filter(
+                        (issue) => issue.severity === 'warning',
+                    ).length,
+                    errorsCount: blockingIssues.length,
+                    summary: 'Схема не готова к запуску',
+                    output:
+                        getValidationErrorSummary(validationIssues) ??
+                        'Схема содержит ошибки.',
+                    outputFormat: 'text',
+                    rawOutput: JSON.stringify(validationIssues, null, 2),
+                });
+
+                setSaveError(
+                    `Схема не готова к запуску. Исправьте ошибок: ${blockingIssues.length}.`,
+                );
+
+                return;
+            }
+
+            setValidationIssues([]);
+
             const savedPayload = await saveNotebookToBackend();
 
             if (!savedPayload?.serverNotebookId || !savedPayload.workflowId) {
@@ -730,6 +814,15 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         setWorkflowStatus(nextWorkflowStatus);
     }, [loadedNotebookPayload, workflowStatus]);
 
+    const validateCurrentNotebook = useCallback(() => {
+        const payload = notebookPayload ?? loadedNotebookPayload;
+        const issues = validateNotebookPayload(payload);
+
+        setValidationIssues(issues);
+
+        return issues;
+    }, [loadedNotebookPayload, notebookPayload]);
+
     return (
         <main
             className={
@@ -838,6 +931,16 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                     {saveSuccessMessage && !saveError && !isInterfaceHidden && (
                         <div className="notebook-editor__save-message notebook-editor__save-message--success">
                             {saveSuccessMessage}
+                        </div>
+                    )}
+
+                    {validationIssues.length > 0 && !isInterfaceHidden && (
+                        <div className="notebook-editor__validation-message">
+                            <strong>Проверка схемы</strong>
+                            <span>
+                                Ошибок: {validationIssues.filter((issue) => issue.severity === 'error').length},
+                                предупреждений: {validationIssues.filter((issue) => issue.severity === 'warning').length}
+                            </span>
                         </div>
                     )}
 
