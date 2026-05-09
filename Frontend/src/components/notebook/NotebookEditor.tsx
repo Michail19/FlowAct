@@ -41,7 +41,7 @@ import {
     toBackendWorkflowRequest,
 } from './backendWorkflowMapper';
 import { workflowApi } from '../../services/workflowApi';
-import { createExecutionLog } from './workflowExecution';
+import { createExecutionLog, sleep } from './workflowExecution';
 import { ApiError } from '../../services/apiClient';
 import type {
     ExecutionLogResponse,
@@ -240,7 +240,7 @@ function applyExecutionStatusesToPayload(params: {
         ...params.payload,
         blocks: params.payload.blocks.map((block) => ({
             ...block,
-            status: blockStatusByFrontendId.get(block.id) ?? block.status ?? 'idle',
+            status: blockStatusByFrontendId.get(block.id) ?? 'idle',
         })),
     };
 }
@@ -268,6 +268,80 @@ function mapExecutionLogsToNotebookLogs(params: {
             blockTitle: blockTitleById.get(frontendBlockId),
         };
     });
+}
+
+const RESTORE_EXECUTION_POLL_INTERVAL_MS = 1000;
+const RESTORE_EXECUTION_MAX_POLLS = 120;
+
+function isRestoredExecutionFinished(status: WorkflowExecutionStatus) {
+    return status === 'success' || status === 'error' || status === 'cancelled';
+}
+
+async function loadLatestExecutionState(params: {
+    serverNotebookId: string;
+    workflow: WorkflowResponse;
+    payload: NotebookPayloadDto;
+    shouldApplyBlockStatuses: boolean;
+}) {
+    const executions = await executionApi.getExecutions(
+        params.serverNotebookId,
+        params.workflow.id,
+    );
+
+    let latestExecution = executions[0];
+
+    if (!latestExecution) {
+        return {
+            payload: params.payload,
+            logs: [] as NotebookExecutionLog[],
+            status: 'idle' as WorkflowExecutionStatus,
+            result: null as WorkflowExecutionResult | null,
+        };
+    }
+
+    let frontendStatus = mapApiExecutionStatus(latestExecution.status);
+
+    for (
+        let pollIndex = 0;
+        pollIndex < RESTORE_EXECUTION_MAX_POLLS && !isRestoredExecutionFinished(frontendStatus);
+        pollIndex += 1
+    ) {
+        await sleep(RESTORE_EXECUTION_POLL_INTERVAL_MS);
+
+        latestExecution = await executionApi.getById(
+            params.serverNotebookId,
+            params.workflow.id,
+            latestExecution.id,
+        );
+
+        frontendStatus = mapApiExecutionStatus(latestExecution.status);
+    }
+
+    const latestLogs = await executionApi.getLogs(
+        params.serverNotebookId,
+        params.workflow.id,
+        latestExecution.id,
+    );
+
+    const payloadWithExecutionState = applyExecutionStatusesToPayload({
+        payload: params.payload,
+        workflow: params.workflow,
+        logs: latestLogs,
+        shouldApplyBlockStatuses: params.shouldApplyBlockStatuses,
+    });
+
+    const notebookLogs = mapExecutionLogsToNotebookLogs({
+        payload: payloadWithExecutionState,
+        workflow: params.workflow,
+        logs: latestLogs,
+    });
+
+    return {
+        payload: payloadWithExecutionState,
+        logs: notebookLogs,
+        status: frontendStatus,
+        result: toWorkflowExecutionResult(latestExecution),
+    };
 }
 
 function NotebookEditor({ notebookId }: NotebookEditorProps) {
@@ -404,47 +478,20 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                     let payloadWithExecutionState = restoredPayload;
 
                     try {
-                        const executions = await executionApi.getExecutions(
+                        const executionState = await loadLatestExecutionState({
                             serverNotebookId,
-                            backendWorkflow.id,
-                        );
+                            workflow: backendWorkflow,
+                            payload: restoredPayload,
+                            shouldApplyBlockStatuses: backendWorkflow.status === 'ACTIVE',
+                        });
 
-                        const latestExecution = executions[0];
+                        payloadWithExecutionState = executionState.payload;
 
-                        if (latestExecution) {
-                            const latestLogs = await executionApi.getLogs(
-                                serverNotebookId,
-                                backendWorkflow.id,
-                                latestExecution.id,
-                            );
+                        setExecutionLogs(executionState.logs);
+                        setExecutionStatus(executionState.status);
+                        setExecutionResult(executionState.result);
 
-                            const shouldApplyBlockStatuses = backendWorkflow.status === 'ACTIVE';
-
-                            payloadWithExecutionState = applyExecutionStatusesToPayload({
-                                payload: restoredPayload,
-                                workflow: backendWorkflow,
-                                logs: latestLogs,
-                                shouldApplyBlockStatuses,
-                            });
-
-                            const notebookLogs = mapExecutionLogsToNotebookLogs({
-                                payload: payloadWithExecutionState,
-                                workflow: backendWorkflow,
-                                logs: latestLogs,
-                            });
-
-                            setExecutionLogs(notebookLogs);
-                            setExecutionStatus(mapApiExecutionStatus(latestExecution.status));
-                            setExecutionResult(toWorkflowExecutionResult(latestExecution));
-
-                            if (notebookLogs.length > 0) {
-                                setIsRunPanelOpen(false);
-                            }
-                        } else {
-                            setExecutionLogs([]);
-                            setExecutionStatus('idle');
-                            setExecutionResult(null);
-                        }
+                        setIsRunPanelOpen(false);
                     } catch (executionHistoryError) {
                         console.warn(
                             'Execution history loading failed, notebook schema was loaded:',

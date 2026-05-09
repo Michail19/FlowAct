@@ -329,6 +329,20 @@ function createBackendBlockIdToFrontendBlockIdMap(params: {
     );
 }
 
+function getInitialPayloadLoadKey(payload: NotebookPayloadDto) {
+    const blockStatusesKey = payload.blocks
+        .map((block) => `${block.id}:${block.status ?? 'idle'}`)
+        .join('|');
+
+    return [
+        payload.id ?? 'local',
+        payload.serverNotebookId ?? 'local-server',
+        payload.workflowId ?? 'local-workflow',
+        payload.updatedAt,
+        blockStatusesKey,
+    ].join('::');
+}
+
 function NotebookCanvas({
                             readonly = false,
                             blockRequest = null,
@@ -501,7 +515,7 @@ function NotebookCanvas({
             return;
         }
 
-        const payloadKey = `${initialPayload.id ?? 'local'}-${initialPayload.updatedAt}`;
+        const payloadKey = getInitialPayloadLoadKey(initialPayload);
 
         if (loadedPayloadKeyRef.current === payloadKey) {
             return;
