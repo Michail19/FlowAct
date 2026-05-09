@@ -12,6 +12,7 @@ import type {
     NotebookAutoLayoutMode,
     NotebookAutoLayoutRequest,
     NotebookBlockRequest,
+    NotebookBlockStatus,
     NotebookBlockType,
     NotebookHistoryRequest,
     NotebookHistoryState,
@@ -42,11 +43,24 @@ import {
 import { workflowApi } from '../../services/workflowApi';
 import { createExecutionLog } from './workflowExecution';
 import { ApiError } from '../../services/apiClient';
-import type { WorkflowStatus } from '../../services/workflowApiTypes';
+import type {
+    ExecutionLogResponse,
+    WorkflowResponse,
+    WorkflowStatus,
+} from '../../services/workflowApiTypes';
 import {
     validateNotebookPayload,
     type WorkflowValidationIssue,
 } from './workflowValidation';
+import { executionApi } from '../../services/executionApi';
+import {
+    toNotebookExecutionLog,
+    toWorkflowExecutionResult,
+} from './executionApiMapper';
+import {
+    mapApiExecutionLogStatus,
+    mapApiExecutionStatus,
+} from './executionTypes';
 
 import './NotebookEditor.css';
 
@@ -163,6 +177,97 @@ function getValidationErrorSummary(issues: WorkflowValidationIssue[]) {
     }
 
     return `${firstIssue.message}\n\nИ ещё ошибок: ${blockingIssues.length - 1}`;
+}
+
+function getFrontendBlockIdFromBackendExecutionBlock(
+    workflow: WorkflowResponse,
+    backendBlockId: string,
+) {
+    const backendBlock = workflow.blocks.find((block) => block.id === backendBlockId);
+
+    if (!backendBlock) {
+        return backendBlockId;
+    }
+
+    const frontendConfig = backendBlock.config.frontend;
+
+    if (
+        frontendConfig &&
+        typeof frontendConfig === 'object' &&
+        !Array.isArray(frontendConfig)
+    ) {
+        const frontendId = frontendConfig.id;
+
+        if (typeof frontendId === 'string' && frontendId.trim()) {
+            return frontendId;
+        }
+    }
+
+    return backendBlockId;
+}
+
+function applyExecutionStatusesToPayload(params: {
+    payload: NotebookPayloadDto;
+    workflow: WorkflowResponse;
+    logs: ExecutionLogResponse[];
+    shouldApplyBlockStatuses: boolean;
+}): NotebookPayloadDto {
+    if (!params.shouldApplyBlockStatuses) {
+        return {
+            ...params.payload,
+            blocks: params.payload.blocks.map((block) => ({
+                ...block,
+                status: 'idle',
+            })),
+        };
+    }
+
+    const blockStatusByFrontendId = new Map<string, NotebookBlockStatus>();
+
+    params.logs.forEach((log) => {
+        const frontendBlockId = getFrontendBlockIdFromBackendExecutionBlock(
+            params.workflow,
+            log.blockId,
+        );
+
+        blockStatusByFrontendId.set(
+            frontendBlockId,
+            mapApiExecutionLogStatus(log.status),
+        );
+    });
+
+    return {
+        ...params.payload,
+        blocks: params.payload.blocks.map((block) => ({
+            ...block,
+            status: blockStatusByFrontendId.get(block.id) ?? block.status ?? 'idle',
+        })),
+    };
+}
+
+function mapExecutionLogsToNotebookLogs(params: {
+    payload: NotebookPayloadDto;
+    workflow: WorkflowResponse;
+    logs: ExecutionLogResponse[];
+}): NotebookExecutionLog[] {
+    const blockTitleById = new Map(
+        params.payload.blocks.map((block) => [block.id, block.title]),
+    );
+
+    return params.logs.map((log) => {
+        const frontendBlockId = getFrontendBlockIdFromBackendExecutionBlock(
+            params.workflow,
+            log.blockId,
+        );
+
+        return {
+            ...toNotebookExecutionLog({
+                ...log,
+                blockId: frontendBlockId,
+            }),
+            blockTitle: blockTitleById.get(frontendBlockId),
+        };
+    });
 }
 
 function NotebookEditor({ notebookId }: NotebookEditorProps) {
@@ -296,7 +401,58 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                         fallbackPayload: sourcePayload,
                     });
 
-                    const savedLocalNotebook = saveNotebookLocally(restoredPayload);
+                    let payloadWithExecutionState = restoredPayload;
+
+                    try {
+                        const executions = await executionApi.getExecutions(
+                            serverNotebookId,
+                            backendWorkflow.id,
+                        );
+
+                        const latestExecution = executions[0];
+
+                        if (latestExecution) {
+                            const latestLogs = await executionApi.getLogs(
+                                serverNotebookId,
+                                backendWorkflow.id,
+                                latestExecution.id,
+                            );
+
+                            const shouldApplyBlockStatuses = backendWorkflow.status === 'ACTIVE';
+
+                            payloadWithExecutionState = applyExecutionStatusesToPayload({
+                                payload: restoredPayload,
+                                workflow: backendWorkflow,
+                                logs: latestLogs,
+                                shouldApplyBlockStatuses,
+                            });
+
+                            const notebookLogs = mapExecutionLogsToNotebookLogs({
+                                payload: payloadWithExecutionState,
+                                workflow: backendWorkflow,
+                                logs: latestLogs,
+                            });
+
+                            setExecutionLogs(notebookLogs);
+                            setExecutionStatus(mapApiExecutionStatus(latestExecution.status));
+                            setExecutionResult(toWorkflowExecutionResult(latestExecution));
+
+                            if (notebookLogs.length > 0) {
+                                setIsRunPanelOpen(false);
+                            }
+                        } else {
+                            setExecutionLogs([]);
+                            setExecutionStatus('idle');
+                            setExecutionResult(null);
+                        }
+                    } catch (executionHistoryError) {
+                        console.warn(
+                            'Execution history loading failed, notebook schema was loaded:',
+                            executionHistoryError,
+                        );
+                    }
+
+                    const savedLocalNotebook = saveNotebookLocally(payloadWithExecutionState);
 
                     setNotebookTitle(savedLocalNotebook.title);
                     setLoadedNotebookPayload(savedLocalNotebook);
