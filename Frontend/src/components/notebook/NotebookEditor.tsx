@@ -211,6 +211,7 @@ function applyExecutionStatusesToPayload(params: {
     workflow: WorkflowResponse;
     logs: ExecutionLogResponse[];
     shouldApplyBlockStatuses: boolean;
+    executionStatus?: WorkflowExecutionStatus;
 }): NotebookPayloadDto {
     if (!params.shouldApplyBlockStatuses) {
         return {
@@ -236,11 +237,17 @@ function applyExecutionStatusesToPayload(params: {
         );
     });
 
+    const shouldMarkMissingBlocksAsSkipped =
+        params.shouldApplyBlockStatuses &&
+        params.executionStatus === 'success';
+
     return {
         ...params.payload,
         blocks: params.payload.blocks.map((block) => ({
             ...block,
-            status: blockStatusByFrontendId.get(block.id) ?? 'idle',
+            status:
+                blockStatusByFrontendId.get(block.id) ??
+                (shouldMarkMissingBlocksAsSkipped ? 'skipped' : 'idle'),
         })),
     };
 }
@@ -277,21 +284,33 @@ function isRestoredExecutionFinished(status: WorkflowExecutionStatus) {
     return status === 'success' || status === 'error' || status === 'cancelled';
 }
 
-async function loadLatestExecutionState(params: {
+async function loadExecutionStateSnapshot(params: {
     serverNotebookId: string;
     workflow: WorkflowResponse;
     payload: NotebookPayloadDto;
+    executionId?: string;
     shouldApplyBlockStatuses: boolean;
 }) {
-    const executions = await executionApi.getExecutions(
-        params.serverNotebookId,
-        params.workflow.id,
-    );
+    let latestExecution;
 
-    let latestExecution = executions[0];
+    if (params.executionId) {
+        latestExecution = await executionApi.getById(
+            params.serverNotebookId,
+            params.workflow.id,
+            params.executionId,
+        );
+    } else {
+        const executions = await executionApi.getExecutions(
+            params.serverNotebookId,
+            params.workflow.id,
+        );
+
+        latestExecution = executions[0];
+    }
 
     if (!latestExecution) {
         return {
+            executionId: null as string | null,
             payload: params.payload,
             logs: [] as NotebookExecutionLog[],
             status: 'idle' as WorkflowExecutionStatus,
@@ -299,23 +318,7 @@ async function loadLatestExecutionState(params: {
         };
     }
 
-    let frontendStatus = mapApiExecutionStatus(latestExecution.status);
-
-    for (
-        let pollIndex = 0;
-        pollIndex < RESTORE_EXECUTION_MAX_POLLS && !isRestoredExecutionFinished(frontendStatus);
-        pollIndex += 1
-    ) {
-        await sleep(RESTORE_EXECUTION_POLL_INTERVAL_MS);
-
-        latestExecution = await executionApi.getById(
-            params.serverNotebookId,
-            params.workflow.id,
-            latestExecution.id,
-        );
-
-        frontendStatus = mapApiExecutionStatus(latestExecution.status);
-    }
+    const frontendStatus = mapApiExecutionStatus(latestExecution.status);
 
     const latestLogs = await executionApi.getLogs(
         params.serverNotebookId,
@@ -328,6 +331,7 @@ async function loadLatestExecutionState(params: {
         workflow: params.workflow,
         logs: latestLogs,
         shouldApplyBlockStatuses: params.shouldApplyBlockStatuses,
+        executionStatus: frontendStatus,
     });
 
     const notebookLogs = mapExecutionLogsToNotebookLogs({
@@ -337,11 +341,52 @@ async function loadLatestExecutionState(params: {
     });
 
     return {
+        executionId: latestExecution.id,
         payload: payloadWithExecutionState,
         logs: notebookLogs,
         status: frontendStatus,
         result: toWorkflowExecutionResult(latestExecution),
     };
+}
+
+async function pollExecutionStateUntilFinished(params: {
+    serverNotebookId: string;
+    workflow: WorkflowResponse;
+    payload: NotebookPayloadDto;
+    executionId: string;
+    shouldApplyBlockStatuses: boolean;
+    isCancelled: () => boolean;
+    onStateLoaded: (state: Awaited<ReturnType<typeof loadExecutionStateSnapshot>>) => void;
+}) {
+    for (let pollIndex = 0; pollIndex < RESTORE_EXECUTION_MAX_POLLS; pollIndex += 1) {
+        if (params.isCancelled()) {
+            return;
+        }
+
+        await sleep(RESTORE_EXECUTION_POLL_INTERVAL_MS);
+
+        if (params.isCancelled()) {
+            return;
+        }
+
+        const state = await loadExecutionStateSnapshot({
+            serverNotebookId: params.serverNotebookId,
+            workflow: params.workflow,
+            payload: params.payload,
+            executionId: params.executionId,
+            shouldApplyBlockStatuses: params.shouldApplyBlockStatuses,
+        });
+
+        if (params.isCancelled()) {
+            return;
+        }
+
+        params.onStateLoaded(state);
+
+        if (isRestoredExecutionFinished(state.status)) {
+            return;
+        }
+    }
 }
 
 function NotebookEditor({ notebookId }: NotebookEditorProps) {
@@ -478,11 +523,13 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                     let payloadWithExecutionState = restoredPayload;
 
                     try {
-                        const executionState = await loadLatestExecutionState({
+                        const shouldApplyBlockStatuses = backendWorkflow.status === 'ACTIVE';
+
+                        const executionState = await loadExecutionStateSnapshot({
                             serverNotebookId,
                             workflow: backendWorkflow,
                             payload: restoredPayload,
-                            shouldApplyBlockStatuses: backendWorkflow.status === 'ACTIVE',
+                            shouldApplyBlockStatuses,
                         });
 
                         payloadWithExecutionState = executionState.payload;
@@ -490,8 +537,32 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                         setExecutionLogs(executionState.logs);
                         setExecutionStatus(executionState.status);
                         setExecutionResult(executionState.result);
-
                         setIsRunPanelOpen(false);
+
+                        if (
+                            executionState.executionId &&
+                            !isRestoredExecutionFinished(executionState.status)
+                        ) {
+                            void pollExecutionStateUntilFinished({
+                                serverNotebookId,
+                                workflow: backendWorkflow,
+                                payload: restoredPayload,
+                                executionId: executionState.executionId,
+                                shouldApplyBlockStatuses,
+                                isCancelled: () => isCancelled,
+                                onStateLoaded: (nextExecutionState) => {
+                                    const savedLocalNotebook = saveNotebookLocally(
+                                        nextExecutionState.payload,
+                                    );
+
+                                    setLoadedNotebookPayload(savedLocalNotebook);
+                                    setNotebookPayload(savedLocalNotebook);
+                                    setExecutionLogs(nextExecutionState.logs);
+                                    setExecutionStatus(nextExecutionState.status);
+                                    setExecutionResult(nextExecutionState.result);
+                                },
+                            });
+                        }
                     } catch (executionHistoryError) {
                         console.warn(
                             'Execution history loading failed, notebook schema was loaded:',
