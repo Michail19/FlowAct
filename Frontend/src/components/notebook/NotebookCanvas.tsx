@@ -25,6 +25,7 @@ import type {
     AiBlockConfig,
     NotebookAutoLayoutRequest,
     NotebookBlockRequest,
+    NotebookBlockStatus,
     NotebookHistoryRequest,
     NotebookHistoryState,
     NotebookNode,
@@ -59,7 +60,10 @@ import {
     sleep,
 } from './workflowExecution';
 import { executionApi } from '../../services/executionApi';
-import type { BackendJsonObject } from '../../services/workflowApiTypes';
+import type {
+    BackendJsonObject,
+    ExecutionLogResponse,
+} from '../../services/workflowApiTypes';
 import {
     toNotebookExecutionLog,
     toWorkflowExecutionResult,
@@ -1064,6 +1068,51 @@ function NotebookCanvas({
                 message: 'Запуск workflow через ExecutionService.',
             });
 
+            const applyBackendExecutionSnapshot = (params: {
+                backendLogs: ExecutionLogResponse[];
+                executionStatus: WorkflowExecutionStatus;
+            }) => {
+                const statusByFrontendNodeId = new Map<string, NotebookBlockStatus>();
+
+                const mappedLogs = params.backendLogs.map((log) => {
+                    const frontendBlockId =
+                        backendBlockIdToFrontendBlockId.get(log.blockId) ?? log.blockId;
+
+                    statusByFrontendNodeId.set(
+                        frontendBlockId,
+                        mapApiExecutionLogStatus(log.status),
+                    );
+
+                    return {
+                        ...toNotebookExecutionLog({
+                            ...log,
+                            blockId: frontendBlockId,
+                        }),
+                        blockTitle: frontendTitleByNodeId.get(frontendBlockId),
+                    };
+                });
+
+                const missingBlockStatus = getMissingRuntimeBlockStatus(
+                    params.executionStatus,
+                );
+
+                setNodes((currentNodes) =>
+                    currentNodes.map((node) => ({
+                        ...node,
+                        data: {
+                            ...node.data,
+                            status:
+                                statusByFrontendNodeId.get(node.id) ??
+                                missingBlockStatus,
+                        },
+                    })),
+                );
+
+                onExecutionLogsChange?.([startLog, ...mappedLogs]);
+
+                return mappedLogs;
+            };
+
             try {
                 onExecutionResultChange?.(null);
                 onExecutionStatusChange?.('running');
@@ -1172,49 +1221,12 @@ function NotebookCanvas({
                         currentExecution.id,
                     );
 
-                    const mappedLogs = backendLogs.map((log) => {
-                        const frontendBlockId =
-                            backendBlockIdToFrontendBlockId.get(log.blockId) ?? log.blockId;
+                    const currentExecutionStatus = mapApiExecutionStatus(currentExecution.status);
 
-                        return {
-                            ...toNotebookExecutionLog(log),
-                            blockId: frontendBlockId,
-                            blockTitle: frontendTitleByNodeId.get(frontendBlockId),
-                        };
+                    const mappedLogs = applyBackendExecutionSnapshot({
+                        backendLogs,
+                        executionStatus: currentExecutionStatus,
                     });
-
-                    onExecutionLogsChange?.([startLog, ...mappedLogs]);
-
-                    const statusByFrontendNodeId = new Map(
-                        backendLogs.map((log) => {
-                            const frontendBlockId =
-                                backendBlockIdToFrontendBlockId.get(log.blockId) ??
-                                log.blockId;
-
-                            return [
-                                frontendBlockId,
-                                mapApiExecutionLogStatus(log.status),
-                            ] as const;
-                        }),
-                    );
-
-                    setNodes((currentNodes) =>
-                        currentNodes.map((node) => {
-                            const nextStatus = statusByFrontendNodeId.get(node.id);
-
-                            if (!nextStatus) {
-                                return node;
-                            }
-
-                            return {
-                                ...node,
-                                data: {
-                                    ...node.data,
-                                    status: nextStatus,
-                                },
-                            };
-                        }),
-                    );
 
                     if (isBackendExecutionFinished(workflowStatus)) {
                         const result = toWorkflowExecutionResult(currentExecution);
