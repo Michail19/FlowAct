@@ -35,6 +35,7 @@ const statusLabels: Record<WorkflowExecutionStatus, string> = {
     error: 'Ошибка',
     cancelling: 'Отменяется',
     cancelled: 'Отменено',
+    skipped: 'Пропущено',
 };
 
 function formatLogTime(date: string) {

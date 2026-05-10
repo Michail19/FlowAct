@@ -1221,11 +1221,9 @@ function NotebookCanvas({
                         currentExecution.id,
                     );
 
-                    const currentExecutionStatus = mapApiExecutionStatus(currentExecution.status);
-
-                    const mappedLogs = applyBackendExecutionSnapshot({
+                    applyBackendExecutionSnapshot({
                         backendLogs,
-                        executionStatus: currentExecutionStatus,
+                        executionStatus: workflowStatus,
                     });
 
                     if (isBackendExecutionFinished(workflowStatus)) {
@@ -1250,22 +1248,6 @@ function NotebookCanvas({
                                     (log) => log.status === 'FAILED',
                                 ).length,
                             });
-                        }
-
-                        if (workflowStatus === 'error') {
-                            setNodes((currentNodes) =>
-                                currentNodes.map((node) =>
-                                    statusByFrontendNodeId.has(node.id)
-                                        ? node
-                                        : {
-                                            ...node,
-                                            data: {
-                                                ...node.data,
-                                                status: 'skipped',
-                                            },
-                                        },
-                                ),
-                            );
                         }
 
                         return true;
