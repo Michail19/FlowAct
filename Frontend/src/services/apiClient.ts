@@ -1,4 +1,5 @@
-import { getDevAuthHeaders, isDevAuthEnabled } from "../auth/devAuthStub";
+import { applyAuthHeaders } from '../auth/authHeaders';
+import { clearAuthSession } from '../auth/authSession';
 
 const DEFAULT_API_BASE_URL = '/api';
 
@@ -23,8 +24,8 @@ function getApiBaseUrl() {
     return import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE_URL;
 }
 
-function getAccessToken() {
-    return localStorage.getItem('flowact-access-token');
+function shouldClearAuthSession(status: number) {
+    return status === 401 || status === 403;
 }
 
 async function parseResponseBody(response: Response) {
@@ -46,28 +47,12 @@ async function request<T>(path: string, options: ApiRequestOptions = {}): Promis
 
     const requestHeaders = new Headers(headers);
 
-    if (!requestHeaders.has("Content-Type") || json !== undefined) {
+    if (json !== undefined && !requestHeaders.has('Content-Type')) {
         requestHeaders.set('Content-Type', 'application/json');
     }
 
     if (auth) {
-        const token = getAccessToken();
-
-        if (token) {
-            requestHeaders.set('Authorization', `Bearer ${token}`);
-        }
-    }
-
-    // Временная dev-заглушка.
-    // Потом этот блок можно будет удалить или заменить на нормальный AuthProvider.
-    if (isDevAuthEnabled()) {
-        const devHeaders = getDevAuthHeaders();
-
-        Object.entries(devHeaders).forEach(([key, value]) => {
-            if (!requestHeaders.has(key)) {
-                requestHeaders.set(key, value);
-            }
-        });
+        applyAuthHeaders(requestHeaders);
     }
 
     const response = await fetch(`${getApiBaseUrl()}${path}`, {
@@ -79,6 +64,10 @@ async function request<T>(path: string, options: ApiRequestOptions = {}): Promis
     const payload = await parseResponseBody(response);
 
     if (!response.ok) {
+        if (auth && shouldClearAuthSession(response.status)) {
+            clearAuthSession();
+        }
+
         throw new ApiError(
             `API request failed with status ${response.status}`,
             response.status,
