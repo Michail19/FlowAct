@@ -45,6 +45,11 @@
     height: calc(100vh - var(--header-height));
 }
 
+.notebook-editor__save-message--success {
+    background: #22c55e;
+    color: #04111f;
+}
+
 @media (max-width: 767px) {
     .notebook-editor {
         max-width: 430px;

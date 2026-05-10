@@ -6,7 +6,7 @@ import type {
     NotebookPayloadDto,
 } from './notebookBackendTypes';
 import type {
-    ActionBlockConfig,
+    ActionBlockConfig, AiBlockConfig,
     ConditionBlockConfig,
     DatabaseBlockConfig,
     HttpBlockConfig,
@@ -218,6 +218,8 @@ function createBackendBlockConfig(block: NotebookBlockDto): BackendJsonObject {
             prompt: block.config?.ai?.prompt ?? '',
             model: models[0],
             models,
+            inputMode: block.config?.ai?.inputMode ?? 'smart',
+            maxInputChars: block.config?.ai?.maxInputChars ?? 12000,
         };
     }
 
@@ -258,6 +260,10 @@ function createBackendBlockConfig(block: NotebookBlockDto): BackendJsonObject {
             url: http?.url ?? '',
             headers: http?.headers ? parseJsonObject(http.headers) : {},
             body: http?.body ? parseJsonValue(http.body) : null,
+            timeoutMs: http?.timeoutMs ?? 10000,
+            maxResponseChars: http?.maxResponseChars ?? 50000,
+            responseMode: http?.responseMode ?? 'auto',
+            continueOnError: http?.continueOnError ?? false,
         };
     }
 
@@ -567,6 +573,10 @@ function createFrontendBlockConfigFromBackendBlock(
                     getConfigStringArray(config, 'models').length > 0
                         ? getConfigStringArray(config, 'models')
                         : [getConfigString(config, 'model', DEFAULT_AI_MODEL_ID)],
+                inputMode:
+                    getConfigString(config, 'inputMode', 'smart') as AiBlockConfig['inputMode'],
+                maxInputChars:
+                    Number(config.maxInputChars) || 12000,
             },
         };
     }
@@ -595,6 +605,11 @@ function createFrontendBlockConfigFromBackendBlock(
                 url: getConfigString(config, 'url'),
                 headers: stringifyForTextarea(config.headers, '{}'),
                 body: stringifyForTextarea(config.body),
+                timeoutMs: Number(config.timeoutMs) || 10000,
+                maxResponseChars: Number(config.maxResponseChars) || 50000,
+                responseMode:
+                    getConfigString(config, 'responseMode', 'auto') as HttpBlockConfig['responseMode'],
+                continueOnError: config.continueOnError === true,
             },
         };
     }
@@ -743,6 +758,7 @@ export function fromBackendWorkflowResponse(params: {
         id: params.localNotebookId,
         serverNotebookId: params.notebook.id,
         workflowId: params.workflow.id,
+        workflowStatus: params.workflow.status,
         title: params.notebook.name || params.workflow.name || 'Без названия',
         version: params.fallbackPayload?.version ?? 1,
         blocks,

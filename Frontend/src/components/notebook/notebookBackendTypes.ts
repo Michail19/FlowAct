@@ -10,8 +10,10 @@ import type {
     LogBlockConfig,
     LoopBlockConfig,
     MergeBlockConfig,
+    NotebookBlockStatus,
     NotebookBlockType,
 } from './notebookTypes';
+import type { WorkflowStatus } from '../../services/workflowApiTypes';
 
 export type NotebookBlockPositionDto = {
     x: number;
@@ -56,6 +58,7 @@ export type NotebookBlockDto = {
     description?: string;
     position: NotebookBlockPositionDto;
     config?: NotebookBlockConfigDto;
+    status?: NotebookBlockStatus;
 };
 
 export type NotebookConnectionDto = {
@@ -87,4 +90,6 @@ export type NotebookPayloadDto = {
     connections: NotebookConnectionDto[];
     viewport?: Viewport;
     updatedAt: string;
+
+    workflowStatus?: WorkflowStatus;
 };

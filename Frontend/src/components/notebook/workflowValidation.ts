@@ -1,6 +1,7 @@
 import type { Edge } from '@xyflow/react';
 
 import type { NotebookNode } from './notebookTypes';
+import type { NotebookPayloadDto } from './notebookBackendTypes';
 
 export type WorkflowValidationSeverity = 'error' | 'warning';
 
@@ -96,6 +97,54 @@ function hasCycle(nodes: NotebookNode[], edges: Edge[]): boolean {
     };
 
     return nodes.some((node) => visit(node.id));
+}
+
+function isValidJsonObject(value: string | undefined) {
+    if (!value || !value.trim()) {
+        return true;
+    }
+
+    try {
+        const parsedValue = JSON.parse(value);
+
+        return (
+            !!parsedValue &&
+            typeof parsedValue === 'object' &&
+            !Array.isArray(parsedValue)
+        );
+    } catch {
+        return false;
+    }
+}
+
+function isProbablyValidHttpUrl(value: string | undefined) {
+    if (!value || !value.trim()) {
+        return false;
+    }
+
+    if (value.includes('{{')) {
+        return true;
+    }
+
+    try {
+        const url = new URL(value);
+
+        return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch {
+        return false;
+    }
+}
+
+function isNumberInRange(
+    value: number | undefined,
+    min: number,
+    max: number,
+) {
+    if (value === undefined) {
+        return true;
+    }
+
+    return Number.isFinite(value) && value >= min && value <= max;
 }
 
 export function validateWorkflow(nodes: NotebookNode[], edges: Edge[]): WorkflowValidationIssue[] {
@@ -254,14 +303,77 @@ export function validateWorkflow(nodes: NotebookNode[], edges: Edge[]): Workflow
             }
         }
 
-        if (node.data.blockType === 'http' && !node.data.config?.http?.url.trim()) {
+        if (
+            node.data.blockType === 'http' &&
+            !isProbablyValidHttpUrl(node.data.config?.http?.url)
+        ) {
             issues.push(
                 createIssue({
-                    id: `node-${node.id}-http-url-missing`,
+                    id: `node-${node.id}-http-url-invalid`,
                     severity: 'error',
                     blockId: node.id,
                     blockTitle: node.data.title,
-                    message: `У блока "${node.data.title}" не задан URL HTTP-запроса.`,
+                    message: `У блока "${node.data.title}" не задан корректный HTTP/HTTPS URL.`,
+                }),
+            );
+        }
+
+        if (
+            node.data.blockType === 'http' &&
+            !isValidJsonObject(node.data.config?.http?.headers)
+        ) {
+            issues.push(
+                createIssue({
+                    id: `node-${node.id}-http-headers-invalid`,
+                    severity: 'error',
+                    blockId: node.id,
+                    blockTitle: node.data.title,
+                    message: `У блока "${node.data.title}" поле Headers должно быть валидным JSON-объектом.`,
+                }),
+            );
+        }
+
+        if (
+            node.data.blockType === 'http' &&
+            !isNumberInRange(node.data.config?.http?.timeoutMs, 1000, 60000)
+        ) {
+            issues.push(
+                createIssue({
+                    id: `node-${node.id}-http-timeout-invalid`,
+                    severity: 'error',
+                    blockId: node.id,
+                    blockTitle: node.data.title,
+                    message: `У блока "${node.data.title}" таймаут должен быть от 1000 до 60000 мс.`,
+                }),
+            );
+        }
+
+        if (
+            node.data.blockType === 'http' &&
+            !isNumberInRange(node.data.config?.http?.maxResponseChars, 1000, 200000)
+        ) {
+            issues.push(
+                createIssue({
+                    id: `node-${node.id}-http-response-limit-invalid`,
+                    severity: 'error',
+                    blockId: node.id,
+                    blockTitle: node.data.title,
+                    message: `У блока "${node.data.title}" лимит ответа должен быть от 1000 до 200000 символов.`,
+                }),
+            );
+        }
+
+        if (
+            node.data.blockType === 'ai' &&
+            !node.data.aiConfig?.prompt?.trim()
+        ) {
+            issues.push(
+                createIssue({
+                    id: `node-${node.id}-ai-prompt-missing`,
+                    severity: 'error',
+                    blockId: node.id,
+                    blockTitle: node.data.title,
+                    message: `У блока "${node.data.title}" не задан текст запроса для AI.`,
                 }),
             );
         }
@@ -353,4 +465,45 @@ export function validateWorkflow(nodes: NotebookNode[], edges: Edge[]): Workflow
     }
 
     return issues;
+}
+
+export function validateNotebookPayload(
+    payload: NotebookPayloadDto | null | undefined,
+): WorkflowValidationIssue[] {
+    if (!payload) {
+        return [
+            createIssue({
+                id: 'notebook-payload-missing',
+                severity: 'error',
+                message: 'Нет данных схемы для проверки.',
+            }),
+        ];
+    }
+
+    const nodes: NotebookNode[] = payload.blocks.map((block) => ({
+        id: block.id,
+        type: block.type === 'ai' ? 'aiBlock' : 'customBlock',
+        position: block.position,
+        data: {
+            title: block.title,
+            subtitle: block.subtitle,
+            description: block.description,
+            blockType: block.type,
+            status: 'idle',
+            aiConfig: block.config?.ai,
+            config: block.config,
+        },
+    }));
+
+    const edges: Edge[] = payload.connections.map((connection) => ({
+        id: connection.id,
+        source: connection.sourceBlockId,
+        target: connection.targetBlockId,
+        sourceHandle: connection.sourceHandle,
+        targetHandle: connection.targetHandle,
+        label: connection.label,
+        type: 'smoothstep',
+    }));
+
+    return validateWorkflow(nodes, edges);
 }

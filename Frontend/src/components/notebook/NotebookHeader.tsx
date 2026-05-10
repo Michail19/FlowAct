@@ -3,9 +3,10 @@ import { type FocusEvent, useState } from 'react';
 
 import NotebookIconButton from './NotebookIconButton';
 import type { NotebookZoomValue } from './notebookTypes';
+import type { WorkflowStatus } from '../../services/workflowApiTypes';
+import NotebookSvgIcon from "./NotebookSvgIcon";
 
 import './NotebookHeader.css';
-import NotebookSvgIcon from "./NotebookSvgIcon";
 
 type NotebookHeaderProps = {
     isMobile: boolean;
@@ -16,6 +17,7 @@ type NotebookHeaderProps = {
     isSaving?: boolean;
     isInterfaceHidden?: boolean;
     onToggleInterface?: () => void;
+    workflowStatus?: WorkflowStatus | null;
     zoomValue?: NotebookZoomValue;
     onZoomChange?: (zoomValue: NotebookZoomValue) => void;
 };
@@ -34,6 +36,19 @@ function formatUpdatedAt(updatedAt?: string) {
     })}`;
 }
 
+function getWorkflowStatusLabel(status?: WorkflowStatus | null) {
+    switch (status) {
+        case 'DRAFT':
+            return 'Черновик';
+        case 'ACTIVE':
+            return 'Активен';
+        case 'ARCHIVED':
+            return 'Архив';
+        default:
+            return 'Не сохранён';
+    }
+}
+
 function NotebookHeader({
                             isMobile,
                             title,
@@ -43,6 +58,7 @@ function NotebookHeader({
                             isSaving = false,
                             isInterfaceHidden = false,
                             onToggleInterface,
+                            workflowStatus = null,
                             zoomValue = '100',
                             onZoomChange,
                         }: NotebookHeaderProps) {
@@ -169,6 +185,11 @@ function NotebookHeader({
                         <span className="notebook-header__title-text">{title}</span>
                         <span className="notebook-header__subtitle">
                             {formatUpdatedAt(updatedAt)}
+                        </span>
+                        <span
+                            className={`notebook-header__workflow-status notebook-header__workflow-status--${workflowStatus ?? 'unknown'}`}
+                        >
+                            {getWorkflowStatusLabel(workflowStatus)}
                         </span>
                     </button>
                 )}

@@ -12,6 +12,7 @@ import type {
     NotebookAutoLayoutMode,
     NotebookAutoLayoutRequest,
     NotebookBlockRequest,
+    NotebookBlockStatus,
     NotebookBlockType,
     NotebookHistoryRequest,
     NotebookHistoryState,
@@ -27,7 +28,9 @@ import {
     saveNotebookLocally,
 } from '../../services/notebookStorage';
 import NotebookRunPanel from './NotebookRunPanel';
+import NotebookBlockInspector from './NotebookBlockInspector';
 import type {
+    NotebookBlockInspectionTarget,
     NotebookExecutionLog,
     WorkflowExecutionResult,
     WorkflowExecutionStatus,
@@ -38,7 +41,26 @@ import {
     toBackendWorkflowRequest,
 } from './backendWorkflowMapper';
 import { workflowApi } from '../../services/workflowApi';
-import { createExecutionLog } from './workflowExecution';
+import { createExecutionLog, sleep } from './workflowExecution';
+import { ApiError } from '../../services/apiClient';
+import type {
+    ExecutionLogResponse,
+    WorkflowResponse,
+    WorkflowStatus,
+} from '../../services/workflowApiTypes';
+import {
+    validateNotebookPayload,
+    type WorkflowValidationIssue,
+} from './workflowValidation';
+import { executionApi } from '../../services/executionApi';
+import {
+    toNotebookExecutionLog,
+    toWorkflowExecutionResult,
+} from './executionApiMapper';
+import {
+    mapApiExecutionLogStatus,
+    mapApiExecutionStatus,
+} from './executionTypes';
 
 import './NotebookEditor.css';
 
@@ -46,12 +68,377 @@ type NotebookEditorProps = {
     notebookId: string;
 };
 
+function getApiPayloadMessage(payload: unknown): string | null {
+    if (!payload) {
+        return null;
+    }
+
+    if (typeof payload === 'string') {
+        return payload;
+    }
+
+    if (typeof payload !== 'object') {
+        return null;
+    }
+
+    const payloadObject = payload as Record<string, unknown>;
+
+    const message =
+        payloadObject.message ??
+        payloadObject.error ??
+        payloadObject.detail ??
+        payloadObject.title;
+
+    return typeof message === 'string' && message.trim()
+        ? message
+        : null;
+}
+
+function getBackendSaveErrorMessage(error: unknown): string {
+    if (error instanceof ApiError) {
+        const payloadMessage = getApiPayloadMessage(error.payload);
+
+        if (payloadMessage) {
+            return `Не удалось сохранить workflow: ${payloadMessage}`;
+        }
+
+        if (error.status === 400) {
+            return 'Не удалось сохранить workflow: backend отклонил данные схемы.';
+        }
+
+        if (error.status === 404) {
+            return 'Не удалось сохранить workflow: notebook или workflow не найден на backend.';
+        }
+
+        if (error.status === 409) {
+            return 'Не удалось сохранить workflow: конфликт состояния данных.';
+        }
+
+        if (error.status >= 500) {
+            return 'Не удалось сохранить workflow: внутренняя ошибка backend.';
+        }
+
+        return `Не удалось сохранить workflow: HTTP ${error.status}.`;
+    }
+
+    if (error instanceof Error) {
+        return `Не удалось сохранить workflow: ${error.message}`;
+    }
+
+    return 'Не удалось сохранить workflow.';
+}
+
+function normalizePayloadForStatus(payload: NotebookPayloadDto | null | undefined) {
+    if (!payload) {
+        return null;
+    }
+
+    return {
+        title: payload.title,
+        blocks: payload.blocks.map((block) => ({
+            id: block.id,
+            type: block.type,
+            title: block.title,
+            subtitle: block.subtitle ?? '',
+            description: block.description ?? '',
+            position: block.position,
+            config: block.config ?? {},
+        })),
+        connections: payload.connections.map((connection) => ({
+            id: connection.id,
+            sourceBlockId: connection.sourceBlockId,
+            targetBlockId: connection.targetBlockId,
+            sourceHandle: connection.sourceHandle ?? '',
+            targetHandle: connection.targetHandle ?? '',
+            label: connection.label ?? '',
+        })),
+        viewport: payload.viewport ?? null,
+    };
+}
+
+function getPayloadFingerprint(payload: NotebookPayloadDto | null | undefined) {
+    return JSON.stringify(normalizePayloadForStatus(payload));
+}
+
+function getBlockingValidationIssues(issues: WorkflowValidationIssue[]) {
+    return issues.filter((issue) => issue.severity === 'error');
+}
+
+function getValidationErrorSummary(issues: WorkflowValidationIssue[]) {
+    const blockingIssues = getBlockingValidationIssues(issues);
+    const firstIssue = blockingIssues[0];
+
+    if (!firstIssue) {
+        return null;
+    }
+
+    if (blockingIssues.length === 1) {
+        return firstIssue.message;
+    }
+
+    return `${firstIssue.message}\n\nИ ещё ошибок: ${blockingIssues.length - 1}`;
+}
+
+function getFrontendBlockIdFromBackendExecutionBlock(
+    workflow: WorkflowResponse,
+    backendBlockId: string,
+) {
+    const backendBlock = workflow.blocks.find((block) => block.id === backendBlockId);
+
+    if (!backendBlock) {
+        return backendBlockId;
+    }
+
+    const frontendConfig = backendBlock.config.frontend;
+
+    if (
+        frontendConfig &&
+        typeof frontendConfig === 'object' &&
+        !Array.isArray(frontendConfig)
+    ) {
+        const frontendId = frontendConfig.id;
+
+        if (typeof frontendId === 'string' && frontendId.trim()) {
+            return frontendId;
+        }
+    }
+
+    return backendBlockId;
+}
+
+function getMissingBlockFallbackStatus(
+    executionStatus?: WorkflowExecutionStatus,
+): NotebookBlockStatus {
+    if (executionStatus === 'success') {
+        return 'skipped';
+    }
+
+    if (executionStatus === 'error' || executionStatus === 'cancelled') {
+        return 'idle';
+    }
+
+    if (
+        executionStatus === 'created' ||
+        executionStatus === 'validating' ||
+        executionStatus === 'pending' ||
+        executionStatus === 'ready' ||
+        executionStatus === 'running'
+    ) {
+        return 'pending';
+    }
+
+    if (executionStatus === 'waiting') {
+        return 'pending';
+    }
+
+    return 'idle';
+}
+
+function applyExecutionStatusesToPayload(params: {
+    payload: NotebookPayloadDto;
+    workflow: WorkflowResponse;
+    logs: ExecutionLogResponse[];
+    shouldApplyBlockStatuses: boolean;
+    executionStatus?: WorkflowExecutionStatus;
+}): NotebookPayloadDto {
+    if (!params.shouldApplyBlockStatuses) {
+        return {
+            ...params.payload,
+            blocks: params.payload.blocks.map((block) => ({
+                ...block,
+                status: 'idle',
+            })),
+        };
+    }
+
+    const blockStatusByFrontendId = new Map<string, NotebookBlockStatus>();
+
+    params.logs.forEach((log) => {
+        const frontendBlockId = getFrontendBlockIdFromBackendExecutionBlock(
+            params.workflow,
+            log.blockId,
+        );
+
+        blockStatusByFrontendId.set(
+            frontendBlockId,
+            mapApiExecutionLogStatus(log.status),
+        );
+    });
+
+    const missingBlockFallbackStatus = getMissingBlockFallbackStatus(
+        params.executionStatus,
+    );
+
+    return {
+        ...params.payload,
+        blocks: params.payload.blocks.map((block) => ({
+            ...block,
+            status:
+                blockStatusByFrontendId.get(block.id) ??
+                missingBlockFallbackStatus,
+        })),
+    };
+}
+
+function mapExecutionLogsToNotebookLogs(params: {
+    payload: NotebookPayloadDto;
+    workflow: WorkflowResponse;
+    logs: ExecutionLogResponse[];
+}): NotebookExecutionLog[] {
+    const blockTitleById = new Map(
+        params.payload.blocks.map((block) => [block.id, block.title]),
+    );
+
+    return params.logs.map((log) => {
+        const frontendBlockId = getFrontendBlockIdFromBackendExecutionBlock(
+            params.workflow,
+            log.blockId,
+        );
+
+        return {
+            ...toNotebookExecutionLog({
+                ...log,
+                blockId: frontendBlockId,
+            }),
+            blockTitle: blockTitleById.get(frontendBlockId),
+        };
+    });
+}
+
+const RESTORE_EXECUTION_POLL_INTERVAL_MS = 1000;
+const RESTORE_EXECUTION_MAX_POLLS = 120;
+
+function isRestoredExecutionFinished(status: WorkflowExecutionStatus) {
+    return status === 'success' || status === 'error' || status === 'cancelled';
+}
+
+async function loadExecutionStateSnapshot(params: {
+    serverNotebookId: string;
+    workflow: WorkflowResponse;
+    payload: NotebookPayloadDto;
+    executionId?: string;
+    shouldApplyBlockStatuses: boolean;
+}) {
+    let latestExecution;
+
+    if (params.executionId) {
+        latestExecution = await executionApi.getById(
+            params.serverNotebookId,
+            params.workflow.id,
+            params.executionId,
+        );
+    } else {
+        const executions = await executionApi.getExecutions(
+            params.serverNotebookId,
+            params.workflow.id,
+        );
+
+        latestExecution = executions[0];
+    }
+
+    if (!latestExecution) {
+        return {
+            executionId: null as string | null,
+            payload: params.payload,
+            logs: [] as NotebookExecutionLog[],
+            status: 'idle' as WorkflowExecutionStatus,
+            result: null as WorkflowExecutionResult | null,
+        };
+    }
+
+    const frontendStatus = mapApiExecutionStatus(latestExecution.status);
+
+    const latestLogs = await executionApi.getLogs(
+        params.serverNotebookId,
+        params.workflow.id,
+        latestExecution.id,
+    );
+
+    const payloadWithExecutionState = applyExecutionStatusesToPayload({
+        payload: params.payload,
+        workflow: params.workflow,
+        logs: latestLogs,
+        shouldApplyBlockStatuses: params.shouldApplyBlockStatuses,
+        executionStatus: frontendStatus,
+    });
+
+    const notebookLogs = mapExecutionLogsToNotebookLogs({
+        payload: payloadWithExecutionState,
+        workflow: params.workflow,
+        logs: latestLogs,
+    });
+
+    return {
+        executionId: latestExecution.id,
+        payload: payloadWithExecutionState,
+        logs: notebookLogs,
+        status: frontendStatus,
+        result: toWorkflowExecutionResult(latestExecution),
+    };
+}
+
+async function pollExecutionStateUntilFinished(params: {
+    serverNotebookId: string;
+    workflow: WorkflowResponse;
+    payload: NotebookPayloadDto;
+    executionId: string;
+    shouldApplyBlockStatuses: boolean;
+    isCancelled: () => boolean;
+    onStateLoaded: (state: Awaited<ReturnType<typeof loadExecutionStateSnapshot>>) => void;
+}) {
+    for (let pollIndex = 0; pollIndex < RESTORE_EXECUTION_MAX_POLLS; pollIndex += 1) {
+        if (params.isCancelled()) {
+            return;
+        }
+
+        await sleep(RESTORE_EXECUTION_POLL_INTERVAL_MS);
+
+        if (params.isCancelled()) {
+            return;
+        }
+
+        const state = await loadExecutionStateSnapshot({
+            serverNotebookId: params.serverNotebookId,
+            workflow: params.workflow,
+            payload: params.payload,
+            executionId: params.executionId,
+            shouldApplyBlockStatuses: params.shouldApplyBlockStatuses,
+        });
+
+        if (params.isCancelled()) {
+            return;
+        }
+
+        params.onStateLoaded(state);
+
+        if (isRestoredExecutionFinished(state.status)) {
+            return;
+        }
+    }
+}
+
+function resetPayloadBlockStatuses(
+    payload: NotebookPayloadDto | null,
+): NotebookPayloadDto | null {
+    if (!payload) {
+        return null;
+    }
+
+    return {
+        ...payload,
+        blocks: payload.blocks.map((block) => ({
+            ...block,
+            status: 'idle',
+        })),
+    };
+}
+
 function NotebookEditor({ notebookId }: NotebookEditorProps) {
     const isMobile = useMediaQuery('(max-width: 767px)');
     const isDesktop = useMediaQuery('(min-width: 1024px)');
 
     const initialNotebookPayload = useMemo(
-        () => loadNotebookLocally(notebookId),
+        () => resetPayloadBlockStatuses(loadNotebookLocally(notebookId)),
         [notebookId],
     );
 
@@ -74,6 +461,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         useState<NotebookPayloadDto | null>(initialNotebookPayload);
     const [isSaving, setIsSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
+    const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
     const [runRequest, setRunRequest] = useState<WorkflowRunRequest | null>(null);
     const [executionStatus, setExecutionStatus] = useState<WorkflowExecutionStatus>('idle');
     const [executionLogs, setExecutionLogs] = useState<NotebookExecutionLog[]>([]);
@@ -96,6 +484,13 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         canUndo: false,
         canRedo: false,
     });
+    const [inspectedBlock, setInspectedBlock] =
+        useState<NotebookBlockInspectionTarget | null>(null);
+    const [workflowStatus, setWorkflowStatus] =
+        useState<WorkflowStatus | null>(
+            initialNotebookPayload?.workflowStatus ?? null,
+        );
+    const [, setValidationIssues] = useState<WorkflowValidationIssue[]>([]);
 
     const suggestion = useMemo(
         () => ({
@@ -169,11 +564,62 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                         fallbackPayload: sourcePayload,
                     });
 
-                    const savedLocalNotebook = saveNotebookLocally(restoredPayload);
+                    let payloadWithExecutionState = restoredPayload;
+
+                    try {
+                        const shouldApplyBlockStatuses = backendWorkflow.status === 'ACTIVE';
+
+                        const executionState = await loadExecutionStateSnapshot({
+                            serverNotebookId,
+                            workflow: backendWorkflow,
+                            payload: restoredPayload,
+                            shouldApplyBlockStatuses,
+                        });
+
+                        payloadWithExecutionState = executionState.payload;
+
+                        setExecutionLogs(executionState.logs);
+                        setExecutionStatus(executionState.status);
+                        setExecutionResult(executionState.result);
+                        setIsRunPanelOpen(false);
+
+                        if (
+                            executionState.executionId &&
+                            !isRestoredExecutionFinished(executionState.status)
+                        ) {
+                            void pollExecutionStateUntilFinished({
+                                serverNotebookId,
+                                workflow: backendWorkflow,
+                                payload: restoredPayload,
+                                executionId: executionState.executionId,
+                                shouldApplyBlockStatuses,
+                                isCancelled: () => isCancelled,
+                                onStateLoaded: (nextExecutionState) => {
+                                    const savedLocalNotebook = saveNotebookLocally(
+                                        nextExecutionState.payload,
+                                    );
+
+                                    setLoadedNotebookPayload(savedLocalNotebook);
+                                    setNotebookPayload(savedLocalNotebook);
+                                    setExecutionLogs(nextExecutionState.logs);
+                                    setExecutionStatus(nextExecutionState.status);
+                                    setExecutionResult(nextExecutionState.result);
+                                },
+                            });
+                        }
+                    } catch (executionHistoryError) {
+                        console.warn(
+                            'Execution history loading failed, notebook schema was loaded:',
+                            executionHistoryError,
+                        );
+                    }
+
+                    const savedLocalNotebook = saveNotebookLocally(payloadWithExecutionState);
 
                     setNotebookTitle(savedLocalNotebook.title);
                     setLoadedNotebookPayload(savedLocalNotebook);
                     setNotebookPayload(savedLocalNotebook);
+                    setWorkflowStatus(backendWorkflow.status);
                     setSaveError(null);
 
                     console.log('Notebook loaded from backend:', {
@@ -202,6 +648,34 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         loadedNotebookPayload,
         notebookId,
     ]);
+
+    useEffect(() => {
+        if (!saveSuccessMessage) {
+            return;
+        }
+
+        const timeoutId = window.setTimeout(() => {
+            setSaveSuccessMessage(null);
+        }, 4000);
+
+        return () => {
+            window.clearTimeout(timeoutId);
+        };
+    }, [saveSuccessMessage]);
+
+    useEffect(() => {
+        if (!saveError) {
+            return;
+        }
+
+        const timeoutId = window.setTimeout(() => {
+            setSaveError(null);
+        }, 5000);
+
+        return () => {
+            window.clearTimeout(timeoutId);
+        };
+    }, [saveError]);
 
     const handleAddBlock = useCallback((blockType: NotebookBlockType) => {
         requestIdRef.current += 1;
@@ -233,16 +707,31 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         );
     }, []);
 
+    const validateCurrentNotebook = useCallback(() => {
+        const payload = notebookPayload ?? loadedNotebookPayload;
+        const issues = validateNotebookPayload(payload);
+
+        setValidationIssues(issues);
+
+        return issues;
+    }, [loadedNotebookPayload, notebookPayload]);
+
     const saveNotebookToBackend = useCallback(
-        async (options: { fallbackToLocal?: boolean } = {}) => {
-            if (!notebookPayload) {
-                return null;
+        async () => {
+            const basePayload = notebookPayload ?? loadedNotebookPayload;
+
+            if (!basePayload) {
+                throw new Error('Нет данных notebook для сохранения.');
             }
 
             const payloadToSave: NotebookPayloadDto = {
-                ...notebookPayload,
+                ...basePayload,
                 id: notebookId,
                 title: notebookTitle,
+                serverNotebookId:
+                    basePayload.serverNotebookId ?? loadedNotebookPayload?.serverNotebookId,
+                workflowId:
+                    basePayload.workflowId ?? loadedNotebookPayload?.workflowId,
                 updatedAt: new Date().toISOString(),
             };
 
@@ -273,6 +762,8 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                 console.log('Backend workflow contract:', backendWorkflowPayload);
 
                 let workflowId = payloadWithServerNotebookId.workflowId;
+                let nextWorkflowStatus: WorkflowStatus | undefined =
+                    payloadWithServerNotebookId.workflowStatus;
 
                 if (workflowId) {
                     const updatedWorkflow = await workflowApi.updateWorkflow(
@@ -282,6 +773,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                     );
 
                     workflowId = updatedWorkflow.id;
+                    nextWorkflowStatus = updatedWorkflow.status;
                 } else {
                     const createdWorkflow = await workflowApi.createWorkflow(
                         serverNotebookId,
@@ -289,11 +781,13 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                     );
 
                     workflowId = createdWorkflow.id;
+                    nextWorkflowStatus = createdWorkflow.status;
                 }
 
                 const savedPayload: NotebookPayloadDto = {
                     ...payloadWithServerNotebookId,
                     workflowId,
+                    workflowStatus: nextWorkflowStatus,
                     updatedAt: new Date().toISOString(),
                 };
 
@@ -301,6 +795,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
 
                 setLoadedNotebookPayload(savedLocalNotebook);
                 setNotebookPayload(savedLocalNotebook);
+                setWorkflowStatus(nextWorkflowStatus ?? null);
                 setSaveError(null);
 
                 console.log('Notebook and workflow saved via API:', {
@@ -310,37 +805,48 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
 
                 return savedLocalNotebook;
             } catch (error) {
-                if (options.fallbackToLocal === false) {
-                    setSaveError('Не удалось сохранить workflow перед запуском.');
-                    throw error;
-                }
+                const message = getBackendSaveErrorMessage(error);
 
-                const savedLocalNotebook = saveNotebookLocally(payloadToSave);
+                setSaveError(message);
+                console.warn('Notebook backend save failed:', error);
 
-                setLoadedNotebookPayload(savedLocalNotebook);
-                setNotebookPayload(savedLocalNotebook);
-                setSaveError('Backend недоступен, notebook сохранён локально.');
-
-                console.warn('Notebook saved locally because API is unavailable:', error);
-
-                return savedLocalNotebook;
+                throw error;
             }
         },
-        [notebookId, notebookPayload, notebookTitle],
+        [
+            loadedNotebookPayload,
+            notebookId,
+            notebookPayload,
+            notebookTitle,
+        ],
     );
 
     const handleSaveNotebook = useCallback(async () => {
         setIsSaving(true);
         setSaveError(null);
+        setSaveSuccessMessage(null);
 
         try {
-            await saveNotebookToBackend({
-                fallbackToLocal: true,
-            });
+            await saveNotebookToBackend();
+
+            const issues = validateCurrentNotebook();
+            const blockingIssues = getBlockingValidationIssues(issues);
+
+            setSaveSuccessMessage(
+                blockingIssues.length > 0
+                    ? `Workflow сохранён как черновик. Ошибок схемы: ${blockingIssues.length}.`
+                    : 'Workflow сохранён.',
+            );
+        } catch (error) {
+            const message = getBackendSaveErrorMessage(error);
+
+            setSaveError(message);
+            setSaveSuccessMessage(null);
+            console.warn('Strict backend save failed:', error);
         } finally {
             setIsSaving(false);
         }
-    }, [saveNotebookToBackend]);
+    }, [saveNotebookToBackend, validateCurrentNotebook]);
 
     const handleRunWorkflow = useCallback(async () => {
         runRequestIdRef.current += 1;
@@ -361,18 +867,85 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         setSaveError(null);
 
         try {
-            const savedPayload = await saveNotebookToBackend({
-                fallbackToLocal: false,
-            });
+            const validationIssues = validateCurrentNotebook();
+            const blockingIssues = getBlockingValidationIssues(validationIssues);
+
+            if (blockingIssues.length > 0) {
+                const finishedAt = new Date();
+
+                setExecutionStatus('error');
+                setIsRunPanelOpen(true);
+
+                setExecutionLogs(
+                    blockingIssues.slice(0, 5).map((issue) =>
+                        createExecutionLog({
+                            level: issue.severity === 'error' ? 'error' : 'warning',
+                            status: 'error',
+                            blockId: issue.blockId,
+                            blockTitle: issue.blockTitle,
+                            message: issue.message,
+                        }),
+                    ),
+                );
+
+                setExecutionResult({
+                    id: `${finishedAt.getTime()}-frontend-validation-error`,
+                    status: 'error',
+                    startedAt: finishedAt.toISOString(),
+                    finishedAt: finishedAt.toISOString(),
+                    durationMs: 0,
+                    totalBlocks: 0,
+                    completedBlocks: 0,
+                    failedBlocks: blockingIssues.length,
+                    warningsCount: validationIssues.filter(
+                        (issue) => issue.severity === 'warning',
+                    ).length,
+                    errorsCount: blockingIssues.length,
+                    summary: 'Схема не готова к запуску',
+                    output:
+                        getValidationErrorSummary(validationIssues) ??
+                        'Схема содержит ошибки.',
+                    outputFormat: 'text',
+                    rawOutput: JSON.stringify(validationIssues, null, 2),
+                });
+
+                setSaveError(
+                    `Схема не готова к запуску: найдено ошибок ${blockingIssues.length}. Подробности показаны в панели выполнения.`,
+                );
+
+                return;
+            }
+
+            setValidationIssues([]);
+
+            const savedPayload = await saveNotebookToBackend();
 
             if (!savedPayload?.serverNotebookId || !savedPayload.workflowId) {
                 throw new Error('Workflow не имеет serverNotebookId или workflowId.');
             }
 
+            const activatedWorkflow = await workflowApi.activateWorkflow(
+                savedPayload.serverNotebookId,
+                savedPayload.workflowId,
+            );
+
+            setWorkflowStatus(activatedWorkflow.status);
+
+            const activatedPayload: NotebookPayloadDto = {
+                ...savedPayload,
+                workflowStatus: activatedWorkflow.status,
+                updatedAt: new Date().toISOString(),
+            };
+
+            const savedLocalNotebook = saveNotebookLocally(activatedPayload);
+
+            setLoadedNotebookPayload(savedLocalNotebook);
+            setNotebookPayload(savedLocalNotebook);
+
             setRunRequest({
                 requestId,
-                serverNotebookId: savedPayload.serverNotebookId,
-                workflowId: savedPayload.workflowId,
+                serverNotebookId: activatedPayload.serverNotebookId!,
+                workflowId: activatedPayload.workflowId!,
                 inputData: {},
             });
         } catch (error) {
@@ -408,7 +981,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         } finally {
             setIsSaving(false);
         }
-    }, [saveNotebookToBackend]);
+    }, [saveNotebookToBackend, validateCurrentNotebook]);
 
     const handleRunRequestHandled = useCallback((requestId: number) => {
         setRunRequest((currentRequest) =>
@@ -428,6 +1001,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         setExecutionLogs([]);
         setExecutionResult(null);
         setExecutionStatus('idle');
+        setInspectedBlock(null);
     }, []);
 
     const handleAutoLayout = useCallback((mode: NotebookAutoLayoutMode = 'arrange-connect') => {
@@ -546,6 +1120,40 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         );
     }, []);
 
+    const handleNotebookChange = useCallback((payload: NotebookPayloadDto) => {
+        const loadedFingerprint = getPayloadFingerprint(loadedNotebookPayload);
+        const nextFingerprint = getPayloadFingerprint(payload);
+
+        const hasRealChanges =
+            Boolean(loadedNotebookPayload) &&
+            loadedFingerprint !== nextFingerprint;
+
+        const previousStatus =
+            loadedNotebookPayload?.workflowStatus ??
+            workflowStatus ??
+            payload.workflowStatus ??
+            null;
+
+        const nextWorkflowStatus: WorkflowStatus | null =
+            previousStatus === 'ARCHIVED'
+                ? 'ARCHIVED'
+                : hasRealChanges
+                    ? 'DRAFT'
+                    : previousStatus;
+
+        const nextPayload: NotebookPayloadDto = {
+            ...payload,
+            serverNotebookId:
+                payload.serverNotebookId ?? loadedNotebookPayload?.serverNotebookId,
+            workflowId:
+                payload.workflowId ?? loadedNotebookPayload?.workflowId,
+            workflowStatus: nextWorkflowStatus ?? undefined,
+        };
+
+        setNotebookPayload(nextPayload);
+        setWorkflowStatus(nextWorkflowStatus);
+    }, [loadedNotebookPayload, workflowStatus]);
+
     return (
         <main
             className={
@@ -562,6 +1170,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                 onSave={handleSaveNotebook}
                 isSaving={isSaving}
                 isInterfaceHidden={isInterfaceHidden}
+                workflowStatus={workflowStatus}
                 onToggleInterface={handleToggleInterface}
                 zoomValue={zoomValue}
                 onZoomChange={handleZoomChange}
@@ -597,12 +1206,13 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                         notebookId={notebookId}
                         notebookTitle={notebookTitle}
                         initialPayload={loadedNotebookPayload}
-                        onNotebookChange={setNotebookPayload}
+                        onNotebookChange={handleNotebookChange}
                         runRequest={runRequest}
                         onRunRequestHandled={handleRunRequestHandled}
                         onExecutionStatusChange={setExecutionStatus}
                         onExecutionLogsChange={setExecutionLogs}
                         onExecutionResultChange={setExecutionResult}
+                        onBlockInspect={setInspectedBlock}
                         autoLayoutRequest={autoLayoutRequest}
                         onAutoLayoutRequestHandled={handleAutoLayoutRequestHandled}
                         viewportRequest={viewportRequest}
@@ -627,6 +1237,13 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                         />
                     )}
 
+                    <NotebookBlockInspector
+                        block={inspectedBlock}
+                        logs={executionLogs}
+                        isMobile={isMobile}
+                        onClose={() => setInspectedBlock(null)}
+                    />
+
                     {!isInterfaceHidden && (
                         <NotebookSuggestion
                             isMobile={isMobile}
@@ -639,6 +1256,12 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                     {saveError && !isInterfaceHidden && (
                         <div className="notebook-editor__save-message">
                             {saveError}
+                        </div>
+                    )}
+
+                    {saveSuccessMessage && !saveError && !isInterfaceHidden && (
+                        <div className="notebook-editor__save-message notebook-editor__save-message--success">
+                            {saveSuccessMessage}
                         </div>
                     )}
 

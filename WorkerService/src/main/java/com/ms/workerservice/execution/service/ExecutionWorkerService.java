@@ -323,11 +323,15 @@ public class ExecutionWorkerService {
 
             NodeHandler handler = nodeHandlerRegistry.getHandler(currentBlock.getType());
 
-            ExecutionLogEntity logEntity = createRunningLog(execution, currentBlock);
+            ResolvedInput resolvedInput = inputResolver.resolve(graph, currentBlock, context);
+
+            ExecutionLogEntity logEntity = createRunningLog(
+                    execution,
+                    currentBlock,
+                    resolvedInput.getValues()
+            );
 
             try {
-                ResolvedInput resolvedInput = inputResolver.resolve(graph, currentBlock, context);
-
                 NodeResult result = handler.handle(currentBlock, resolvedInput, context);
 
                 context.putBlockOutput(currentBlock.getId(), result.getOutput());
@@ -362,13 +366,15 @@ public class ExecutionWorkerService {
 
     private ExecutionLogEntity createRunningLog(
             ExecutionEntity execution,
-            WorkflowBlockEntity block
+            WorkflowBlockEntity block,
+            Object input
     ) {
         ExecutionLogEntity logEntity = ExecutionLogEntity.builder()
                 .id(UUID.randomUUID())
                 .execution(execution)
                 .block(block)
                 .status(ExecutionLogStatus.RUNNING)
+                .input(jsonHelper.toJson(input))
                 .output(null)
                 .error(null)
                 .createdAt(OffsetDateTime.now())

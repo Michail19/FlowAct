@@ -89,6 +89,7 @@ export type ExecutionLogResponse = {
     executionId: string;
     blockId: string;
     status: ApiExecutionLogStatus;
+    input?: BackendJsonObject | null;
     output: BackendJsonObject | null;
     error: string | null;
     createdAt: string;

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import {
     ReactFlow,
     Background,
@@ -25,6 +25,7 @@ import type {
     AiBlockConfig,
     NotebookAutoLayoutRequest,
     NotebookBlockRequest,
+    NotebookBlockStatus,
     NotebookHistoryRequest,
     NotebookHistoryState,
     NotebookNode,
@@ -33,6 +34,7 @@ import type {
     NotebookViewportRequest,
 } from './notebookTypes';
 import type {
+    NotebookBlockInspectionTarget,
     NotebookExecutionLog,
     WorkflowExecutionResult,
     WorkflowExecutionStatus,
@@ -58,7 +60,10 @@ import {
     sleep,
 } from './workflowExecution';
 import { executionApi } from '../../services/executionApi';
-import type { BackendJsonObject } from '../../services/workflowApiTypes';
+import type {
+    BackendJsonObject,
+    ExecutionLogResponse,
+} from '../../services/workflowApiTypes';
 import {
     toNotebookExecutionLog,
     toWorkflowExecutionResult,
@@ -94,6 +99,7 @@ type NotebookCanvasProps = {
     historyRequest?: NotebookHistoryRequest | null;
     onHistoryRequestHandled?: (requestId: number) => void;
     onHistoryStateChange?: (state: NotebookHistoryState) => void;
+    onBlockInspect?: (block: NotebookBlockInspectionTarget) => void;
 };
 
 function normalizeSearchQuery(query: string) {
@@ -327,6 +333,45 @@ function createBackendBlockIdToFrontendBlockIdMap(params: {
     );
 }
 
+function getInitialPayloadLoadKey(payload: NotebookPayloadDto) {
+    const blockStatusesKey = payload.blocks
+        .map((block) => `${block.id}:${block.status ?? 'idle'}`)
+        .join('|');
+
+    return [
+        payload.id ?? 'local',
+        payload.serverNotebookId ?? 'local-server',
+        payload.workflowId ?? 'local-workflow',
+        payload.updatedAt,
+        blockStatusesKey,
+    ].join('::');
+}
+
+function getMissingRuntimeBlockStatus(
+    executionStatus: WorkflowExecutionStatus,
+): NotebookBlockStatus {
+    if (executionStatus === 'success') {
+        return 'skipped';
+    }
+
+    if (executionStatus === 'error' || executionStatus === 'cancelled') {
+        return 'idle';
+    }
+
+    if (
+        executionStatus === 'created' ||
+        executionStatus === 'validating' ||
+        executionStatus === 'pending' ||
+        executionStatus === 'ready' ||
+        executionStatus === 'running' ||
+        executionStatus === 'waiting'
+    ) {
+        return 'pending';
+    }
+
+    return 'idle';
+}
+
 function NotebookCanvas({
                             readonly = false,
                             blockRequest = null,
@@ -349,6 +394,7 @@ function NotebookCanvas({
                             historyRequest = null,
                             onHistoryRequestHandled,
                             onHistoryStateChange,
+                            onBlockInspect,
                         }: NotebookCanvasProps) {
     const canvasRef = useRef<HTMLDivElement | null>(null);
     const nodeCounterRef = useRef(initialNodes.length);
@@ -478,7 +524,11 @@ function NotebookCanvas({
             viewport,
         });
 
-        onNotebookChange(payload);
+        onNotebookChange({
+            ...payload,
+            serverNotebookId: initialPayload?.serverNotebookId,
+            workflowId: initialPayload?.workflowId,
+        });
     }, [
         edges,
         nodes,
@@ -486,6 +536,7 @@ function NotebookCanvas({
         notebookTitle,
         onNotebookChange,
         viewport,
+        initialPayload,
     ]);
 
     useEffect(() => {
@@ -493,7 +544,7 @@ function NotebookCanvas({
             return;
         }
 
-        const payloadKey = `${initialPayload.id ?? 'local'}-${initialPayload.updatedAt}`;
+        const payloadKey = getInitialPayloadLoadKey(initialPayload);
 
         if (loadedPayloadKeyRef.current === payloadKey) {
             return;
@@ -898,6 +949,18 @@ function NotebookCanvas({
         [readonly, setEdges, setNodes],
     );
 
+    const handleNodeClick = useCallback(
+        (_event: MouseEvent, node: NotebookNode) => {
+            onBlockInspect?.({
+                blockId: node.id,
+                blockTitle: node.data.title,
+                blockType: node.data.blockType,
+                blockStatus: node.data.status ?? 'idle',
+            });
+        },
+        [onBlockInspect],
+    );
+
     const handleRunNode = useCallback(
         (nodeId: string) => {
             const runningNode = nodes.find((node) => node.id === nodeId);
@@ -1005,6 +1068,51 @@ function NotebookCanvas({
                 message: 'Запуск workflow через ExecutionService.',
             });
 
+            const applyBackendExecutionSnapshot = (params: {
+                backendLogs: ExecutionLogResponse[];
+                executionStatus: WorkflowExecutionStatus;
+            }) => {
+                const statusByFrontendNodeId = new Map<string, NotebookBlockStatus>();
+
+                const mappedLogs = params.backendLogs.map((log) => {
+                    const frontendBlockId =
+                        backendBlockIdToFrontendBlockId.get(log.blockId) ?? log.blockId;
+
+                    statusByFrontendNodeId.set(
+                        frontendBlockId,
+                        mapApiExecutionLogStatus(log.status),
+                    );
+
+                    return {
+                        ...toNotebookExecutionLog({
+                            ...log,
+                            blockId: frontendBlockId,
+                        }),
+                        blockTitle: frontendTitleByNodeId.get(frontendBlockId),
+                    };
+                });
+
+                const missingBlockStatus = getMissingRuntimeBlockStatus(
+                    params.executionStatus,
+                );
+
+                setNodes((currentNodes) =>
+                    currentNodes.map((node) => ({
+                        ...node,
+                        data: {
+                            ...node.data,
+                            status:
+                                statusByFrontendNodeId.get(node.id) ??
+                                missingBlockStatus,
+                        },
+                    })),
+                );
+
+                onExecutionLogsChange?.([startLog, ...mappedLogs]);
+
+                return mappedLogs;
+            };
+
             try {
                 onExecutionResultChange?.(null);
                 onExecutionStatusChange?.('running');
@@ -1019,6 +1127,74 @@ function NotebookCanvas({
                         },
                     })),
                 );
+
+                const validationIssues = validateWorkflow(nodes, edges);
+                const blockingIssues = validationIssues.filter(
+                    (issue) => issue.severity === 'error',
+                );
+
+                if (blockingIssues.length > 0) {
+                    const firstIssue = blockingIssues[0];
+
+                    onExecutionStatusChange?.('error');
+                    onExecutionLogsChange?.([
+                        createExecutionLog({
+                            level: 'error',
+                            status: 'error',
+                            blockId: firstIssue.blockId,
+                            blockTitle: firstIssue.blockTitle,
+                            message: firstIssue.message,
+                        }),
+                        ...blockingIssues.slice(1, 5).map((issue) =>
+                            createExecutionLog({
+                                level: issue.severity === 'error' ? 'error' : 'warning',
+                                status: 'error',
+                                blockId: issue.blockId,
+                                blockTitle: issue.blockTitle,
+                                message: issue.message,
+                            }),
+                        ),
+                    ]);
+
+                    setNodes((currentNodes) =>
+                        currentNodes.map((node) =>
+                            blockingIssues.some((issue) => issue.blockId === node.id)
+                                ? {
+                                    ...node,
+                                    data: {
+                                        ...node.data,
+                                        status: 'error',
+                                    },
+                                }
+                                : node,
+                        ),
+                    );
+
+                    onExecutionResultChange?.({
+                        id: `${Date.now()}-validation-error`,
+                        status: 'error',
+                        startedAt: startedAt.toISOString(),
+                        finishedAt: new Date().toISOString(),
+                        durationMs: 0,
+                        totalBlocks: nodes.length,
+                        completedBlocks: 0,
+                        failedBlocks: blockingIssues.length,
+                        warningsCount: validationIssues.filter(
+                            (issue) => issue.severity === 'warning',
+                        ).length,
+                        errorsCount: blockingIssues.length,
+                        summary: 'Схема не готова к запуску',
+                        output:
+                            blockingIssues.length === 1
+                                ? firstIssue.message
+                                : `${firstIssue.message}\n\nИ ещё ошибок: ${blockingIssues.length - 1}`,
+                        outputFormat: 'text',
+                        rawOutput: JSON.stringify(validationIssues, null, 2),
+                    });
+
+                    onRunRequestHandled?.(request.requestId);
+                    return true;
+                }
 
                 const createdExecution = await executionApi.run(
                     request.serverNotebookId,
@@ -1045,49 +1221,10 @@ function NotebookCanvas({
                         currentExecution.id,
                     );
 
-                    const mappedLogs = backendLogs.map((log) => {
-                        const frontendBlockId =
-                            backendBlockIdToFrontendBlockId.get(log.blockId) ?? log.blockId;
-
-                        return {
-                            ...toNotebookExecutionLog(log),
-                            blockId: frontendBlockId,
-                            blockTitle: frontendTitleByNodeId.get(frontendBlockId),
-                        };
+                    applyBackendExecutionSnapshot({
+                        backendLogs,
+                        executionStatus: workflowStatus,
                     });
-
-                    onExecutionLogsChange?.([startLog, ...mappedLogs]);
-
-                    const statusByFrontendNodeId = new Map(
-                        backendLogs.map((log) => {
-                            const frontendBlockId =
-                                backendBlockIdToFrontendBlockId.get(log.blockId) ??
-                                log.blockId;
-
-                            return [
-                                frontendBlockId,
-                                mapApiExecutionLogStatus(log.status),
-                            ] as const;
-                        }),
-                    );
-
-                    setNodes((currentNodes) =>
-                        currentNodes.map((node) => {
-                            const nextStatus = statusByFrontendNodeId.get(node.id);
-
-                            if (!nextStatus) {
-                                return node;
-                            }
-
-                            return {
-                                ...node,
-                                data: {
-                                    ...node.data,
-                                    status: nextStatus,
-                                },
-                            };
-                        }),
-                    );
 
                     if (isBackendExecutionFinished(workflowStatus)) {
                         const result = toWorkflowExecutionResult(currentExecution);
@@ -1111,22 +1248,6 @@ function NotebookCanvas({
                                     (log) => log.status === 'FAILED',
                                 ).length,
                             });
-                        }
-
-                        if (workflowStatus === 'error') {
-                            setNodes((currentNodes) =>
-                                currentNodes.map((node) =>
-                                    statusByFrontendNodeId.has(node.id)
-                                        ? node
-                                        : {
-                                            ...node,
-                                            data: {
-                                                ...node.data,
-                                                status: 'skipped',
-                                            },
-                                        },
-                                ),
-                            );
                         }
 
                         return true;
@@ -1747,6 +1868,7 @@ function NotebookCanvas({
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnect}
+                onNodeClick={handleNodeClick}
                 onEdgeDoubleClick={(event, edge) => {
                     event.preventDefault();
                     event.stopPropagation();

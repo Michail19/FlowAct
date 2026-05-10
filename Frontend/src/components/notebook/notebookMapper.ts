@@ -33,6 +33,7 @@ export function toNotebookPayload(params: {
                 x: node.position.x,
                 y: node.position.y,
             },
+            status: node.data.status ?? 'idle',
         };
 
         const config: NotebookBlockDto['config'] = {};
@@ -41,6 +42,8 @@ export function toNotebookPayload(params: {
             config.ai = {
                 prompt: node.data.aiConfig.prompt,
                 models: node.data.aiConfig.models,
+                inputMode: node.data.aiConfig.inputMode,
+                maxInputChars: node.data.aiConfig.maxInputChars,
             };
         }
 
@@ -132,7 +135,7 @@ export function fromNotebookPayload(payload: NotebookPayloadDto): {
                 description: block.description ?? definition.description,
                 icon: definition.icon,
                 blockType: block.type,
-                status: 'idle',
+                status: block.status ?? 'idle',
                 aiConfig: block.config?.ai,
                 config: block.config,
             },

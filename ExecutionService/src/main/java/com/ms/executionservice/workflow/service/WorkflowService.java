@@ -148,12 +148,18 @@ public class WorkflowService {
             throw new IllegalArgumentException("Archived workflow cannot be updated");
         }
 
+        WorkflowStatus previousStatus = workflow.getStatus();
+
         if (request.blocks() == null || request.blocks().isEmpty()) {
             throw new IllegalArgumentException("Workflow must contain at least one block");
         }
 
         workflow.setName(request.name());
         workflow.setDescription(request.description());
+
+        if (previousStatus == WorkflowStatus.ACTIVE) {
+            workflow.setStatus(WorkflowStatus.DRAFT);
+        }
 
         workflowRepository.save(workflow);
 
@@ -162,6 +168,7 @@ public class WorkflowService {
 
         if (!oldConnections.isEmpty()) {
             workflowConnectionRepository.deleteAll(oldConnections);
+            workflowConnectionRepository.flush();
         }
 
         List<WorkflowBlockEntity> oldBlocks =
@@ -169,6 +176,7 @@ public class WorkflowService {
 
         if (!oldBlocks.isEmpty()) {
             workflowBlockRepository.deleteAll(oldBlocks);
+            workflowBlockRepository.flush();
         }
 
         Map<UUID, WorkflowBlockEntity> blocksById = new HashMap<>();

@@ -1,4 +1,4 @@
-import type { NotebookBlockStatus } from './notebookTypes';
+import type { NotebookBlockStatus, NotebookBlockType } from './notebookTypes';
 
 export type WorkflowExecutionStatus =
     | 'idle'
@@ -11,7 +11,8 @@ export type WorkflowExecutionStatus =
     | 'success'
     | 'error'
     | 'cancelling'
-    | 'cancelled';
+    | 'cancelled'
+    | 'skipped';
 
 export type WorkflowExecutionFinalStatus = 'success' | 'error' | 'cancelled';
 
@@ -51,6 +52,12 @@ export type NotebookExecutionLog = {
     blockId?: string;
     blockTitle?: string;
     message: string;
+    input?: string;
+    rawInput?: string;
+    output?: string;
+    rawOutput?: string;
+    outputFormat?: 'text' | 'json';
+    error?: string | null;
     createdAt: string;
 };
 
@@ -67,6 +74,15 @@ export type WorkflowExecutionResult = {
     errorsCount: number;
     summary: string;
     output: string;
+    outputFormat?: 'text' | 'json';
+    rawOutput?: string;
+};
+
+export type NotebookBlockInspectionTarget = {
+    blockId: string;
+    blockTitle: string;
+    blockType: NotebookBlockType;
+    blockStatus: NotebookBlockStatus;
 };
 
 export function mapApiExecutionStatus(status: ApiExecutionStatus): WorkflowExecutionStatus {
