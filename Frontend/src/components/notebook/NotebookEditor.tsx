@@ -206,6 +206,34 @@ function getFrontendBlockIdFromBackendExecutionBlock(
     return backendBlockId;
 }
 
+function getMissingBlockFallbackStatus(
+    executionStatus?: WorkflowExecutionStatus,
+): NotebookBlockStatus {
+    if (executionStatus === 'success') {
+        return 'skipped';
+    }
+
+    if (executionStatus === 'error' || executionStatus === 'cancelled') {
+        return 'idle';
+    }
+
+    if (
+        executionStatus === 'created' ||
+        executionStatus === 'validating' ||
+        executionStatus === 'pending' ||
+        executionStatus === 'ready' ||
+        executionStatus === 'running'
+    ) {
+        return 'pending';
+    }
+
+    if (executionStatus === 'waiting') {
+        return 'pending';
+    }
+
+    return 'idle';
+}
+
 function applyExecutionStatusesToPayload(params: {
     payload: NotebookPayloadDto;
     workflow: WorkflowResponse;
@@ -237,9 +265,9 @@ function applyExecutionStatusesToPayload(params: {
         );
     });
 
-    const shouldMarkMissingBlocksAsSkipped =
-        params.shouldApplyBlockStatuses &&
-        params.executionStatus === 'success';
+    const missingBlockFallbackStatus = getMissingBlockFallbackStatus(
+        params.executionStatus,
+    );
 
     return {
         ...params.payload,
@@ -247,7 +275,7 @@ function applyExecutionStatusesToPayload(params: {
             ...block,
             status:
                 blockStatusByFrontendId.get(block.id) ??
-                (shouldMarkMissingBlocksAsSkipped ? 'skipped' : 'idle'),
+                missingBlockFallbackStatus,
         })),
     };
 }
@@ -389,12 +417,28 @@ async function pollExecutionStateUntilFinished(params: {
     }
 }
 
+function resetPayloadBlockStatuses(
+    payload: NotebookPayloadDto | null,
+): NotebookPayloadDto | null {
+    if (!payload) {
+        return null;
+    }
+
+    return {
+        ...payload,
+        blocks: payload.blocks.map((block) => ({
+            ...block,
+            status: 'idle',
+        })),
+    };
+}
+
 function NotebookEditor({ notebookId }: NotebookEditorProps) {
     const isMobile = useMediaQuery('(max-width: 767px)');
     const isDesktop = useMediaQuery('(min-width: 1024px)');
 
     const initialNotebookPayload = useMemo(
-        () => loadNotebookLocally(notebookId),
+        () => resetPayloadBlockStatuses(loadNotebookLocally(notebookId)),
         [notebookId],
     );
 

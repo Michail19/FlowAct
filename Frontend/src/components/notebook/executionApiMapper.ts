@@ -52,7 +52,7 @@ function mapApiLogStatusToWorkflowStatus(
             return 'waiting';
 
         case 'SKIPPED':
-            return 'running';
+            return 'skipped';
     }
 }
 

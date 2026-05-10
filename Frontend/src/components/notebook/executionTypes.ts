@@ -11,7 +11,8 @@ export type WorkflowExecutionStatus =
     | 'success'
     | 'error'
     | 'cancelling'
-    | 'cancelled';
+    | 'cancelled'
+    | 'skipped';
 
 export type WorkflowExecutionFinalStatus = 'success' | 'error' | 'cancelled';
 

@@ -343,6 +343,31 @@ function getInitialPayloadLoadKey(payload: NotebookPayloadDto) {
     ].join('::');
 }
 
+function getMissingRuntimeBlockStatus(
+    executionStatus: WorkflowExecutionStatus,
+): NotebookBlockStatus {
+    if (executionStatus === 'success') {
+        return 'skipped';
+    }
+
+    if (executionStatus === 'error' || executionStatus === 'cancelled') {
+        return 'idle';
+    }
+
+    if (
+        executionStatus === 'created' ||
+        executionStatus === 'validating' ||
+        executionStatus === 'pending' ||
+        executionStatus === 'ready' ||
+        executionStatus === 'running' ||
+        executionStatus === 'waiting'
+    ) {
+        return 'pending';
+    }
+
+    return 'idle';
+}
+
 function NotebookCanvas({
                             readonly = false,
                             blockRequest = null,
