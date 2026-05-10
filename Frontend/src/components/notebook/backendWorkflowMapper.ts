@@ -693,6 +693,34 @@ function getConnectionSourceHandleFromBackendCondition(condition?: string | null
     return undefined;
 }
 
+function getViewportFromWorkflowMetadata(
+    metadata: BackendJsonObject | null | undefined,
+    fallbackPayload?: NotebookPayloadDto | null,
+) {
+    const viewport = metadata?.viewport;
+
+    if (
+        viewport &&
+        typeof viewport === 'object' &&
+        !Array.isArray(viewport)
+    ) {
+        const viewportObject = viewport as BackendJsonObject;
+        const x = Number(viewportObject.x);
+        const y = Number(viewportObject.y);
+        const zoom = Number(viewportObject.zoom);
+
+        if (
+            Number.isFinite(x) &&
+            Number.isFinite(y) &&
+            Number.isFinite(zoom)
+        ) {
+            return { x, y, zoom };
+        }
+    }
+
+    return fallbackPayload?.viewport;
+}
+
 export function fromBackendWorkflowResponse(params: {
     localNotebookId: string;
     notebook: NotebookResponse;
@@ -763,7 +791,10 @@ export function fromBackendWorkflowResponse(params: {
         version: params.fallbackPayload?.version ?? 1,
         blocks,
         connections,
-        viewport: params.fallbackPayload?.viewport,
+        viewport: getViewportFromWorkflowMetadata(
+            params.workflow.metadata,
+            params.fallbackPayload,
+        ),
         updatedAt:
             params.workflow.updatedAt ??
             params.notebook.updatedAt ??

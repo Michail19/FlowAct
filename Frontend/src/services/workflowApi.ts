@@ -19,6 +19,7 @@ function toWorkflowRequest(payload: BackendWorkflowUpsertRequest): WorkflowReque
                 : null,
         blocks: payload.blocks,
         connections: payload.connections,
+        metadata: payload.metadata,
     };
 }
 

@@ -48,6 +48,9 @@ public class WorkflowEntity extends BaseEntity {
     @Column(name = "description")
     private String description;
 
+    @Column(name = "metadata", columnDefinition = "TEXT")
+    private String metadata;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
     private WorkflowStatus status;

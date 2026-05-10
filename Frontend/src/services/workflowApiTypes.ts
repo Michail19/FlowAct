@@ -126,6 +126,7 @@ export type WorkflowResponse = {
     notebookId: string;
     name: string;
     description: string | null;
+    metadata?: BackendJsonObject | null;
     status: WorkflowStatus;
     blocks: BackendWorkflowBlockResponse[];
     connections: BackendWorkflowConnectionResponse[];
@@ -136,6 +137,7 @@ export type WorkflowResponse = {
 export type WorkflowRequest = {
     name: string;
     description?: string | null;
+    metadata?: BackendJsonObject;
     blocks: BackendWorkflowBlockRequest[];
     connections: BackendWorkflowConnectionRequest[];
 };

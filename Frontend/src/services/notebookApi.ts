@@ -7,7 +7,7 @@ export type NotebookRequest = {
     description?: string | null;
 };
 
-export type NotebookResponse = {
+export type NotebookShortResponse = {
     id: string;
     ownerUserId: string;
     name: string;
@@ -16,13 +16,15 @@ export type NotebookResponse = {
     updatedAt: string;
 };
 
+export type NotebookResponse = NotebookShortResponse;
+
 export const notebookApi = {
     getNotebook(notebookId: string) {
         return apiClient.get<NotebookResponse>(`${NOTEBOOKS_ENDPOINT}/${notebookId}`);
     },
 
     getNotebooks() {
-        return apiClient.get<NotebookResponse[]>(NOTEBOOKS_ENDPOINT);
+        return apiClient.get<NotebookShortResponse[]>(NOTEBOOKS_ENDPOINT);
     },
 
     createNotebook(request: NotebookRequest) {

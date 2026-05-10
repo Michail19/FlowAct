@@ -63,6 +63,7 @@ public class WorkflowService {
                 .notebook(notebook)
                 .name(request.name())
                 .description(request.description())
+                .metadata(jsonUtils.toJson(request.metadata()))
                 .status(WorkflowStatus.DRAFT)
                 .build();
 
@@ -156,6 +157,7 @@ public class WorkflowService {
 
         workflow.setName(request.name());
         workflow.setDescription(request.description());
+        workflow.setMetadata(jsonUtils.toJson(request.metadata()));
 
         if (previousStatus == WorkflowStatus.ACTIVE) {
             workflow.setStatus(WorkflowStatus.DRAFT);
@@ -380,6 +382,7 @@ public class WorkflowService {
                 .notebookId(workflow.getNotebook().getId())
                 .name(workflow.getName())
                 .description(workflow.getDescription())
+                .metadata(jsonUtils.toMap(workflow.getMetadata()))
                 .status(workflow.getStatus())
                 .blocks(blocks)
                 .connections(connections)

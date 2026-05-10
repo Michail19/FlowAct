@@ -6,11 +6,12 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 import java.util.List;
-import java.util.UUID;
+import java.util.Map;
 
 public record CreateWorkflowRequest(
         @NotBlank String name,
         String description,
+        Map<String, Object> metadata,
         @NotNull List<WorkflowBlockDTO> blocks,
         @NotNull List<WorkflowConnectionDTO> connections
 ) {}
