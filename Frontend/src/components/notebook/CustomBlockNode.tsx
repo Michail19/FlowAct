@@ -99,6 +99,11 @@ function CustomBlockNode({ id, data, selected }: NodeProps<NotebookNode>) {
         data.onEdit?.(id);
     };
 
+    const handleAutocomplete = (event: React.MouseEvent<HTMLButtonElement>) => {
+        event.stopPropagation();
+        data.onAutocomplete?.(id);
+    };
+
     const handleDelete = (event: React.MouseEvent<HTMLButtonElement>) => {
         event.stopPropagation();
         data.onDelete?.(id);
@@ -140,6 +145,19 @@ function CustomBlockNode({ id, data, selected }: NodeProps<NotebookNode>) {
                 </div>
 
                 <div className="custom-block-node__actions">
+                    {data.canAutocomplete && (
+                        <button
+                            className="custom-block-node__action custom-block-node__action--autocomplete nodrag nopan"
+                            type="button"
+                            aria-label="Автодополнить блок"
+                            title="Автодополнить"
+                            onPointerDown={stopReactFlowEvent}
+                            onClick={handleAutocomplete}
+                        >
+                            <NotebookSvgIcon name="sparkles" size={12} />
+                        </button>
+                    )}
+
                     <button
                         className="custom-block-node__action custom-block-node__action--edit nodrag nopan"
                         type="button"

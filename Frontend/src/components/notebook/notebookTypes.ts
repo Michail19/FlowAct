@@ -113,9 +113,12 @@ export type NotebookBlockData = {
     aiConfig?: AiBlockConfig;
     config?: NotebookBlockConfig;
 
+    canAutocomplete?: boolean;
+
     onRun?: (nodeId: string) => void;
     onEdit?: (nodeId: string) => void;
     onDelete?: (nodeId: string) => void;
+    onAutocomplete?: (nodeId: string) => void;
 };
 
 export type NotebookNode = Node<NotebookBlockData>;

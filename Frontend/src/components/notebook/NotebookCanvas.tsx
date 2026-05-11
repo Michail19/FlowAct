@@ -100,6 +100,7 @@ type NotebookCanvasProps = {
     onHistoryRequestHandled?: (requestId: number) => void;
     onHistoryStateChange?: (state: NotebookHistoryState) => void;
     onBlockInspect?: (block: NotebookBlockInspectionTarget) => void;
+    onBlockAutocomplete?: (payload: NotebookPayloadDto, blockId: string) => void;
 };
 
 function normalizeSearchQuery(query: string) {
@@ -372,6 +373,14 @@ function getMissingRuntimeBlockStatus(
     return 'idle';
 }
 
+function canAutocompleteNode(node: NotebookNode, edges: Edge[]) {
+    if (node.data.blockType === 'end') {
+        return false;
+    }
+
+    return !edges.some((edge) => edge.source === node.id);
+}
+
 function NotebookCanvas({
                             readonly = false,
                             blockRequest = null,
@@ -395,6 +404,7 @@ function NotebookCanvas({
                             onHistoryRequestHandled,
                             onHistoryStateChange,
                             onBlockInspect,
+                            onBlockAutocomplete,
                         }: NotebookCanvasProps) {
     const canvasRef = useRef<HTMLDivElement | null>(null);
     const nodeCounterRef = useRef(initialNodes.length);
@@ -947,6 +957,44 @@ function NotebookCanvas({
             );
         },
         [readonly, setEdges, setNodes],
+    );
+
+    const handleAutocompleteNode = useCallback(
+        (nodeId: string) => {
+            if (readonly) {
+                return;
+            }
+
+            const payload = toNotebookPayload({
+                notebookId,
+                title: notebookTitle,
+                nodes,
+                edges,
+                viewport,
+            });
+
+            onBlockAutocomplete?.(
+                {
+                    ...payload,
+                    serverNotebookId: initialPayload?.serverNotebookId,
+                    workflowId: initialPayload?.workflowId,
+                    workflowStatus: initialPayload?.workflowStatus,
+                },
+                nodeId,
+            );
+        },
+        [
+            edges,
+            initialPayload?.serverNotebookId,
+            initialPayload?.workflowId,
+            initialPayload?.workflowStatus,
+            nodes,
+            notebookId,
+            notebookTitle,
+            onBlockAutocomplete,
+            readonly,
+            viewport,
+        ],
     );
 
     const handleNodeClick = useCallback(
@@ -1718,18 +1766,28 @@ function NotebookCanvas({
         runRequest,
     ]);
 
-    const visibleNodes = useMemo(
+    const nodesWithHandlers = useMemo(
         () =>
             nodes.map((node) => ({
                 ...node,
                 data: {
                     ...node.data,
+                    canAutocomplete: !readonly && canAutocompleteNode(node, edges),
+                    onRun: handleRunNode,
                     onEdit: handleEditNode,
                     onDelete: handleDeleteNode,
-                    onRun: handleRunNode,
+                    onAutocomplete: handleAutocompleteNode,
                 },
             })),
-        [handleDeleteNode, handleEditNode, handleRunNode, nodes],
+        [
+            edges,
+            handleAutocompleteNode,
+            handleDeleteNode,
+            handleEditNode,
+            handleRunNode,
+            nodes,
+            readonly,
+        ],
     );
 
     const handleSaveAiBlock = (title: string, config: AiBlockConfig) => {
@@ -1861,7 +1919,7 @@ function NotebookCanvas({
     return (
         <div className="notebook-canvas" ref={canvasRef}>
             <ReactFlow<NotebookNode, Edge>
-                nodes={visibleNodes}
+                nodes={nodesWithHandlers}
                 edges={edges}
                 nodeTypes={nodeTypes}
                 onInit={setReactFlowInstance}

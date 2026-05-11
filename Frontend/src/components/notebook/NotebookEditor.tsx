@@ -62,6 +62,7 @@ import {
     mapApiExecutionStatus,
 } from './executionTypes';
 import {
+    getBlockAutocompleteRecommendation,
     getLocalNotebookRecommendations,
 } from './recommendationService';
 import type { NotebookRecommendation } from './recommendationTypes';
@@ -460,6 +461,8 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
 
     const [blockRequest, setBlockRequest] = useState<NotebookBlockRequest | null>(null);
     const [dismissedSuggestionIds, setDismissedSuggestionIds] = useState<string[]>([]);
+    const [manualRecommendation, setManualRecommendation] =
+        useState<NotebookRecommendation | null>(null);
     const [notebookPayload, setNotebookPayload] = useState<NotebookPayloadDto | null>(null);
     const [loadedNotebookPayload, setLoadedNotebookPayload] =
         useState<NotebookPayloadDto | null>(initialNotebookPayload);
@@ -497,20 +500,25 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
     const [, setValidationIssues] = useState<WorkflowValidationIssue[]>([]);
 
     const recommendations = useMemo(
-        () => getLocalNotebookRecommendations(
-            notebookPayload ?? loadedNotebookPayload,
-        ),
+        () =>
+            getLocalNotebookRecommendations(
+                notebookPayload ?? loadedNotebookPayload,
+            ),
         [loadedNotebookPayload, notebookPayload],
     );
 
-    const visibleSuggestion = useMemo(
-        () =>
-            recommendations.find(
+    const visibleSuggestion = useMemo(() => {
+        const candidates = manualRecommendation
+            ? [manualRecommendation, ...recommendations]
+            : recommendations;
+
+        return (
+            candidates.find(
                 (recommendation) =>
                     !dismissedSuggestionIds.includes(recommendation.id),
-            ) ?? null,
-        [dismissedSuggestionIds, recommendations],
-    );
+            ) ?? null
+        );
+    }, [dismissedSuggestionIds, manualRecommendation, recommendations]);
 
     useEffect(() => {
         const sourcePayload = loadedNotebookPayload ?? initialNotebookPayload;
@@ -700,6 +708,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
     const handleAcceptSuggestion = useCallback(
         (recommendation: NotebookRecommendation) => {
             handleAddBlock(recommendation.blockType);
+            setManualRecommendation(null);
         },
         [handleAddBlock],
     );
@@ -710,7 +719,45 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                 ? currentIds
                 : [...currentIds, suggestionId],
         );
+
+        setManualRecommendation((currentRecommendation) =>
+            currentRecommendation?.id === suggestionId
+                ? null
+                : currentRecommendation,
+        );
     }, []);
+
+    const handleBlockAutocomplete = useCallback(
+        (payload: NotebookPayloadDto, blockId: string) => {
+            const recommendation = getBlockAutocompleteRecommendation(
+                payload,
+                blockId,
+            );
+
+            if (!recommendation) {
+                setExecutionLogs([
+                    createExecutionLog({
+                        level: 'warning',
+                        status: 'idle',
+                        blockId,
+                        message:
+                            'Для этого блока пока нет доступной рекомендации автодополнения.',
+                    }),
+                ]);
+
+                setExecutionStatus('idle');
+                setIsRunPanelOpen(true);
+                return;
+            }
+
+            setManualRecommendation(recommendation);
+
+            setDismissedSuggestionIds((currentIds) =>
+                currentIds.filter((suggestionId) => suggestionId !== recommendation.id),
+            );
+        },
+        [],
+    );
 
     const validateCurrentNotebook = useCallback(() => {
         const payload = notebookPayload ?? loadedNotebookPayload;
@@ -1205,19 +1252,18 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                     )}
 
                     <NotebookCanvas
-                        readonly={!isDesktop}
+                        readonly={isMobile}
                         blockRequest={blockRequest}
                         onBlockRequestHandled={handleBlockRequestHandled}
                         notebookId={notebookId}
                         notebookTitle={notebookTitle}
                         initialPayload={loadedNotebookPayload}
-                        onNotebookChange={handleNotebookChange}
+                        onNotebookChange={setNotebookPayload}
                         runRequest={runRequest}
                         onRunRequestHandled={handleRunRequestHandled}
                         onExecutionStatusChange={setExecutionStatus}
                         onExecutionLogsChange={setExecutionLogs}
                         onExecutionResultChange={setExecutionResult}
-                        onBlockInspect={setInspectedBlock}
                         autoLayoutRequest={autoLayoutRequest}
                         onAutoLayoutRequestHandled={handleAutoLayoutRequestHandled}
                         viewportRequest={viewportRequest}
@@ -1227,6 +1273,8 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                         historyRequest={historyRequest}
                         onHistoryRequestHandled={handleHistoryRequestHandled}
                         onHistoryStateChange={setHistoryState}
+                        onBlockInspect={setInspectedBlock}
+                        onBlockAutocomplete={handleBlockAutocomplete}
                     />
 
                     {!isInterfaceHidden && (

@@ -64,6 +64,11 @@ function AiBlockNode({ id, data, selected }: AiBlockNodeProps) {
         data.onDelete?.(id);
     };
 
+    const handleAutocomplete = (event: React.MouseEvent<HTMLButtonElement>) => {
+        event.stopPropagation();
+        data.onAutocomplete?.(id);
+    };
+
     return (
         <article className={nodeClassName}>
             <Handle
@@ -91,6 +96,19 @@ function AiBlockNode({ id, data, selected }: AiBlockNodeProps) {
                 </div>
 
                 <div className="ai-block-node__actions">
+                    {data.canAutocomplete && (
+                        <button
+                            className="ai-block-node__action ai-block-node__action--autocomplete nodrag nopan"
+                            type="button"
+                            aria-label="Автодополнить AI-блок"
+                            title="Автодополнить"
+                            onPointerDown={stopReactFlowEvent}
+                            onClick={handleAutocomplete}
+                        >
+                            <NotebookSvgIcon name="sparkles" size={12} />
+                        </button>
+                    )}
+
                     <button
                         className="ai-block-node__action ai-block-node__action--edit nodrag nopan"
                         type="button"
