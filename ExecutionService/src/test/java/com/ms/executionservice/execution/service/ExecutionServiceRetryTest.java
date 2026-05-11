@@ -85,9 +85,9 @@ class ExecutionServiceRetryTest {
                 .id(executionId)
                 .workflow(workflow)
                 .startedByUserId(UUID.randomUUID())
-                .status(ExecutionStatus.SUCCESS)
+                .status(ExecutionStatus.RUNNING)
                 .inputData("{\"text\":\"hello\"}")
-                .outputData("{\"result\":\"ok\"}")
+                .outputData(null)
                 .errorMessage(null)
                 .build();
 
@@ -100,8 +100,63 @@ class ExecutionServiceRetryTest {
                 () -> executionService.retry(notebookId, workflowId, executionId)
         );
 
-        assertTrue(ex.getMessage().contains("cannot be retried"));
+        assertTrue(ex.getMessage().contains("only after SUCCESS, FAILED or CANCELLED"));
+
+        verify(executionRepository, never()).save(any());
         verifyNoInteractions(executionDispatchService);
+    }
+
+    @Test
+    void retry_shouldCreateNewPendingExecutionWhenOldExecutionIsSuccess() {
+        UUID notebookId = UUID.randomUUID();
+        UUID workflowId = UUID.randomUUID();
+        UUID oldExecutionId = UUID.randomUUID();
+        UUID startedByUserId = UUID.randomUUID();
+
+        WorkflowEntity workflow = WorkflowEntity.builder()
+                .id(workflowId)
+                .build();
+
+        ExecutionEntity oldExecution = ExecutionEntity.builder()
+                .id(oldExecutionId)
+                .workflow(workflow)
+                .startedByUserId(startedByUserId)
+                .status(ExecutionStatus.SUCCESS)
+                .inputData("{\"text\":\"hello\"}")
+                .outputData("{\"result\":\"ok\"}")
+                .errorMessage(null)
+                .build();
+
+        when(executionRepository.findByIdAndWorkflow_IdAndWorkflow_Notebook_Id(
+                oldExecutionId, workflowId, notebookId
+        )).thenReturn(Optional.of(oldExecution));
+
+        when(executionRepository.save(any(ExecutionEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        ExecutionResponse response = executionService.retry(
+                notebookId,
+                workflowId,
+                oldExecutionId
+        );
+
+        assertNotNull(response);
+        assertNotNull(response.id());
+        assertNotEquals(oldExecutionId, response.id());
+        assertEquals(workflowId, response.workflowId());
+        assertEquals(startedByUserId, response.startedByUserId());
+        assertEquals(ExecutionStatus.PENDING, response.status());
+        assertEquals("{\"text\":\"hello\"}", jsonUtils.toJson(response.inputData()));
+        assertTrue(response.outputData().isEmpty());
+        assertNull(response.errorMessage());
+
+        verify(executionDispatchService).publishRetryRequested(
+                oldExecutionId,
+                response.id(),
+                workflowId,
+                notebookId,
+                startedByUserId
+        );
     }
 
     @Test

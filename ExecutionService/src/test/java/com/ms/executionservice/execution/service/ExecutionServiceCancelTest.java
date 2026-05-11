@@ -73,7 +73,7 @@ class ExecutionServiceCancelTest {
     }
 
     @Test
-    void cancel_shouldThrowWhenExecutionAlreadyFinished() {
+    void cancel_shouldReturnAsIsWhenExecutionAlreadyFinished() {
         UUID notebookId = UUID.randomUUID();
         UUID workflowId = UUID.randomUUID();
         UUID executionId = UUID.randomUUID();
@@ -87,18 +87,25 @@ class ExecutionServiceCancelTest {
                 .workflow(workflow)
                 .startedByUserId(UUID.randomUUID())
                 .status(ExecutionStatus.SUCCESS)
+                .finishedAt(OffsetDateTime.now())
                 .build();
 
         when(executionRepository.findByIdAndWorkflow_IdAndWorkflow_Notebook_Id(
                 executionId, workflowId, notebookId
         )).thenReturn(Optional.of(execution));
 
-        IllegalStateException ex = assertThrows(
-                IllegalStateException.class,
-                () -> executionService.cancel(notebookId, workflowId, executionId)
+        ExecutionResponse response = executionService.cancel(
+                notebookId,
+                workflowId,
+                executionId
         );
 
-        assertTrue(ex.getMessage().contains("already finished"));
+        assertNotNull(response);
+        assertEquals(executionId, response.id());
+        assertEquals(workflowId, response.workflowId());
+        assertEquals(ExecutionStatus.SUCCESS, response.status());
+
+        verify(executionRepository, never()).save(any());
         verifyNoInteractions(executionDispatchService);
     }
 
