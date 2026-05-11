@@ -17,163 +17,42 @@ FlowAct — веб-приложение для визуального созда
 
 ```text
 FlowAct/
-├── Frontend/          # React + Vite frontend
-├── ExecutionService/  # Spring Boot API для notebook/workflow/execution
-├── WorkerService/     # Spring Boot worker для выполнения workflow
+├── Frontend/                    # React + Vite frontend
+├── ExecutionService/            # Spring Boot API для notebook/workflow/execution
+├── WorkerService/               # Spring Boot worker для выполнения workflow
+├── docs/deployment/             # инструкции запуска и развёртывания
 ├── docker-compose.yml
 └── README.md
 ```
 
-Основные сервисы в Docker Compose:
+Основные сервисы:
 
-| Сервис | Назначение | Порт |
+| Сервис | Назначение |
+| --- | --- |
+| Frontend | SPA-интерфейс FlowAct, landing, home и визуальный редактор workflow |
+| ExecutionService | REST API для notebook, workflow, валидации и execution |
+| WorkerService | Выполнение workflow по событиям из Kafka |
+| PostgreSQL | Хранение notebook, workflow, blocks, connections, executions и logs |
+| Kafka | Очередь событий запуска, повтора, отмены и продолжения execution |
+
+## Документация по запуску и развёртыванию
+
+Инструкции запуска вынесены в отдельные документы:
+
+| Вариант | Статус | Документация |
 | --- | --- | --- |
-| frontend | Nginx + собранный React frontend | `3000` |
-| execution-service | REST API для notebook, workflow и execution | `8082` |
-| worker-service | Worker, который выполняет workflow по Kafka-событиям | внутренний |
-| postgres | PostgreSQL 16 | `5433 -> 5432` |
-| kafka | Apache Kafka | `9092`, внутри Docker `9093` |
+| Docker Compose | основной локальный сценарий | [docs/deployment/docker-compose.md](docs/deployment/docker-compose.md) |
+| Kubernetes | планируется позже | [docs/deployment/kubernetes.md](docs/deployment/kubernetes.md) |
 
-`docker-compose.yml` поднимает PostgreSQL, Kafka, ExecutionService, WorkerService и Frontend. Frontend-прокси отправляет `/api/...` в `execution-service:8082`, а nginx временно добавляет `X-User-Id`, пока UserService/AuthService ещё не подключён.
+Для текущей ветки используйте Docker Compose-инструкцию.
 
-## Требования
+## Документация сервисов
 
-Для локального запуска нужны:
-
-- Docker и Docker Compose;
-- Node.js 22+ — если frontend запускается отдельно;
-- Java 21 — если backend-сервисы запускаются отдельно;
-- PostgreSQL 16 — если backend запускается без Docker;
-- Kafka — если ExecutionService и WorkerService запускаются без Docker.
-
-## Быстрый запуск через Docker Compose
-
-Скопируйте пример окружения:
-
-```bash
-cp .env.example .env
-```
-
-Запустите проект:
-
-```bash
-docker compose up --build
-```
-
-После запуска будут доступны:
-
-```text
-Frontend:          http://localhost:3000
-ExecutionService:  http://localhost:8082
-Swagger UI:        http://localhost:8082/swagger-ui.html
-Actuator health:   http://localhost:8082/actuator/health
-PostgreSQL:        localhost:5433
-Kafka:             localhost:9092
-```
-
-## Повторная сборка после изменений
-
-Если менялся frontend:
-
-```bash
-docker compose build frontend
-docker compose up -d frontend
-```
-
-Если менялся ExecutionService:
-
-```bash
-docker compose build execution-service
-docker compose up -d execution-service
-```
-
-Если менялся WorkerService:
-
-```bash
-docker compose build worker-service
-docker compose up -d worker-service
-```
-
-Полная пересборка:
-
-```bash
-docker compose down
-docker compose build --no-cache
-docker compose up
-```
-
-Если нужно пересоздать базу данных с нуля:
-
-```bash
-docker compose down -v
-docker compose up --build
-```
-
-> Важно: команда `down -v` удаляет volume PostgreSQL и все локальные данные БД.
-
-## Локальный frontend без Docker
-
-```bash
-cd Frontend
-cp .env.example .env
-npm install
-npm run dev
-```
-
-По умолчанию frontend будет доступен на:
-
-```text
-http://localhost:5173
-```
-
-Если backend запущен через Docker Compose, в `Frontend/.env` удобно указать:
-
-```env
-VITE_API_BASE_URL=http://localhost:8082/api
-VITE_DEV_AUTH_ENABLED=true
-VITE_DEV_USER_ID=11111111-1111-1111-1111-111111111111
-VITE_DEV_AUTH_TOKEN=dev-token
-```
-
-## Локальный ExecutionService без Docker
-
-```bash
-cd ExecutionService
-cp .env.example .env
-```
-
-Для запуска вручную нужно передать переменные окружения из `.env.example`, после чего выполнить:
-
-```bash
-./gradlew bootRun
-```
-
-На Windows:
-
-```powershell
-.\gradlew.bat bootRun
-```
-
-## Локальный WorkerService без Docker
-
-```bash
-cd WorkerService
-cp .env.example .env
-```
-
-Затем:
-
-```bash
-./gradlew bootRun
-```
-
-На Windows:
-
-```powershell
-.\gradlew.bat bootRun
-```
-
-WorkerService требует доступ к той же PostgreSQL-базе и Kafka, что и ExecutionService.
+| Сервис | Документация |
+| --- | --- |
+| Frontend | [Frontend/README.md](Frontend/README.md) |
+| ExecutionService | [ExecutionService/README.md](ExecutionService/README.md) |
+| WorkerService | [WorkerService/README.md](WorkerService/README.md) |
 
 ## Основные frontend-страницы
 
@@ -230,51 +109,13 @@ spring.jpa.hibernate.ddl-auto=validate
 
 Это значит, что схема БД должна соответствовать Entity-классам. Если добавлено новое поле в Entity, нужно добавить SQL-миграцию.
 
-## Проверка качества frontend
+## Проверка frontend
 
 ```bash
 cd Frontend
 npm run typecheck
 npm run lint
 npm run build
-```
-
-## Полезные команды Docker
-
-Просмотр контейнеров:
-
-```bash
-docker compose ps
-```
-
-Логи всех сервисов:
-
-```bash
-docker compose logs -f
-```
-
-Логи ExecutionService:
-
-```bash
-docker compose logs -f execution-service
-```
-
-Логи WorkerService:
-
-```bash
-docker compose logs -f worker-service
-```
-
-Подключение к PostgreSQL:
-
-```bash
-docker compose exec postgres psql -U postgres -d flowact_execution
-```
-
-Проверка таблицы workflows:
-
-```sql
-\d workflows
 ```
 
 ## Текущее состояние UserService
