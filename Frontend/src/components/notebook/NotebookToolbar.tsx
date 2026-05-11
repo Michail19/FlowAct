@@ -88,7 +88,7 @@ function NotebookToolbar({
                 />
 
                 <NotebookIconButton
-                    icon="check"
+                    icon="schemaCheck"
                     label="Проверить схему"
                     variant="circle"
                     onClick={onValidateWorkflow}

@@ -252,6 +252,21 @@ function NotebookSvgIcon({
                     />
                 </>
             )}
+
+            {name === 'schemaCheck' && (
+                <>
+                    <rect x="3.5" y="4" width="5" height="5" rx="1.4" />
+                    <rect x="15.5" y="4" width="5" height="5" rx="1.4" />
+                    <rect x="3.5" y="15" width="5" height="5" rx="1.4" />
+
+                    <path d="M8.5 6.5h7" />
+                    <path d="M6 9v6" />
+                    <path d="M8.5 17.5h3.5" />
+                    <path d="M18 9v2.5" />
+
+                    <path d="M13.5 17.2 16.2 20 21 14.5" />
+                </>
+            )}
         </svg>
     );
 }
