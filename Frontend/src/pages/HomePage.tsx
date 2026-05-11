@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import {
@@ -179,6 +179,9 @@ function NotebookPreview({ notebookId }: { notebookId: string }) {
 function HomePage() {
     const navigate = useNavigate();
 
+    const deletedLocalNotebookIdsRef = useRef<Set<string>>(new Set());
+    const deletedServerNotebookIdsRef = useRef<Set<string>>(new Set());
+
     const [notebooks, setNotebooks] = useState<NotebookListItem[]>(() =>
         listNotebooksLocally(),
     );
@@ -192,11 +195,23 @@ function HomePage() {
         try {
             const backendNotebooks = await notebookApi.getNotebooks();
 
+            const visibleBackendNotebooks = backendNotebooks.filter(
+                (backendNotebook) =>
+                    !deletedServerNotebookIdsRef.current.has(backendNotebook.id),
+            );
+
             await Promise.all(
-                backendNotebooks.map(async (backendNotebook) => {
+                visibleBackendNotebooks.map(async (backendNotebook) => {
                     const fallbackPayload = findLocalNotebookByServerNotebookId(
                         backendNotebook.id,
                     );
+
+                    if (
+                        fallbackPayload?.id &&
+                        deletedLocalNotebookIdsRef.current.has(fallbackPayload.id)
+                    ) {
+                        return;
+                    }
 
                     let backendWorkflow: WorkflowResponse | undefined;
 
@@ -217,26 +232,37 @@ function HomePage() {
                         );
                     }
 
+                    if (deletedServerNotebookIdsRef.current.has(backendNotebook.id)) {
+                        return;
+                    }
+
                     const localPayload = createLocalPayloadFromBackendNotebook({
                         backendNotebook,
                         backendWorkflow,
                         fallbackPayload,
                     });
 
+                    if (
+                        localPayload.id &&
+                        deletedLocalNotebookIdsRef.current.has(localPayload.id)
+                    ) {
+                        return;
+                    }
+
                     saveNotebookLocally(localPayload);
                 }),
             );
 
-            setNotebooks(listNotebooksLocally());
+            setNotebooks(getVisibleLocalNotebooks());
 
-            console.log('Home notebooks synced from backend:', backendNotebooks.length);
+            console.log('Home notebooks synced from backend:', visibleBackendNotebooks.length);
         } catch (error) {
             console.warn('Home backend sync failed, local notebooks are used:', error);
-            setNotebooks(listNotebooksLocally());
+            setNotebooks(getVisibleLocalNotebooks());
         } finally {
             setIsSyncing(false);
         }
-    }, []);
+    }, [getVisibleLocalNotebooks]);
 
     useEffect(() => {
         let isCancelled = false;
@@ -285,6 +311,16 @@ function HomePage() {
 
         const payload = loadNotebookLocally(notebookToDelete.id);
 
+        deletedLocalNotebookIdsRef.current.add(notebookToDelete.id);
+
+        if (payload?.serverNotebookId) {
+            deletedServerNotebookIdsRef.current.add(payload.serverNotebookId);
+        }
+
+        deleteNotebookLocally(notebookToDelete.id);
+        setNotebooks(getVisibleLocalNotebooks());
+        setNotebookToDelete(null);
+
         try {
             if (payload?.serverNotebookId) {
                 await notebookApi.deleteNotebook(payload.serverNotebookId);
@@ -295,10 +331,6 @@ function HomePage() {
                 error,
             );
         }
-
-        deleteNotebookLocally(notebookToDelete.id);
-        setNotebooks(listNotebooksLocally());
-        setNotebookToDelete(null);
     };
 
     const handleCancelDeleteNotebook = () => {
@@ -306,6 +338,12 @@ function HomePage() {
     };
 
     const showCreateButtonInEmptyState = notebooks.length === 0 && !isSearching;
+
+    const getVisibleLocalNotebooks = useCallback(() => {
+        return listNotebooksLocally().filter(
+            (notebook) => !deletedLocalNotebookIdsRef.current.has(notebook.id),
+        );
+    }, []);
 
     return (
         <main className="home-page">
@@ -418,7 +456,15 @@ function HomePage() {
                                             type="button"
                                             aria-label={`Удалить ${notebook.title}`}
                                             title="Удалить notebook"
-                                            onClick={() => handleAskDeleteNotebook(notebook)}
+                                            onMouseDown={(event) => {
+                                                event.preventDefault();
+                                                event.stopPropagation();
+                                            }}
+                                            onClick={(event) => {
+                                                event.preventDefault();
+                                                event.stopPropagation();
+                                                handleAskDeleteNotebook(notebook);
+                                            }}
                                         >
                                             <NotebookSvgIcon name="trash" size={15} />
                                         </button>

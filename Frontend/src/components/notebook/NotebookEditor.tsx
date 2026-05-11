@@ -699,6 +699,20 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         });
     }, []);
 
+    const handleAddRecommendedBlock = useCallback(
+        (recommendation: NotebookRecommendation) => {
+            requestIdRef.current += 1;
+
+            setBlockRequest({
+                requestId: requestIdRef.current,
+                blockType: recommendation.blockType,
+                sourceBlockId: recommendation.targetBlockId,
+                proposedConfig: recommendation.proposedConfig,
+            });
+        },
+        [],
+    );
+
     const handleBlockRequestHandled = useCallback((requestId: number) => {
         setBlockRequest((currentRequest) =>
             currentRequest?.requestId === requestId ? null : currentRequest,
@@ -707,10 +721,10 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
 
     const handleAcceptSuggestion = useCallback(
         (recommendation: NotebookRecommendation) => {
-            handleAddBlock(recommendation.blockType);
+            handleAddRecommendedBlock(recommendation);
             setManualRecommendation(null);
         },
-        [handleAddBlock],
+        [handleAddRecommendedBlock],
     );
 
     const handleDismissSuggestion = useCallback((suggestionId: string) => {

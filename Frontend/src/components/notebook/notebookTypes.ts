@@ -126,6 +126,17 @@ export type NotebookNode = Node<NotebookBlockData>;
 export type NotebookBlockRequest = {
     requestId: number;
     blockType: NotebookBlockType;
+
+    /**
+     * Если блок создаётся как рекомендация после другого блока,
+     * canvas поставит новый блок справа и создаст связь sourceBlockId -> newBlock.
+     */
+    sourceBlockId?: string;
+
+    /**
+     * Предзаполненная конфигурация, которую может предложить AI/локальное правило.
+     */
+    proposedConfig?: NotebookBlockConfig;
 };
 
 export type NotebookAutoLayoutMode = 'arrange' | 'connect' | 'arrange-connect';

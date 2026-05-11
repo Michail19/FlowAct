@@ -381,6 +381,24 @@ function canAutocompleteNode(node: NotebookNode, edges: Edge[]) {
     return !edges.some((edge) => edge.source === node.id);
 }
 
+function getRecommendedNodePosition(
+    sourceNode: NotebookNode | undefined,
+    fallbackPosition: XYPosition,
+): XYPosition {
+    if (!sourceNode) {
+        return fallbackPosition;
+    }
+
+    return {
+        x: sourceNode.position.x + getApproximateNodeWidth(sourceNode) + 120,
+        y: sourceNode.position.y,
+    };
+}
+
+function createRecommendedEdgeId(sourceBlockId: string, targetBlockId: string) {
+    return `edge-${sourceBlockId}-${targetBlockId}-${Date.now()}`;
+}
+
 function NotebookCanvas({
                             readonly = false,
                             blockRequest = null,
@@ -466,7 +484,15 @@ function NotebookCanvas({
     const createNodeFromRequest = useCallback(
         (request: NotebookBlockRequest): NotebookNode => {
             const definition = getBlockDefinition(request.blockType);
-            const position = getCanvasCenterPosition();
+            const sourceNode = request.sourceBlockId
+                ? nodes.find((node) => node.id === request.sourceBlockId)
+                : undefined;
+
+            const position = getRecommendedNodePosition(
+                sourceNode,
+                getCanvasCenterPosition(),
+            );
+
             const id = createNodeId(definition.blockType);
 
             if (definition.blockType === 'ai') {
@@ -478,7 +504,7 @@ function NotebookCanvas({
                         title: definition.title,
                         blockType: 'ai',
                         status: 'idle',
-                        aiConfig: {
+                        aiConfig: request.proposedConfig?.ai ?? {
                             prompt: '',
                             models: [...defaultAiConfig.models],
                         },
@@ -497,10 +523,11 @@ function NotebookCanvas({
                     icon: definition.icon,
                     blockType: definition.blockType,
                     status: 'idle',
+                    config: request.proposedConfig,
                 },
             };
         },
-        [createNodeId, getCanvasCenterPosition],
+        [createNodeId, getCanvasCenterPosition, nodes],
     );
 
     useEffect(() => {
@@ -511,13 +538,83 @@ function NotebookCanvas({
         const newNode = createNodeFromRequest(blockRequest);
 
         setNodes((currentNodes) => [...currentNodes, newNode]);
+
+        if (blockRequest.sourceBlockId) {
+            const sourceNode = nodes.find(
+                (node) => node.id === blockRequest.sourceBlockId,
+            );
+
+            if (sourceNode?.data.blockType === 'condition') {
+                const branch = getAvailableConditionBranchForEdges(
+                    blockRequest.sourceBlockId,
+                    edges,
+                );
+
+                if (!branch) {
+                    onExecutionLogsChange?.([
+                        createExecutionLog({
+                            level: 'warning',
+                            status: 'idle',
+                            blockId: sourceNode.id,
+                            blockTitle: sourceNode.data.title,
+                            message:
+                                `У блока "${sourceNode.data.title}" уже есть две ветки: ` +
+                                `"Да" и "Нет". Блок добавлен, но связь не создана.`,
+                        }),
+                    ]);
+
+                    onBlockRequestHandled?.(blockRequest.requestId);
+                    return;
+                }
+
+                setEdges((currentEdges) =>
+                    addEdge(
+                        {
+                            id: createRecommendedEdgeId(
+                                blockRequest.sourceBlockId!,
+                                newNode.id,
+                            ),
+                            source: blockRequest.sourceBlockId!,
+                            target: newNode.id,
+                            sourceHandle: branch,
+                            type: 'smoothstep',
+                            label: conditionBranchLabels[branch],
+                        },
+                        currentEdges,
+                    ),
+                );
+
+                onBlockRequestHandled?.(blockRequest.requestId);
+                return;
+            }
+
+            setEdges((currentEdges) =>
+                addEdge(
+                    {
+                        id: createRecommendedEdgeId(
+                            blockRequest.sourceBlockId!,
+                            newNode.id,
+                        ),
+                        source: blockRequest.sourceBlockId!,
+                        target: newNode.id,
+                        type: 'smoothstep',
+                    },
+                    currentEdges,
+                ),
+            );
+        }
+
         onBlockRequestHandled?.(blockRequest.requestId);
     }, [
         blockRequest,
         createNodeFromRequest,
+        edges,
+        nodes,
         onBlockRequestHandled,
+        onExecutionLogsChange,
         reactFlowInstance,
         readonly,
+        setEdges,
         setNodes,
     ]);
 
