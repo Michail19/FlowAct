@@ -21,6 +21,14 @@ type NotebookRunPanelProps = {
     onClose: () => void;
     onClear: () => void;
     onRunWorkflow: () => void;
+
+    canCancel?: boolean;
+    canRetry?: boolean;
+    canResume?: boolean;
+    isExecutionActionPending?: boolean;
+    onCancelExecution?: () => void;
+    onRetryExecution?: () => void;
+    onResumeExecution?: () => void;
 };
 
 const statusLabels: Record<WorkflowExecutionStatus, string> = {
@@ -74,6 +82,13 @@ function NotebookRunPanel({
                               onClose,
                               onClear,
                               onRunWorkflow,
+                              canCancel = false,
+                              canRetry = false,
+                              canResume = false,
+                              isExecutionActionPending = false,
+                              onCancelExecution,
+                              onRetryExecution,
+                              onResumeExecution,
                           }: NotebookRunPanelProps) {
     const [activeTab, setActiveTab] = useState<RunPanelTab>('logs');
     const [isTechnicalOutputOpen, setIsTechnicalOutputOpen] = useState(false);
@@ -137,10 +152,43 @@ function NotebookRunPanel({
                     className="notebook-run-panel__button notebook-run-panel__button--run"
                     type="button"
                     onClick={onRunWorkflow}
-                    disabled={status === 'running'}
+                    disabled={status === 'running' || isExecutionActionPending}
                 >
                     {status === 'running' ? 'Выполняется...' : 'Запустить'}
                 </button>
+
+                {canCancel && (
+                    <button
+                        className="notebook-run-panel__button notebook-run-panel__button--cancel"
+                        type="button"
+                        onClick={onCancelExecution}
+                        disabled={isExecutionActionPending}
+                    >
+                        {isExecutionActionPending ? 'Отмена...' : 'Отменить'}
+                    </button>
+                )}
+
+                {canResume && (
+                    <button
+                        className="notebook-run-panel__button notebook-run-panel__button--resume"
+                        type="button"
+                        onClick={onResumeExecution}
+                        disabled={isExecutionActionPending}
+                    >
+                        {isExecutionActionPending ? 'Продолжение...' : 'Продолжить'}
+                    </button>
+                )}
+
+                {canRetry && (
+                    <button
+                        className="notebook-run-panel__button notebook-run-panel__button--retry"
+                        type="button"
+                        onClick={onRetryExecution}
+                        disabled={isExecutionActionPending}
+                    >
+                        {isExecutionActionPending ? 'Повтор...' : 'Повторить'}
+                    </button>
+                )}
 
                 <button
                     className="notebook-run-panel__button notebook-run-panel__button--clear"

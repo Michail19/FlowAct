@@ -38,6 +38,7 @@ import type {
     NotebookExecutionLog,
     WorkflowExecutionResult,
     WorkflowExecutionStatus,
+    WorkflowExecutionTarget,
     WorkflowRunRequest,
 } from './executionTypes';
 import type { NotebookPayloadDto } from './notebookBackendTypes';
@@ -87,6 +88,7 @@ type NotebookCanvasProps = {
     onNotebookChange?: (payload: NotebookPayloadDto) => void;
     runRequest?: WorkflowRunRequest | null;
     onRunRequestHandled?: (requestId: number) => void;
+    onExecutionStarted?: (target: WorkflowExecutionTarget) => void;
     onExecutionStatusChange?: (status: WorkflowExecutionStatus) => void;
     onExecutionLogsChange?: (logs: NotebookExecutionLog[]) => void;
     onExecutionResultChange?: (result: WorkflowExecutionResult | null) => void;
@@ -410,6 +412,7 @@ function NotebookCanvas({
                             runRequest = null,
                             onRunRequestHandled,
                             onExecutionStatusChange,
+                            onExecutionStarted,
                             onExecutionLogsChange,
                             onExecutionResultChange,
                             autoLayoutRequest = null,
@@ -1348,6 +1351,12 @@ function NotebookCanvas({
                         inputData: (request.inputData ?? {}) as BackendJsonObject,
                     },
                 );
+
+                onExecutionStarted?.({
+                    serverNotebookId: runRequest.serverNotebookId,
+                    workflowId: runRequest.workflowId,
+                    executionId: execution.id,
+                });
 
                 let currentExecution = createdExecution;
 

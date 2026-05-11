@@ -128,3 +128,9 @@ export function mapApiExecutionLogStatus(
             return 'waiting';
     }
 }
+
+export type WorkflowExecutionTarget = {
+    serverNotebookId: string;
+    workflowId: string;
+    executionId: string;
+};

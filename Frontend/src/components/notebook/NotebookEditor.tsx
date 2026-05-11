@@ -34,6 +34,7 @@ import type {
     NotebookExecutionLog,
     WorkflowExecutionResult,
     WorkflowExecutionStatus,
+    WorkflowExecutionTarget,
     WorkflowRunRequest,
 } from './executionTypes';
 import {
@@ -559,6 +560,9 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
     const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
     const [runRequest, setRunRequest] = useState<WorkflowRunRequest | null>(null);
     const [executionStatus, setExecutionStatus] = useState<WorkflowExecutionStatus>('idle');
+    const [currentExecutionTarget, setCurrentExecutionTarget] =
+        useState<WorkflowExecutionTarget | null>(null);
+    const [isExecutionActionPending, setIsExecutionActionPending] = useState(false);
     const [executionLogs, setExecutionLogs] = useState<NotebookExecutionLog[]>([]);
     const [executionResult, setExecutionResult] =
         useState<WorkflowExecutionResult | null>(null);
@@ -677,6 +681,14 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                             shouldApplyBlockStatuses,
                         });
 
+                        if (executionState.executionId) {
+                            setCurrentExecutionTarget({
+                                serverNotebookId,
+                                workflowId: backendWorkflow.id,
+                                executionId: executionState.executionId,
+                            });
+                        }
+
                         payloadWithExecutionState = executionState.payload;
 
                         setExecutionLogs(executionState.logs);
@@ -699,6 +711,14 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                                     const savedLocalNotebook = saveNotebookLocally(
                                         nextExecutionState.payload,
                                     );
+
+                                    if (nextExecutionState.executionId) {
+                                        setCurrentExecutionTarget({
+                                            serverNotebookId,
+                                            workflowId: backendWorkflow.id,
+                                            executionId: nextExecutionState.executionId,
+                                        });
+                                    }
 
                                     setLoadedNotebookPayload(savedLocalNotebook);
                                     setNotebookPayload(savedLocalNotebook);
@@ -975,6 +995,203 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         ],
     );
 
+    const refreshExecutionState = useCallback(
+        async (target: WorkflowExecutionTarget) => {
+            const payload = notebookPayload ?? loadedNotebookPayload;
+
+            if (!payload) {
+                throw new Error('Нет локальных данных notebook для обновления выполнения.');
+            }
+
+            const workflow = await workflowApi.getWorkflow(
+                target.serverNotebookId,
+                target.workflowId,
+            );
+
+            const executionState = await loadExecutionStateSnapshot({
+                serverNotebookId: target.serverNotebookId,
+                workflow,
+                payload,
+                executionId: target.executionId,
+                shouldApplyBlockStatuses: true,
+            });
+
+            const savedLocalNotebook = saveNotebookLocally(executionState.payload);
+
+            setLoadedNotebookPayload(savedLocalNotebook);
+            setNotebookPayload(savedLocalNotebook);
+            setExecutionLogs(executionState.logs);
+            setExecutionStatus(executionState.status);
+            setExecutionResult(executionState.result);
+
+            if (executionState.executionId) {
+                setCurrentExecutionTarget({
+                    ...target,
+                    executionId: executionState.executionId,
+                });
+            }
+
+            return executionState;
+        },
+        [loadedNotebookPayload, notebookPayload],
+    );
+
+    const handleExecutionStarted = useCallback((target: WorkflowExecutionTarget) => {
+        setCurrentExecutionTarget(target);
+    }, []);
+
+    const handleCancelExecution = useCallback(async () => {
+        if (!currentExecutionTarget) {
+            return;
+        }
+
+        setIsExecutionActionPending(true);
+        setExecutionStatus('cancelling');
+        setIsRunPanelOpen(true);
+
+        setExecutionLogs((currentLogs) => [
+            ...currentLogs,
+            createExecutionLog({
+                level: 'warning',
+                status: 'cancelling',
+                message: 'Отправлен запрос на отмену выполнения.',
+            }),
+        ]);
+
+        try {
+            const cancelledExecution = await executionApi.cancel(
+                currentExecutionTarget.serverNotebookId,
+                currentExecutionTarget.workflowId,
+                currentExecutionTarget.executionId,
+            );
+
+            const nextTarget: WorkflowExecutionTarget = {
+                ...currentExecutionTarget,
+                executionId: cancelledExecution.id,
+            };
+
+            setCurrentExecutionTarget(nextTarget);
+            await refreshExecutionState(nextTarget);
+        } catch (error) {
+            setExecutionStatus('error');
+            setExecutionLogs((currentLogs) => [
+                ...currentLogs,
+                createExecutionLog({
+                    level: 'error',
+                    status: 'error',
+                    message:
+                        error instanceof Error
+                            ? `Не удалось отменить выполнение: ${error.message}`
+                            : 'Не удалось отменить выполнение.',
+                }),
+            ]);
+        } finally {
+            setIsExecutionActionPending(false);
+        }
+    }, [currentExecutionTarget, refreshExecutionState]);
+
+    const handleRetryExecution = useCallback(async () => {
+        if (!currentExecutionTarget) {
+            return;
+        }
+
+        setIsExecutionActionPending(true);
+        setExecutionStatus('pending');
+        setIsRunPanelOpen(true);
+        setExecutionResult(null);
+
+        setExecutionLogs([
+            createExecutionLog({
+                level: 'info',
+                status: 'pending',
+                message: 'Отправлен запрос на повтор выполнения.',
+            }),
+        ]);
+
+        try {
+            const retriedExecution = await executionApi.retry(
+                currentExecutionTarget.serverNotebookId,
+                currentExecutionTarget.workflowId,
+                currentExecutionTarget.executionId,
+            );
+
+            const nextTarget: WorkflowExecutionTarget = {
+                ...currentExecutionTarget,
+                executionId: retriedExecution.id,
+            };
+
+            setCurrentExecutionTarget(nextTarget);
+            await refreshExecutionState(nextTarget);
+        } catch (error) {
+            setExecutionStatus('error');
+            setExecutionLogs([
+                createExecutionLog({
+                    level: 'error',
+                    status: 'error',
+                    message:
+                        error instanceof Error
+                            ? `Не удалось повторить выполнение: ${error.message}`
+                            : 'Не удалось повторить выполнение.',
+                }),
+            ]);
+        } finally {
+            setIsExecutionActionPending(false);
+        }
+    }, [currentExecutionTarget, refreshExecutionState]);
+
+    const handleResumeExecution = useCallback(async () => {
+        if (!currentExecutionTarget) {
+            return;
+        }
+
+        setIsExecutionActionPending(true);
+        setExecutionStatus('running');
+        setIsRunPanelOpen(true);
+
+        setExecutionLogs((currentLogs) => [
+            ...currentLogs,
+            createExecutionLog({
+                level: 'info',
+                status: 'running',
+                message: 'Отправлен запрос на продолжение выполнения.',
+            }),
+        ]);
+
+        try {
+            const resumedExecution = await executionApi.resume(
+                currentExecutionTarget.serverNotebookId,
+                currentExecutionTarget.workflowId,
+                currentExecutionTarget.executionId,
+                {
+                    resumePayload: {},
+                },
+            );
+
+            const nextTarget: WorkflowExecutionTarget = {
+                ...currentExecutionTarget,
+                executionId: resumedExecution.id,
+            };
+
+            setCurrentExecutionTarget(nextTarget);
+            await refreshExecutionState(nextTarget);
+        } catch (error) {
+            setExecutionStatus('error');
+            setExecutionLogs((currentLogs) => [
+                ...currentLogs,
+                createExecutionLog({
+                    level: 'error',
+                    status: 'error',
+                    message:
+                        error instanceof Error
+                            ? `Не удалось продолжить выполнение: ${error.message}`
+                            : 'Не удалось продолжить выполнение.',
+                }),
+            ]);
+        } finally {
+            setIsExecutionActionPending(false);
+        }
+    }, [currentExecutionTarget, refreshExecutionState]);
+
     const handleSaveNotebook = useCallback(async () => {
         setIsSaving(true);
         setSaveError(null);
@@ -1171,6 +1388,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         setExecutionResult(null);
         setIsRunPanelOpen(true);
         setExecutionStatus('pending');
+        setCurrentExecutionTarget(null);
         setExecutionLogs([
             createExecutionLog({
                 level: 'info',
@@ -1317,7 +1535,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         setExecutionLogs([]);
         setExecutionResult(null);
         setExecutionStatus('idle');
-        setInspectedBlock(null);
+        setCurrentExecutionTarget(null);
     }, []);
 
     const handleAutoLayout = useCallback((mode: NotebookAutoLayoutMode = 'arrange-connect') => {
@@ -1525,6 +1743,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                         initialPayload={loadedNotebookPayload}
                         onNotebookChange={handleNotebookChange}
                         runRequest={runRequest}
+                        onExecutionStarted={handleExecutionStarted}
                         onRunRequestHandled={handleRunRequestHandled}
                         onExecutionStatusChange={setExecutionStatus}
                         onExecutionLogsChange={setExecutionLogs}
@@ -1552,6 +1771,22 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                             onClose={handleCloseRunPanel}
                             onClear={handleClearExecutionLogs}
                             onRunWorkflow={handleRunWorkflow}
+                            canCancel={
+                                Boolean(currentExecutionTarget) &&
+                                ['created', 'validating', 'pending', 'ready', 'running', 'waiting'].includes(executionStatus)
+                            }
+                            canRetry={
+                                Boolean(currentExecutionTarget) &&
+                                ['success', 'error', 'cancelled'].includes(executionStatus)
+                            }
+                            canResume={
+                                Boolean(currentExecutionTarget) &&
+                                executionStatus === 'waiting'
+                            }
+                            isExecutionActionPending={isExecutionActionPending}
+                            onCancelExecution={handleCancelExecution}
+                            onRetryExecution={handleRetryExecution}
+                            onResumeExecution={handleResumeExecution}
                         />
                     )}
 

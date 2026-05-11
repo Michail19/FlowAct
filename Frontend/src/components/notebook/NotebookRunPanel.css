@@ -324,3 +324,30 @@
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+.notebook-run-panel__button--cancel {
+    background: rgba(239, 68, 68, 0.14);
+    color: #fca5a5;
+}
+
+.notebook-run-panel__button--cancel:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.24);
+}
+
+.notebook-run-panel__button--retry {
+    background: rgba(34, 211, 238, 0.14);
+    color: var(--color-primary);
+}
+
+.notebook-run-panel__button--retry:hover:not(:disabled) {
+    background: rgba(34, 211, 238, 0.24);
+}
+
+.notebook-run-panel__button--resume {
+    background: rgba(34, 197, 94, 0.14);
+    color: #86efac;
+}
+
+.notebook-run-panel__button--resume:hover:not(:disabled) {
+    background: rgba(34, 197, 94, 0.24);
+}
