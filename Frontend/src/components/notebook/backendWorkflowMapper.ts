@@ -142,7 +142,7 @@ function mapFrontendBlockTypeToBackendBlockType(
             return 'EMAIL_SEND';
 
         case 'log':
-            return 'INPUT';
+            return 'LOG_MESSAGE';
 
         default:
             return 'INPUT';
@@ -513,6 +513,9 @@ function getFrontendBlockTypeFromBackendBlock(
 
         case 'EMAIL_SEND':
             return 'email';
+
+        case 'LOG_MESSAGE':
+            return 'log';
 
         case 'TRANSFORM_JSON':
         case 'SET_VARIABLE':

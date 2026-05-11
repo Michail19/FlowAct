@@ -31,6 +31,7 @@ export type BackendBlockType =
     | 'ML_REQUEST'
     | 'DATABASE_QUERY'
     | 'EMAIL_SEND'
+    | 'LOG_MESSAGE'
     | 'DELAY'
     | 'WAIT'
     | 'WEBHOOK';

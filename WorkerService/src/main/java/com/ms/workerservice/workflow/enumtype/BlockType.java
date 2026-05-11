@@ -16,6 +16,7 @@ public enum BlockType {
     ML_REQUEST,
     DATABASE_QUERY,
     EMAIL_SEND,
+    LOG_MESSAGE,
     DELAY,
     WAIT,
     WEBHOOK
