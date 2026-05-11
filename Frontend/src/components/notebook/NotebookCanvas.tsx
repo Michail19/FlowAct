@@ -1353,9 +1353,9 @@ function NotebookCanvas({
                 );
 
                 onExecutionStarted?.({
-                    serverNotebookId: runRequest.serverNotebookId,
-                    workflowId: runRequest.workflowId,
-                    executionId: execution.id,
+                    serverNotebookId: request.serverNotebookId,
+                    workflowId: request.workflowId,
+                    executionId: createdExecution.id,
                 });
 
                 let currentExecution = createdExecution;
