@@ -57,16 +57,207 @@ WorkerService читает события выполнения:
 cp .env.example .env
 ```
 
-Минимально нужны:
+Минимально для запуска WorkerService нужны настройки подключения к PostgreSQL и Kafka:
 
-```env
+```bash
 DB_URL=jdbc:postgresql://localhost:5433/flowact_execution
 DB_USERNAME=postgres
 DB_PASSWORD=postgres
 KAFKA_BOOTSTRAP_SERVERS=localhost:9092
 ```
 
-Также сервис поддерживает настройки ML-сервиса и LLM-провайдера. Реальные ключи и секреты нельзя хранить в репозитории.
+### PostgreSQL
+
+WorkerService использует ту же базу данных, что и ExecutionService. Это важно, потому что ExecutionService создаёт workflow и executions, а WorkerService читает их и обновляет результат выполнения.
+
+```bash
+DB_URL=jdbc:postgresql://localhost:5433/flowact_execution
+DB_USERNAME=postgres
+DB_PASSWORD=postgres
+```
+
+При запуске через Docker Compose используется внутренний адрес контейнера PostgreSQL:
+
+```bash
+DB_URL=jdbc:postgresql://postgres:5432/flowact_execution
+```
+
+### Kafka
+
+WorkerService читает события выполнения из Kafka. Для локального запуска без Docker обычно используется:
+
+```bash
+KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+```
+
+При запуске внутри Docker Compose используется внутренний Kafka listener:
+
+```bash
+KAFKA_BOOTSTRAP_SERVERS=kafka:9093
+```
+
+Основные topic-ы:
+
+```bash
+FLOWACT_KAFKA_EXECUTION_RUN_REQUESTED_TOPIC=flowact.execution.run.requested
+FLOWACT_KAFKA_EXECUTION_RETRY_REQUESTED_TOPIC=flowact.execution.retry.requested
+FLOWACT_KAFKA_EXECUTION_RESUME_REQUESTED_TOPIC=flowact.execution.resume.requested
+FLOWACT_KAFKA_EXECUTION_CANCEL_REQUESTED_TOPIC=flowact.execution.cancel.requested
+```
+
+Group id для consumer-ов:
+
+```bash
+FLOWACT_KAFKA_EXECUTION_RUN_REQUESTED_GROUP_ID=flowact-execution-worker
+FLOWACT_KAFKA_EXECUTION_RETRY_REQUESTED_GROUP_ID=flowact-execution-worker
+FLOWACT_KAFKA_EXECUTION_RESUME_REQUESTED_GROUP_ID=flowact-execution-worker
+FLOWACT_KAFKA_EXECUTION_CANCEL_REQUESTED_GROUP_ID=flowact-execution-worker
+```
+
+### ML Service
+
+Для ML-блоков WorkerService может обращаться к отдельному ML Service:
+
+```bash
+FLOWACT_ML_BASE_URL=http://localhost:8000
+FLOWACT_ML_PREDICT_PATH=/predict
+```
+
+При запуске WorkerService внутри Docker, если ML Service запущен на хост-машине, удобно использовать:
+
+```bash
+FLOWACT_ML_BASE_URL=http://host.docker.internal:8000
+```
+
+### LLM / OpenRouter
+
+AI-блоки используют внешний LLM-провайдер через OpenRouter-compatible API.
+
+```bash
+FLOWACT_LLM_OPENROUTER_BASE_URL=https://openrouter.ai
+FLOWACT_LLM_OPENROUTER_CHAT_PATH=/api/v1/chat/completions
+FLOWACT_LLM_OPENROUTER_API_KEY=
+FLOWACT_LLM_OPENROUTER_DEFAULT_MODEL=openrouter/free
+FLOWACT_LLM_OPENROUTER_ALLOW_PAID_MODELS=false
+FLOWACT_LLM_OPENROUTER_SITE_URL=
+FLOWACT_LLM_OPENROUTER_APP_NAME=FlowAct
+```
+
+Основные настройки находятся в `src/main/resources/application.properties` и могут быть переопределены через переменные окружения:
+
+```env
+FLOWACT_LLM_OPENROUTER_BASE_URL=https://openrouter.ai
+FLOWACT_LLM_OPENROUTER_CHAT_PATH=/api/v1/chat/completions
+FLOWACT_LLM_OPENROUTER_API_KEY=
+FLOWACT_LLM_OPENROUTER_DEFAULT_MODEL=openrouter/free
+FLOWACT_LLM_OPENROUTER_ALLOW_PAID_MODELS=false
+FLOWACT_LLM_OPENROUTER_SITE_URL=
+FLOWACT_LLM_OPENROUTER_APP_NAME=FlowAct
+```
+
+Назначение переменных:
+
+| Переменная | Назначение |
+| --- | --- |
+| ``FLOWACT_LLM_OPENROUTER_BASE_URL`` | базовый URL LLM-провайдера |
+| ``FLOWACT_LLM_OPENROUTER_CHAT_PATH`` | путь до chat completions endpoint |
+| ``FLOWACT_LLM_OPENROUTER_API_KEY`` | ключ доступа к провайдеру |
+| ``FLOWACT_LLM_OPENROUTER_DEFAULT_MODEL`` | модель по умолчанию |
+| ``FLOWACT_LLM_OPENROUTER_ALLOW_PAID_MODELS`` | разрешение на использование платных моделей |
+| ``FLOWACT_LLM_OPENROUTER_SITE_URL`` | optional site URL для заголовков/метаданных |
+| ``FLOWACT_LLM_OPENROUTER_APP_NAME`` | название приложения |
+
+Реальный API key нельзя хранить в репозитории. В ``.env`` поле должно быть пустым:
+
+```bash
+FLOWACT_LLM_OPENROUTER_API_KEY=
+```
+
+Для локальной разработки безопаснее использовать:
+
+```bash
+FLOWACT_LLM_OPENROUTER_ALLOW_PAID_MODELS=false
+```
+
+Если AI-блок не работает, проверьте:
+
+1. задан ли API key;
+2. доступен ли внешний LLM endpoint из контейнера WorkerService;
+3. корректно ли указан ``FLOWACT_LLM_OPENROUTER_DEFAULT_MODEL``;
+4. не заблокирована ли модель настройкой ``FLOWACT_LLM_OPENROUTER_ALLOW_PAID_MODELS=false``;
+5. есть ли ошибка в логах WorkerService.
+
+Логи WorkerService:
+
+```bash
+docker compose logs -f worker-service
+```
+
+## Пример `.env.example`
+
+Для WorkerService можно использовать следующий `.env.example`:
+
+```env
+# =========================
+# WorkerService env
+# =========================
+
+# =========================
+# Datasource
+# =========================
+
+DB_URL=jdbc:postgresql://localhost:5433/flowact_execution
+DB_USERNAME=postgres
+DB_PASSWORD=postgres
+
+# =========================
+# Kafka
+# =========================
+
+KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+KAFKA_CONSUMER_GROUP_ID=flowact-execution-worker
+KAFKA_AUTO_OFFSET_RESET=earliest
+
+FLOWACT_KAFKA_EXECUTION_RUN_REQUESTED_TOPIC=flowact.execution.run.requested
+FLOWACT_KAFKA_EXECUTION_RUN_REQUESTED_GROUP_ID=flowact-execution-worker
+
+FLOWACT_KAFKA_EXECUTION_RETRY_REQUESTED_TOPIC=flowact.execution.retry.requested
+FLOWACT_KAFKA_EXECUTION_RETRY_REQUESTED_GROUP_ID=flowact-execution-worker
+
+FLOWACT_KAFKA_EXECUTION_RESUME_REQUESTED_TOPIC=flowact.execution.resume.requested
+FLOWACT_KAFKA_EXECUTION_RESUME_REQUESTED_GROUP_ID=flowact-execution-worker
+
+FLOWACT_KAFKA_EXECUTION_CANCEL_REQUESTED_TOPIC=flowact.execution.cancel.requested
+FLOWACT_KAFKA_EXECUTION_CANCEL_REQUESTED_GROUP_ID=flowact-execution-worker
+
+# =========================
+# ML service
+# =========================
+
+FLOWACT_ML_BASE_URL=http://localhost:8000
+FLOWACT_ML_PREDICT_PATH=/predict
+
+# =========================
+# LLM / OpenRouter
+# =========================
+
+FLOWACT_LLM_OPENROUTER_BASE_URL=https://openrouter.ai
+FLOWACT_LLM_OPENROUTER_CHAT_PATH=/api/v1/chat/completions
+
+# Do not commit real API keys.
+FLOWACT_LLM_OPENROUTER_API_KEY=
+
+# Replace with a real model id when LLM integration is configured.
+FLOWACT_LLM_OPENROUTER_DEFAULT_MODEL=openrouter/free
+
+# Keep false to avoid accidental paid model calls.
+FLOWACT_LLM_OPENROUTER_ALLOW_PAID_MODELS=false
+
+FLOWACT_LLM_OPENROUTER_SITE_URL=
+FLOWACT_LLM_OPENROUTER_APP_NAME=FlowAct
+```
+
+Для Docker Compose часть этих переменных уже задаётся в docker-compose.yml, но отдельный .env.example удобен для локального запуска WorkerService без Docker.
 
 ## Запуск через Docker Compose
 
