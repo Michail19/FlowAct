@@ -36,18 +36,67 @@ public class MapNodeHandler implements NodeHandler {
             ExecutionContext context
     ) {
         Map<String, Object> config = jsonHelper.toMap(block.getConfig());
+        String mode = getString(config, "mode", "pick").trim();
 
-        String collectionPath = String.valueOf(
-                config.getOrDefault("collectionPath", "input.items")
-        );
+        return switch (mode.toLowerCase()) {
+            case "pick" -> NodeResult.of(pickFields(config, input));
+            case "rename" -> NodeResult.of(renameFields(config, input));
+            case "map", "foreach", "for_each", "for-each" -> NodeResult.of(loopOverCollection(config, input));
+            default -> throw new IllegalStateException("Unsupported MAP mode: " + mode);
+        };
+    }
 
-        String itemName = String.valueOf(
-                config.getOrDefault("itemName", "item")
-        );
+    private Map<String, Object> pickFields(
+            Map<String, Object> config,
+            ResolvedInput input
+    ) {
+        Map<String, Object> source = getMapLikeInput(input);
+        List<String> fields = getStringList(config.get("fields"));
 
-        String mode = String.valueOf(
-                config.getOrDefault("mode", "map")
-        );
+        Map<String, Object> output = new LinkedHashMap<>();
+
+        for (String field : fields) {
+            if (source.containsKey(field)) {
+                output.put(field, source.get(field));
+            }
+        }
+
+        return output;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> renameFields(
+            Map<String, Object> config,
+            ResolvedInput input
+    ) {
+        Map<String, Object> source = getMapLikeInput(input);
+        Object mappingValue = config.get("mapping");
+
+        if (!(mappingValue instanceof Map<?, ?> rawMapping)) {
+            throw new IllegalStateException("MAP rename mode requires mapping object");
+        }
+
+        Map<String, Object> output = new LinkedHashMap<>();
+
+        for (Map.Entry<?, ?> entry : rawMapping.entrySet()) {
+            String sourceField = String.valueOf(entry.getKey());
+            String targetField = String.valueOf(entry.getValue());
+
+            if (source.containsKey(sourceField)) {
+                output.put(targetField, source.get(sourceField));
+            }
+        }
+
+        return output;
+    }
+
+    private Map<String, Object> loopOverCollection(
+            Map<String, Object> config,
+            ResolvedInput input
+    ) {
+        String collectionPath = getString(config, "collectionPath", "input.items");
+        String itemName = getString(config, "itemName", "item");
+        String mode = getString(config, "mode", "map");
 
         Object collectionValue = resolvePath(input, collectionPath);
         List<Object> items = toList(collectionValue);
@@ -75,7 +124,28 @@ public class MapNodeHandler implements NodeHandler {
         output.put("iterations", iterations);
         output.put("results", results);
 
-        return NodeResult.of(output);
+        return output;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> getMapLikeInput(ResolvedInput input) {
+        Object value = input.getValue();
+
+        if (value instanceof Map<?, ?> map) {
+            return new LinkedHashMap<>((Map<String, Object>) map);
+        }
+
+        if (value != null) {
+            throw new IllegalStateException("MAP input must be map-like");
+        }
+
+        Map<String, Object> inputs = input.getInputs();
+
+        if (!inputs.isEmpty()) {
+            return new LinkedHashMap<>(inputs);
+        }
+
+        return new LinkedHashMap<>(input.getValues());
     }
 
     private Object resolvePath(ResolvedInput input, String path) {
@@ -174,6 +244,31 @@ public class MapNodeHandler implements NodeHandler {
         }
 
         return List.of(value);
+    }
+
+    private List<String> getStringList(Object value) {
+        if (!(value instanceof List<?> list)) {
+            return List.of();
+        }
+
+        return list.stream()
+                .filter(item -> item != null)
+                .map(String::valueOf)
+                .toList();
+    }
+
+    private String getString(
+            Map<String, Object> config,
+            String key,
+            String fallback
+    ) {
+        Object value = config.get(key);
+
+        if (value == null) {
+            return fallback;
+        }
+
+        return String.valueOf(value);
     }
 
     private boolean isInteger(String value) {
