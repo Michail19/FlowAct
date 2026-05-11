@@ -1258,7 +1258,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                         notebookId={notebookId}
                         notebookTitle={notebookTitle}
                         initialPayload={loadedNotebookPayload}
-                        onNotebookChange={setNotebookPayload}
+                        onNotebookChange={handleNotebookChange}
                         runRequest={runRequest}
                         onRunRequestHandled={handleRunRequestHandled}
                         onExecutionStatusChange={setExecutionStatus}
