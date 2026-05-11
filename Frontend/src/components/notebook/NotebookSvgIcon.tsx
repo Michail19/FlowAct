@@ -239,6 +239,19 @@ function NotebookSvgIcon({
                     <path d="m17 9 3 3-3 3" />
                 </>
             )}
+
+            {name === 'check' && (
+                <>
+                    <path
+                        d="M5 13l4 4L19 7"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                    />
+                </>
+            )}
         </svg>
     );
 }

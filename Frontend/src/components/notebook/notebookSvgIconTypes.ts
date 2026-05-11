@@ -26,6 +26,7 @@ export const NOTEBOOK_SVG_ICON_NAMES = [
     'http',
     'loop',
     'merge',
+    'check',
 ] as const;
 
 export type NotebookSvgIconName = (typeof NOTEBOOK_SVG_ICON_NAMES)[number];

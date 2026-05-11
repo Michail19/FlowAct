@@ -9,6 +9,7 @@ type NotebookToolbarProps = {
     onRunWorkflow: () => void;
     onOpenRunPanel: () => void;
     onAutoLayout: () => void;
+    onValidateWorkflow: () => void;
     isWorkflowRunning: boolean;
 };
 
@@ -45,6 +46,7 @@ function NotebookToolbar({
                              onRunWorkflow,
                              onOpenRunPanel,
                              onAutoLayout,
+                             onValidateWorkflow,
                              isWorkflowRunning,
                          }: NotebookToolbarProps) {
     return (
@@ -83,6 +85,13 @@ function NotebookToolbar({
                     label="Автосборка схемы"
                     variant="circle"
                     onClick={onAutoLayout}
+                />
+
+                <NotebookIconButton
+                    icon="check"
+                    label="Проверить схему"
+                    variant="circle"
+                    onClick={onValidateWorkflow}
                 />
 
                 <NotebookIconButton

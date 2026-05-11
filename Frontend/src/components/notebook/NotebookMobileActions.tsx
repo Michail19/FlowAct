@@ -5,12 +5,14 @@ import './NotebookMobileActions.css';
 type NotebookMobileActionsProps = {
     onRunWorkflow: () => void;
     onOpenRunPanel: () => void;
+    onValidateWorkflow: () => void;
     isWorkflowRunning: boolean;
 };
 
 function NotebookMobileActions({
                                    onRunWorkflow,
                                    onOpenRunPanel,
+                                   onValidateWorkflow,
                                    isWorkflowRunning,
                                }: NotebookMobileActionsProps) {
     return (
@@ -23,6 +25,14 @@ function NotebookMobileActions({
                 disabled={isWorkflowRunning}
             >
                 <NotebookSvgIcon name={isWorkflowRunning ? 'loading' : 'play'} />
+            </button>
+
+            <button
+                className="notebook-mobile-actions__result"
+                type="button"
+                onClick={onValidateWorkflow}
+            >
+                Проверить
             </button>
 
             <button

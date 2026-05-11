@@ -184,6 +184,21 @@ function getValidationErrorSummary(issues: WorkflowValidationIssue[]) {
     return `${firstIssue.message}\n\nИ ещё ошибок: ${blockingIssues.length - 1}`;
 }
 
+function getValidationResultSummary(issues: WorkflowValidationIssue[]) {
+    const errorsCount = issues.filter((issue) => issue.severity === 'error').length;
+    const warningsCount = issues.filter((issue) => issue.severity === 'warning').length;
+
+    if (errorsCount === 0 && warningsCount === 0) {
+        return 'Схема готова к запуску';
+    }
+
+    if (errorsCount > 0) {
+        return `Схема содержит ошибки: ${errorsCount}`;
+    }
+
+    return `Схема содержит предупреждения: ${warningsCount}`;
+}
+
 function getFrontendBlockIdFromBackendExecutionBlock(
     workflow: WorkflowResponse,
     backendBlockId: string,
@@ -914,6 +929,90 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         }
     }, [saveNotebookToBackend, validateCurrentNotebook]);
 
+    const handleValidateWorkflow = useCallback(() => {
+        const issues = validateCurrentNotebook();
+        const blockingIssues = getBlockingValidationIssues(issues);
+        const warnings = issues.filter((issue) => issue.severity === 'warning');
+        const checkedAt = new Date();
+
+        setIsRunPanelOpen(true);
+        setExecutionStatus(blockingIssues.length > 0 ? 'error' : 'success');
+
+        if (issues.length === 0) {
+            setExecutionLogs([
+                createExecutionLog({
+                    level: 'success',
+                    status: 'success',
+                    message: 'Проверка завершена: схема не содержит ошибок и предупреждений.',
+                }),
+            ]);
+
+            setExecutionResult({
+                id: `${checkedAt.getTime()}-frontend-validation-success`,
+                status: 'success',
+                startedAt: checkedAt.toISOString(),
+                finishedAt: checkedAt.toISOString(),
+                durationMs: 0,
+                totalBlocks: notebookPayload?.blocks.length ?? loadedNotebookPayload?.blocks.length ?? 0,
+                completedBlocks: notebookPayload?.blocks.length ?? loadedNotebookPayload?.blocks.length ?? 0,
+                failedBlocks: 0,
+                warningsCount: 0,
+                errorsCount: 0,
+                summary: 'Схема готова к запуску',
+                output: 'Frontend-валидация не нашла проблем. Можно запускать workflow.',
+                outputFormat: 'text',
+                rawOutput: JSON.stringify([], null, 2),
+            });
+
+            setSaveError(null);
+            return;
+        }
+
+        setExecutionLogs(
+            issues.slice(0, 12).map((issue) =>
+                createExecutionLog({
+                    level: issue.severity === 'error' ? 'error' : 'warning',
+                    status: issue.severity === 'error' ? 'error' : 'idle',
+                    blockId: issue.blockId,
+                    blockTitle: issue.blockTitle,
+                    message: issue.message,
+                }),
+            ),
+        );
+
+        setExecutionResult({
+            id: `${checkedAt.getTime()}-frontend-validation-result`,
+            status: blockingIssues.length > 0 ? 'error' : 'success',
+            startedAt: checkedAt.toISOString(),
+            finishedAt: checkedAt.toISOString(),
+            durationMs: 0,
+            totalBlocks: notebookPayload?.blocks.length ?? loadedNotebookPayload?.blocks.length ?? 0,
+            completedBlocks:
+                blockingIssues.length > 0
+                    ? 0
+                    : notebookPayload?.blocks.length ?? loadedNotebookPayload?.blocks.length ?? 0,
+            failedBlocks: blockingIssues.length,
+            warningsCount: warnings.length,
+            errorsCount: blockingIssues.length,
+            summary: getValidationResultSummary(issues),
+            output:
+                blockingIssues.length > 0
+                    ? getValidationErrorSummary(issues) ?? 'Схема содержит ошибки.'
+                    : 'Критических ошибок нет. Есть предупреждения, которые стоит проверить.',
+            outputFormat: 'text',
+            rawOutput: JSON.stringify(issues, null, 2),
+        });
+
+        if (blockingIssues.length > 0) {
+            setSaveError(
+                `Схема не готова к запуску: найдено ошибок ${blockingIssues.length}.`,
+            );
+            return;
+        }
+
+        setSaveError(null);
+    }, [loadedNotebookPayload, notebookPayload, validateCurrentNotebook]);
+
     const handleRunWorkflow = useCallback(async () => {
         runRequestIdRef.current += 1;
         const requestId = runRequestIdRef.current;
@@ -1248,7 +1347,8 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                         onAddBlock={handleAddBlock}
                         onRunWorkflow={handleRunWorkflow}
                         onOpenRunPanel={handleOpenRunPanel}
-                        onAutoLayout={() => handleAutoLayout('arrange-connect')}
+                        onAutoLayout={handleAutoLayout}
+                        onValidateWorkflow={handleValidateWorkflow}
                         isWorkflowRunning={executionStatus === 'running'}
                     />
                 )}
@@ -1336,6 +1436,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                         <NotebookMobileActions
                             onRunWorkflow={handleRunWorkflow}
                             onOpenRunPanel={handleOpenRunPanel}
+                            onValidateWorkflow={handleValidateWorkflow}
                             isWorkflowRunning={executionStatus === 'running'}
                         />
                     )}
