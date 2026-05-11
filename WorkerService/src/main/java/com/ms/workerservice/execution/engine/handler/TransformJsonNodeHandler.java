@@ -9,7 +9,6 @@ import com.ms.workerservice.workflow.enumtype.BlockType;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 @Component
@@ -34,66 +33,34 @@ public class TransformJsonNodeHandler implements NodeHandler {
     ) {
         Map<String, Object> config = jsonHelper.toMap(block.getConfig());
 
-        Object rawInput = input.getValue();
-        if (rawInput == null) {
-            rawInput = input.getInputs();
+        String actionType = String.valueOf(config.getOrDefault("actionType", "transform"));
+        String parameters = String.valueOf(config.getOrDefault("parameters", "")).trim();
+
+        if (parameters.isBlank()) {
+            return NodeResult.of(input.getValues());
         }
 
-        if (!(rawInput instanceof Map<?, ?> rawMap)) {
-            throw new IllegalStateException("TRANSFORM_JSON block requires map-like input");
+        Object parsedParameters = parseParameters(parameters);
+
+        if ("custom".equalsIgnoreCase(actionType)
+                || "transform".equalsIgnoreCase(actionType)
+                || "format".equalsIgnoreCase(actionType)) {
+            return NodeResult.of(parsedParameters);
         }
 
-        @SuppressWarnings("unchecked")
-        Map<String, Object> source = new LinkedHashMap<>((Map<String, Object>) rawMap);
+        Map<String, Object> output = new LinkedHashMap<>();
+        output.put("actionType", actionType);
+        output.put("input", input.getValues());
+        output.put("parameters", parsedParameters);
 
-        applyRemove(source, config);
-        applyReplace(source, config);
-        applyAdd(source, config);
-
-        return NodeResult.of(source);
+        return NodeResult.of(output);
     }
 
-    private void applyRemove(Map<String, Object> source, Map<String, Object> config) {
-        Object removeRaw = config.get("remove");
-
-        if (!(removeRaw instanceof List<?> removeList)) {
-            return;
+    private Object parseParameters(String parameters) {
+        if (!jsonHelper.looksLikeJson(parameters)) {
+            return parameters;
         }
 
-        for (Object fieldObj : removeList) {
-            String field = String.valueOf(fieldObj);
-            source.remove(field);
-        }
-    }
-
-    private void applyReplace(Map<String, Object> source, Map<String, Object> config) {
-        Object replaceRaw = config.get("replace");
-
-        if (!(replaceRaw instanceof Map<?, ?> replaceMap)) {
-            return;
-        }
-
-        for (Map.Entry<?, ?> entry : replaceMap.entrySet()) {
-            String field = String.valueOf(entry.getKey());
-            Object value = entry.getValue();
-
-            if (source.containsKey(field)) {
-                source.put(field, value);
-            }
-        }
-    }
-
-    private void applyAdd(Map<String, Object> source, Map<String, Object> config) {
-        Object addRaw = config.get("add");
-
-        if (!(addRaw instanceof Map<?, ?> addMap)) {
-            return;
-        }
-
-        for (Map.Entry<?, ?> entry : addMap.entrySet()) {
-            String field = String.valueOf(entry.getKey());
-            Object value = entry.getValue();
-            source.put(field, value);
-        }
+        return jsonHelper.toObject(parameters);
     }
 }

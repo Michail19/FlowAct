@@ -139,7 +139,7 @@ function mapFrontendBlockTypeToBackendBlockType(
          * как INPUT/pass-through, чтобы не ломать выполнение.
          */
         case 'loop':
-            return 'INPUT';
+            return 'MAP';
 
         /*
          * Для database/email/log в WorkerService пока нет отдельных BlockType.
