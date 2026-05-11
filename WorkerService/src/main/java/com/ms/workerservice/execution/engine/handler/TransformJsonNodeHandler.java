@@ -34,66 +34,115 @@ public class TransformJsonNodeHandler implements NodeHandler {
     ) {
         Map<String, Object> config = jsonHelper.toMap(block.getConfig());
 
-        Object rawInput = input.getValue();
-        if (rawInput == null) {
-            rawInput = input.getInputs();
+        if (hasLegacyTransformConfig(config)) {
+            return NodeResult.of(applyLegacyTransform(config, input));
         }
 
-        if (!(rawInput instanceof Map<?, ?> rawMap)) {
-            throw new IllegalStateException("TRANSFORM_JSON block requires map-like input");
+        String actionType = getString(config, "actionType", "transform");
+        String parameters = getString(config, "parameters", "").trim();
+
+        if (parameters.isBlank()) {
+            return NodeResult.of(getMapLikeInput(input));
         }
 
-        @SuppressWarnings("unchecked")
-        Map<String, Object> source = new LinkedHashMap<>((Map<String, Object>) rawMap);
+        Object parsedParameters = parseParameters(parameters);
 
-        applyRemove(source, config);
-        applyReplace(source, config);
-        applyAdd(source, config);
+        if ("custom".equalsIgnoreCase(actionType)
+                || "transform".equalsIgnoreCase(actionType)
+                || "format".equalsIgnoreCase(actionType)) {
+            return NodeResult.of(parsedParameters);
+        }
 
-        return NodeResult.of(source);
+        Map<String, Object> output = new LinkedHashMap<>();
+        output.put("actionType", actionType);
+        output.put("input", input.getValues());
+        output.put("parameters", parsedParameters);
+
+        return NodeResult.of(output);
     }
 
-    private void applyRemove(Map<String, Object> source, Map<String, Object> config) {
-        Object removeRaw = config.get("remove");
-
-        if (!(removeRaw instanceof List<?> removeList)) {
-            return;
-        }
-
-        for (Object fieldObj : removeList) {
-            String field = String.valueOf(fieldObj);
-            source.remove(field);
-        }
+    private boolean hasLegacyTransformConfig(Map<String, Object> config) {
+        return config.containsKey("add")
+                || config.containsKey("replace")
+                || config.containsKey("remove");
     }
 
-    private void applyReplace(Map<String, Object> source, Map<String, Object> config) {
-        Object replaceRaw = config.get("replace");
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> applyLegacyTransform(
+            Map<String, Object> config,
+            ResolvedInput input
+    ) {
+        Map<String, Object> output = getMapLikeInput(input);
 
-        if (!(replaceRaw instanceof Map<?, ?> replaceMap)) {
-            return;
-        }
+        Object removeValue = config.get("remove");
 
-        for (Map.Entry<?, ?> entry : replaceMap.entrySet()) {
-            String field = String.valueOf(entry.getKey());
-            Object value = entry.getValue();
-
-            if (source.containsKey(field)) {
-                source.put(field, value);
+        if (removeValue instanceof List<?> removeList) {
+            for (Object field : removeList) {
+                if (field != null) {
+                    output.remove(String.valueOf(field));
+                }
             }
         }
+
+        Object replaceValue = config.get("replace");
+
+        if (replaceValue instanceof Map<?, ?> replaceMap) {
+            for (Map.Entry<?, ?> entry : replaceMap.entrySet()) {
+                output.put(String.valueOf(entry.getKey()), entry.getValue());
+            }
+        }
+
+        Object addValue = config.get("add");
+
+        if (addValue instanceof Map<?, ?> addMap) {
+            for (Map.Entry<?, ?> entry : addMap.entrySet()) {
+                output.put(String.valueOf(entry.getKey()), entry.getValue());
+            }
+        }
+
+        return output;
     }
 
-    private void applyAdd(Map<String, Object> source, Map<String, Object> config) {
-        Object addRaw = config.get("add");
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> getMapLikeInput(ResolvedInput input) {
+        Object value = input.getValue();
 
-        if (!(addRaw instanceof Map<?, ?> addMap)) {
-            return;
+        if (value instanceof Map<?, ?> map) {
+            return new LinkedHashMap<>((Map<String, Object>) map);
         }
 
-        for (Map.Entry<?, ?> entry : addMap.entrySet()) {
-            String field = String.valueOf(entry.getKey());
-            Object value = entry.getValue();
-            source.put(field, value);
+        if (value != null) {
+            throw new IllegalStateException("TRANSFORM_JSON input must be map-like");
         }
+
+        Map<String, Object> inputs = input.getInputs();
+
+        if (!inputs.isEmpty()) {
+            return new LinkedHashMap<>(inputs);
+        }
+
+        return new LinkedHashMap<>(input.getValues());
+    }
+
+    private Object parseParameters(String parameters) {
+        if (!jsonHelper.looksLikeJson(parameters)) {
+            return parameters;
+        }
+
+        return jsonHelper.toObject(parameters);
+    }
+
+    private String getString(
+            Map<String, Object> config,
+            String key,
+            String fallback
+    ) {
+        Object value = config.get(key);
+
+        if (value == null) {
+            return fallback;
+        }
+
+        return String.valueOf(value);
     }
 }

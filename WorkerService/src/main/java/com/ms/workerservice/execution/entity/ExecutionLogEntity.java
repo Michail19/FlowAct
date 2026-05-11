@@ -48,6 +48,10 @@ public class ExecutionLogEntity {
     private ExecutionLogStatus status;
 
     @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "input", columnDefinition = "jsonb")
+    private String input;
+
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "output", columnDefinition = "jsonb")
     private String output;
 

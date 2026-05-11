@@ -1,0 +1,26 @@
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+
+import LandingPage from './pages/LandingPage';
+import HomePage from './pages/HomePage';
+import NotebookPage from './pages/NotebookPage';
+import AccountPage from './pages/AccountPage';
+
+import './styles/variables.css';
+import './styles/global.css';
+
+function App() {
+    return (
+        <BrowserRouter>
+            <Routes>
+                <Route path="/" element={<Navigate to="/landing" replace />} />
+                <Route path="/landing" element={<LandingPage />} />
+                <Route path="/home" element={<HomePage />} />
+                <Route path="/notebook" element={<Navigate to="/home" replace />} />
+                <Route path="/notebook/:notebookId" element={<NotebookPage />} />
+                <Route path="/my-account" element={<AccountPage />} />
+            </Routes>
+        </BrowserRouter>
+    );
+}
+
+export default App;

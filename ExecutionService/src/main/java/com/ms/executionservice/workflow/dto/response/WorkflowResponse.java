@@ -7,6 +7,7 @@ import lombok.Builder;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Builder
@@ -15,6 +16,7 @@ public record WorkflowResponse(
         UUID notebookId,
         String name,
         String description,
+        Map<String, Object> metadata,
         WorkflowStatus status,
         List<WorkflowBlockDTO> blocks,
         List<WorkflowConnectionDTO> connections,

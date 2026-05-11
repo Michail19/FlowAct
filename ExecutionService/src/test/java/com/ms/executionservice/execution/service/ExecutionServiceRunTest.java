@@ -101,7 +101,8 @@ class ExecutionServiceRunTest {
                 () -> executionService.run(notebookId, workflowId, request, currentUserId)
         );
 
-        assertTrue(ex.getMessage().contains("not active"));
+        assertTrue(ex.getMessage().contains("DRAFT"));
+        assertTrue(ex.getMessage().contains("активируйте"));
 
         verify(workflowRepository).findByIdAndNotebook_Id(workflowId, notebookId);
         verifyNoInteractions(executionRepository, executionDispatchService);

@@ -1,0 +1,80 @@
+.notebook-toolbar {
+    display: flex;
+    width: 54px;
+    height: 100%;
+    min-height: 0;
+    flex: 0 0 54px;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 6px;
+    background:
+            linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.94)),
+            var(--color-bg);
+    border-right: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.notebook-toolbar__blocks {
+    display: flex;
+    width: 100%;
+    min-height: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    align-items: center;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0 0 8px;
+
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.notebook-toolbar__blocks::-webkit-scrollbar {
+    display: none;
+}
+
+.notebook-toolbar__group {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 0;
+}
+
+.notebook-toolbar__group:first-child {
+    padding-top: 0;
+}
+
+.notebook-toolbar__group + .notebook-toolbar__group {
+    border-top: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.notebook-toolbar__actions {
+    display: flex;
+    width: 100%;
+    flex: 0 0 auto;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(34, 211, 238, 0.22);
+}
+
+.notebook-toolbar__blocks .notebook-icon-button {
+    flex: 0 0 auto;
+    background: rgba(30, 41, 59, 0.92);
+    color: #e5eefb;
+}
+
+.notebook-toolbar__blocks .notebook-icon-button:hover {
+    background: rgba(34, 211, 238, 0.16);
+}
+
+.notebook-toolbar__actions .notebook-icon-button {
+    width: 42px;
+    height: 42px;
+}
+
+.notebook-toolbar__blocks .notebook-icon-button:active {
+    transform: translateY(0) scale(0.96);
+}

@@ -1,0 +1,107 @@
+.notebook-canvas {
+    position: absolute;
+    inset: 38px 0 0;
+    background: #f8f7f3;
+}
+
+.notebook-canvas .react-flow__node {
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.notebook-canvas .react-flow__edge-path {
+    stroke: var(--color-panel-light);
+    stroke-width: 2.5;
+}
+
+.notebook-canvas .react-flow__edge.selected .react-flow__edge-path {
+    stroke: var(--color-primary);
+}
+
+.notebook-canvas .react-flow__connection-path {
+    stroke: var(--color-primary);
+    stroke-width: 2.5;
+}
+
+.notebook-canvas .react-flow__controls {
+    overflow: hidden;
+    border-radius: 10px;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.16);
+}
+
+.notebook-canvas .react-flow__controls-button {
+    border-bottom: 1px solid rgba(15, 23, 42, 0.12);
+}
+
+.notebook-canvas .react-flow__minimap {
+    overflow: hidden;
+    border: 1px solid rgba(15, 23, 42, 0.16);
+    border-radius: 10px;
+}
+
+.notebook-canvas .react-flow__edge-textbg {
+    fill: #f8f7f3;
+}
+
+.notebook-canvas .react-flow__edge-text {
+    fill: var(--color-panel-light);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.notebook-canvas .react-flow__edge {
+    cursor: pointer;
+}
+
+.notebook-canvas .react-flow__edge:hover .react-flow__edge-path {
+    stroke: var(--color-primary);
+}
+
+.notebook-canvas .react-flow__edge-textbg {
+    fill: #f8f7f3;
+    stroke: rgba(15, 23, 42, 0.16);
+    stroke-width: 1px;
+}
+
+.notebook-canvas .react-flow__edge-text {
+    fill: var(--color-panel);
+    font-size: 12px;
+    font-weight: 700;
+    pointer-events: none;
+}
+
+.notebook-canvas .react-flow__edge.selected .react-flow__edge-text {
+    fill: var(--color-primary);
+}
+
+.notebook-canvas__minimap {
+    overflow: hidden;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.72);
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+    backdrop-filter: blur(8px);
+}
+
+.notebook-canvas__minimap .react-flow__minimap-mask {
+    fill: rgba(248, 247, 243, 0.48);
+}
+
+.notebook-canvas__minimap .react-flow__minimap-node {
+    rx: 3;
+    ry: 3;
+}
+
+@media (max-width: 767px) {
+    .notebook-canvas {
+        inset: 34px 0 0;
+        overflow: hidden;
+        border: 1px solid rgba(15, 23, 42, 0.55);
+        border-radius: 8px;
+    }
+
+    .notebook-canvas .react-flow__controls {
+        display: none;
+    }
+}
