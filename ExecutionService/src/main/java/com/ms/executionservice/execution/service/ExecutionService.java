@@ -141,9 +141,12 @@ public class ExecutionService {
                 .findByIdAndWorkflow_IdAndWorkflow_Notebook_Id(executionId, workflowId, notebookId)
                 .orElseThrow(() -> new EntityNotFoundException("Execution not found"));
 
-        if (oldExecution.getStatus() != ExecutionStatus.FAILED
+        if (oldExecution.getStatus() != ExecutionStatus.SUCCESS
+                && oldExecution.getStatus() != ExecutionStatus.FAILED
                 && oldExecution.getStatus() != ExecutionStatus.CANCELLED) {
-            throw new IllegalStateException("Execution cannot be retried");
+            throw new IllegalStateException(
+                    "Execution can be retried only after SUCCESS, FAILED or CANCELLED"
+            );
         }
 
         ExecutionEntity newExecution = ExecutionEntity.builder()
@@ -209,7 +212,7 @@ public class ExecutionService {
         if (execution.getStatus() == ExecutionStatus.SUCCESS
                 || execution.getStatus() == ExecutionStatus.FAILED
                 || execution.getStatus() == ExecutionStatus.CANCELLED) {
-            throw new IllegalStateException("Execution already finished");
+            return toResponse(execution);
         }
 
         if (execution.getStatus() == ExecutionStatus.PENDING) {
