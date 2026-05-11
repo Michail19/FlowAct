@@ -1,0 +1,241 @@
+import { Handle, Position, type NodeProps } from '@xyflow/react';
+
+import type { NotebookBlockStatus, NotebookNode } from './notebookTypes';
+import NotebookSvgIcon from './NotebookSvgIcon';
+import type { NotebookSvgIconName } from './notebookSvgIconTypes';
+
+import './CustomBlockNode.css';
+
+const statusLabels: Record<NotebookBlockStatus, string> = {
+    idle: 'Ожидает',
+    pending: 'В очереди',
+    running: 'Выполняется',
+    success: 'Успешно',
+    error: 'Ошибка',
+    skipped: 'Пропущен',
+    waiting: 'Ожидает события',
+};
+
+const blockTypeLabels: Record<string, string> = {
+    start: 'START',
+    end: 'END',
+    ai: 'AI',
+    condition: 'CONDITION',
+    action: 'ACTION',
+    database: 'DATABASE',
+    email: 'EMAIL',
+    log: 'LOG',
+    http: 'HTTP',
+    loop: 'LOOP',
+    merge: 'MERGE',
+};
+
+const blockIconNames: Record<NotebookNode['data']['blockType'], NotebookSvgIconName> = {
+    start: 'start',
+    end: 'end',
+    ai: 'ai',
+    condition: 'condition',
+    action: 'action',
+    database: 'database',
+    email: 'email',
+    log: 'log',
+    http: 'http',
+    loop: 'loop',
+    merge: 'merge',
+};
+
+const conditionOperatorLabels = {
+    equals: '=',
+    notEquals: '≠',
+    contains: 'contains',
+    greaterThan: '>',
+    lessThan: '<',
+    exists: 'exists',
+};
+
+function getConditionExpression(data: NotebookNode['data']): string {
+    const condition = data.config?.condition;
+
+    if (!condition) {
+        return data.description || 'Условие не настроено';
+    }
+
+    const operator = conditionOperatorLabels[condition.operator];
+
+    if (condition.operator === 'exists') {
+        return `${condition.leftValue} ${operator}`;
+    }
+
+    return `${condition.leftValue} ${operator} ${condition.rightValue}`.trim();
+}
+
+function stopReactFlowEvent(event: React.SyntheticEvent) {
+    event.stopPropagation();
+}
+
+function CustomBlockNode({ id, data, selected }: NodeProps<NotebookNode>) {
+    const status = data.status ?? 'idle';
+    const isCondition = data.blockType === 'condition';
+
+    const nodeClassName = [
+        'custom-block-node',
+        `custom-block-node--${data.blockType}`,
+        `custom-block-node--${status}`,
+        selected ? 'custom-block-node--selected' : '',
+    ]
+        .filter(Boolean)
+        .join(' ');
+
+    const canHaveInput = data.blockType !== 'start';
+    const canHaveOutput = data.blockType !== 'end';
+
+    const handleRun = (event: React.MouseEvent<HTMLButtonElement>) => {
+        event.stopPropagation();
+        data.onRun?.(id);
+    };
+
+    const handleEdit = (event: React.MouseEvent<HTMLButtonElement>) => {
+        event.stopPropagation();
+        data.onEdit?.(id);
+    };
+
+    const handleAutocomplete = (event: React.MouseEvent<HTMLButtonElement>) => {
+        event.stopPropagation();
+        data.onAutocomplete?.(id);
+    };
+
+    const handleDelete = (event: React.MouseEvent<HTMLButtonElement>) => {
+        event.stopPropagation();
+        data.onDelete?.(id);
+    };
+
+    return (
+        <article className={nodeClassName}>
+            {canHaveInput && (
+                <Handle
+                    className="custom-block-node__handle custom-block-node__handle--target"
+                    type="target"
+                    position={Position.Left}
+                />
+            )}
+
+            <header className="custom-block-node__header">
+                <button
+                    className="custom-block-node__run nodrag nopan"
+                    type="button"
+                    aria-label="Запустить блок"
+                    onPointerDown={stopReactFlowEvent}
+                    onClick={handleRun}
+                >
+                    <NotebookSvgIcon name="play" size={14} />
+                </button>
+
+                <div className="custom-block-node__heading">
+                    <span className="custom-block-node__icon" aria-hidden="true">
+                        <NotebookSvgIcon name={blockIconNames[data.blockType]} />
+                    </span>
+
+                    <div className="custom-block-node__text">
+                        <strong className="custom-block-node__title">{data.title}</strong>
+
+                        {data.subtitle && (
+                            <span className="custom-block-node__subtitle">{data.subtitle}</span>
+                        )}
+                    </div>
+                </div>
+
+                <div className="custom-block-node__actions">
+                    {data.canAutocomplete && (
+                        <button
+                            className="custom-block-node__action custom-block-node__action--autocomplete nodrag nopan"
+                            type="button"
+                            aria-label="Автодополнить блок"
+                            title="Автодополнить"
+                            onPointerDown={stopReactFlowEvent}
+                            onClick={handleAutocomplete}
+                        >
+                            <NotebookSvgIcon name="sparkles" size={12} />
+                        </button>
+                    )}
+
+                    <button
+                        className="custom-block-node__action custom-block-node__action--edit nodrag nopan"
+                        type="button"
+                        aria-label="Редактировать блок"
+                        onPointerDown={stopReactFlowEvent}
+                        onClick={handleEdit}
+                    >
+                        <NotebookSvgIcon name="edit" size={12} />
+                    </button>
+
+                    <button
+                        className="custom-block-node__action custom-block-node__action--delete nodrag nopan"
+                        type="button"
+                        aria-label="Удалить блок"
+                        onPointerDown={stopReactFlowEvent}
+                        onClick={handleDelete}
+                    >
+                        <NotebookSvgIcon name="trash" size={12} />
+                    </button>
+                </div>
+            </header>
+
+            {isCondition ? (
+                <div className="custom-block-node__condition">
+                    <span className="custom-block-node__condition-label">
+                        Условие
+                    </span>
+
+                    <p className="custom-block-node__condition-text">
+                        {getConditionExpression(data)}
+                    </p>
+                </div>
+            ) : (
+                data.description && (
+                    <p className="custom-block-node__description">{data.description}</p>
+                )
+            )}
+
+            <footer className="custom-block-node__footer">
+                <span className="custom-block-node__type">
+                    {blockTypeLabels[data.blockType] ?? data.blockType}
+                </span>
+                <span className="custom-block-node__status">{statusLabels[status]}</span>
+            </footer>
+
+            {canHaveOutput && !isCondition && (
+                <Handle
+                    className="custom-block-node__handle custom-block-node__handle--source"
+                    type="source"
+                    position={Position.Right}
+                />
+            )}
+
+            {canHaveOutput && isCondition && (
+                <>
+                    <span className="custom-block-node__handle-label custom-block-node__handle-label--yes">
+                        Да
+                    </span>
+                    <Handle
+                        id="yes"
+                        className="custom-block-node__handle custom-block-node__handle--source custom-block-node__handle--source-yes"
+                        type="source"
+                        position={Position.Right}
+                    />
+
+                    <span className="custom-block-node__handle-label custom-block-node__handle-label--no">
+                        Нет
+                    </span>
+                    <Handle
+                        id="no"
+                        className="custom-block-node__handle custom-block-node__handle--source custom-block-node__handle--source-no"
+                        type="source"
+                        position={Position.Right}
+                    />
+                </>
+            )}
+        </article>
+    );
+}
+
+export default CustomBlockNode;

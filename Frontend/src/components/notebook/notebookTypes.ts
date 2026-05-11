@@ -1,0 +1,187 @@
+import type { Node } from '@xyflow/react';
+
+export type NotebookBlockType =
+    | 'start'
+    | 'end'
+    | 'ai'
+    | 'condition'
+    | 'action'
+    | 'database'
+    | 'email'
+    | 'log'
+    | 'http'
+    | 'loop'
+    | 'merge';
+
+export type NotebookBlockStatus =
+    | 'idle'
+    | 'pending'
+    | 'running'
+    | 'success'
+    | 'error'
+    | 'skipped'
+    | 'waiting';
+
+export type AiInputMode = 'none' | 'smart' | 'full' | 'templateOnly';
+
+export type AiBlockConfig = {
+    prompt: string;
+    models: string[];
+    inputMode?: AiInputMode;
+    maxInputChars?: number;
+};
+
+export type ConditionOperator =
+    | 'equals'
+    | 'notEquals'
+    | 'contains'
+    | 'greaterThan'
+    | 'lessThan'
+    | 'exists';
+
+export type ConditionBlockConfig = {
+    leftValue: string;
+    operator: ConditionOperator;
+    rightValue: string;
+};
+
+export type ActionBlockConfig = {
+    actionType: 'format' | 'transform' | 'custom';
+    parameters: string;
+};
+
+export type DatabaseBlockConfig = {
+    operation: 'select' | 'insert' | 'update' | 'delete';
+    tableName: string;
+    query: string;
+    payload: string;
+};
+
+export type EmailBlockConfig = {
+    recipient: string;
+    subject: string;
+    body: string;
+};
+
+export type LogBlockConfig = {
+    level: 'info' | 'warning' | 'error';
+    messageTemplate: string;
+};
+
+export type HttpResponseMode = 'auto' | 'json' | 'text';
+
+export type HttpBlockConfig = {
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+    url: string;
+    headers: string;
+    body: string;
+    timeoutMs?: number;
+    maxResponseChars?: number;
+    responseMode?: HttpResponseMode;
+    continueOnError?: boolean;
+};
+
+export type LoopBlockConfig = {
+    collectionPath: string;
+    itemName: string;
+    mode: 'map' | 'forEach';
+};
+
+export type MergeBlockConfig = {
+    mode: 'passThrough' | 'combine';
+};
+
+export type NotebookBlockConfig = {
+    condition?: ConditionBlockConfig;
+    action?: ActionBlockConfig;
+    database?: DatabaseBlockConfig;
+    email?: EmailBlockConfig;
+    log?: LogBlockConfig;
+    http?: HttpBlockConfig;
+    loop?: LoopBlockConfig;
+    merge?: MergeBlockConfig;
+};
+
+export type NotebookBlockData = {
+    title: string;
+    subtitle?: string;
+    description?: string;
+    blockType: NotebookBlockType;
+    status?: NotebookBlockStatus;
+    icon?: string;
+    meta?: string;
+    aiConfig?: AiBlockConfig;
+    config?: NotebookBlockConfig;
+
+    canAutocomplete?: boolean;
+
+    onRun?: (nodeId: string) => void;
+    onEdit?: (nodeId: string) => void;
+    onDelete?: (nodeId: string) => void;
+    onAutocomplete?: (nodeId: string) => void;
+};
+
+export type NotebookNode = Node<NotebookBlockData>;
+
+export type NotebookBlockRequest = {
+    requestId: number;
+    blockType: NotebookBlockType;
+
+    /**
+     * Если блок создаётся как рекомендация после другого блока,
+     * canvas поставит новый блок справа и создаст связь sourceBlockId -> newBlock.
+     */
+    sourceBlockId?: string;
+
+    /**
+     * Предзаполненная конфигурация, которую может предложить AI/локальное правило.
+     */
+    proposedConfig?: NotebookBlockConfig;
+};
+
+export type NotebookAutoLayoutMode = 'arrange' | 'connect' | 'arrange-connect';
+
+export type NotebookAutoLayoutRequest = {
+    requestId: number;
+    mode: NotebookAutoLayoutMode;
+};
+
+export type NotebookZoomValue = 'auto' | '75' | '100' | '125' | '150';
+
+export type NotebookViewportRequest =
+    | {
+    requestId: number;
+    mode: 'fit';
+}
+    | {
+    requestId: number;
+    mode: 'zoom';
+    zoom: number;
+};
+
+export type NotebookSearchRequest = {
+    requestId: number;
+    query: string;
+};
+
+export type NotebookSearchResult = {
+    requestId: number;
+    query: string;
+    found: boolean;
+    total: number;
+    activeIndex?: number;
+    matchedNodeId?: string;
+    matchedTitle?: string;
+};
+
+export type NotebookHistoryAction = 'undo' | 'redo';
+
+export type NotebookHistoryRequest = {
+    requestId: number;
+    action: NotebookHistoryAction;
+};
+
+export type NotebookHistoryState = {
+    canUndo: boolean;
+    canRedo: boolean;
+};

@@ -52,8 +52,16 @@ public class ExecutionService {
         WorkflowEntity workflow = workflowRepository.findByIdAndNotebook_Id(workflowId, notebookId)
                 .orElseThrow(() -> new EntityNotFoundException("Workflow not found"));
 
+        if (workflow.getStatus() == WorkflowStatus.ARCHIVED) {
+            throw new IllegalStateException(
+                    "Workflow находится в архиве и не может быть запущен"
+            );
+        }
+
         if (workflow.getStatus() != WorkflowStatus.ACTIVE) {
-            throw new IllegalStateException("Workflow is not active");
+            throw new IllegalStateException(
+                    "Workflow находится в статусе DRAFT. Сначала сохраните и активируйте схему."
+            );
         }
 
         ExecutionEntity execution = ExecutionEntity.builder()
@@ -133,9 +141,12 @@ public class ExecutionService {
                 .findByIdAndWorkflow_IdAndWorkflow_Notebook_Id(executionId, workflowId, notebookId)
                 .orElseThrow(() -> new EntityNotFoundException("Execution not found"));
 
-        if (oldExecution.getStatus() != ExecutionStatus.FAILED
+        if (oldExecution.getStatus() != ExecutionStatus.SUCCESS
+                && oldExecution.getStatus() != ExecutionStatus.FAILED
                 && oldExecution.getStatus() != ExecutionStatus.CANCELLED) {
-            throw new IllegalStateException("Execution cannot be retried");
+            throw new IllegalStateException(
+                    "Execution can be retried only after SUCCESS, FAILED or CANCELLED"
+            );
         }
 
         ExecutionEntity newExecution = ExecutionEntity.builder()
@@ -201,7 +212,7 @@ public class ExecutionService {
         if (execution.getStatus() == ExecutionStatus.SUCCESS
                 || execution.getStatus() == ExecutionStatus.FAILED
                 || execution.getStatus() == ExecutionStatus.CANCELLED) {
-            throw new IllegalStateException("Execution already finished");
+            return toResponse(execution);
         }
 
         if (execution.getStatus() == ExecutionStatus.PENDING) {
@@ -258,6 +269,7 @@ public class ExecutionService {
                 .executionId(entity.getExecution().getId())
                 .blockId(entity.getBlock().getId())
                 .status(entity.getStatus())
+                .input(jsonUtils.toMap(entity.getInput()))
                 .output(jsonUtils.toMap(entity.getOutput()))
                 .error(entity.getError())
                 .createdAt(entity.getCreatedAt())

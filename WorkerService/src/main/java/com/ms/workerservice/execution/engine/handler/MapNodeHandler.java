@@ -8,6 +8,9 @@ import com.ms.workerservice.workflow.entity.WorkflowBlockEntity;
 import com.ms.workerservice.workflow.enumtype.BlockType;
 import org.springframework.stereotype.Component;
 
+import java.lang.reflect.Array;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,65 +36,247 @@ public class MapNodeHandler implements NodeHandler {
             ExecutionContext context
     ) {
         Map<String, Object> config = jsonHelper.toMap(block.getConfig());
+        String mode = getString(config, "mode", "pick").trim();
 
-        Object rawInput = input.getValue();
-        if (rawInput == null) {
-            rawInput = input.getInputs();
-        }
-
-        if (!(rawInput instanceof Map<?, ?> rawMap)) {
-            throw new IllegalStateException("MAP block requires map-like input");
-        }
-
-        @SuppressWarnings("unchecked")
-        Map<String, Object> source = (Map<String, Object>) rawMap;
-
-        String mode = String.valueOf(config.getOrDefault("mode", "pick")).trim().toLowerCase();
-
-        return switch (mode) {
-            case "pick" -> NodeResult.of(applyPick(source, config));
-            case "rename" -> NodeResult.of(applyRename(source, config));
+        return switch (mode.toLowerCase()) {
+            case "pick" -> NodeResult.of(pickFields(config, input));
+            case "rename" -> NodeResult.of(renameFields(config, input));
+            case "map", "foreach", "for_each", "for-each" -> NodeResult.of(loopOverCollection(config, input));
             default -> throw new IllegalStateException("Unsupported MAP mode: " + mode);
         };
     }
 
-    private Map<String, Object> applyPick(Map<String, Object> source, Map<String, Object> config) {
-        Object fieldsRaw = config.get("fields");
+    private Map<String, Object> pickFields(
+            Map<String, Object> config,
+            ResolvedInput input
+    ) {
+        Map<String, Object> source = getMapLikeInput(input);
+        List<String> fields = getStringList(config.get("fields"));
 
-        if (!(fieldsRaw instanceof List<?> fields)) {
-            throw new IllegalStateException("MAP mode 'pick' requires config.fields");
-        }
+        Map<String, Object> output = new LinkedHashMap<>();
 
-        Map<String, Object> result = new LinkedHashMap<>();
-
-        for (Object fieldObj : fields) {
-            String field = String.valueOf(fieldObj);
+        for (String field : fields) {
             if (source.containsKey(field)) {
-                result.put(field, source.get(field));
+                output.put(field, source.get(field));
             }
         }
 
-        return result;
+        return output;
     }
 
-    private Map<String, Object> applyRename(Map<String, Object> source, Map<String, Object> config) {
-        Object mappingRaw = config.get("mapping");
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> renameFields(
+            Map<String, Object> config,
+            ResolvedInput input
+    ) {
+        Map<String, Object> source = getMapLikeInput(input);
+        Object mappingValue = config.get("mapping");
 
-        if (!(mappingRaw instanceof Map<?, ?> mapping)) {
-            throw new IllegalStateException("MAP mode 'rename' requires config.mapping");
+        if (!(mappingValue instanceof Map<?, ?> rawMapping)) {
+            throw new IllegalStateException("MAP rename mode requires mapping object");
         }
 
-        Map<String, Object> result = new LinkedHashMap<>();
+        Map<String, Object> output = new LinkedHashMap<>();
 
-        for (Map.Entry<?, ?> entry : mapping.entrySet()) {
-            String from = String.valueOf(entry.getKey());
-            String to = String.valueOf(entry.getValue());
+        for (Map.Entry<?, ?> entry : rawMapping.entrySet()) {
+            String sourceField = String.valueOf(entry.getKey());
+            String targetField = String.valueOf(entry.getValue());
 
-            if (source.containsKey(from)) {
-                result.put(to, source.get(from));
+            if (source.containsKey(sourceField)) {
+                output.put(targetField, source.get(sourceField));
             }
         }
 
-        return result;
+        return output;
+    }
+
+    private Map<String, Object> loopOverCollection(
+            Map<String, Object> config,
+            ResolvedInput input
+    ) {
+        String collectionPath = getString(config, "collectionPath", "input.items");
+        String itemName = getString(config, "itemName", "item");
+        String mode = getString(config, "mode", "map");
+
+        Object collectionValue = resolvePath(input, collectionPath);
+        List<Object> items = toList(collectionValue);
+
+        List<Object> results = new ArrayList<>();
+        List<Map<String, Object>> iterations = new ArrayList<>();
+
+        for (int index = 0; index < items.size(); index += 1) {
+            Object item = items.get(index);
+
+            Map<String, Object> iteration = new LinkedHashMap<>();
+            iteration.put("index", index);
+            iteration.put(itemName, item);
+
+            iterations.add(iteration);
+            results.add(item);
+        }
+
+        Map<String, Object> output = new LinkedHashMap<>();
+        output.put("collectionPath", collectionPath);
+        output.put("itemName", itemName);
+        output.put("mode", mode);
+        output.put("count", items.size());
+        output.put("items", items);
+        output.put("iterations", iterations);
+        output.put("results", results);
+
+        return output;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> getMapLikeInput(ResolvedInput input) {
+        Object value = input.getValue();
+
+        if (value instanceof Map<?, ?> map) {
+            return new LinkedHashMap<>((Map<String, Object>) map);
+        }
+
+        if (value != null) {
+            throw new IllegalStateException("MAP input must be map-like");
+        }
+
+        Map<String, Object> inputs = input.getInputs();
+
+        if (!inputs.isEmpty()) {
+            return new LinkedHashMap<>(inputs);
+        }
+
+        return new LinkedHashMap<>(input.getValues());
+    }
+
+    private Object resolvePath(ResolvedInput input, String path) {
+        if (path == null || path.isBlank()) {
+            return input.getValue();
+        }
+
+        String normalizedPath = path.trim();
+
+        if ("input".equals(normalizedPath) || "value".equals(normalizedPath)) {
+            return input.getValue();
+        }
+
+        if (normalizedPath.startsWith("input.")) {
+            return readNestedValue(input.getValue(), normalizedPath.substring("input.".length()));
+        }
+
+        if (normalizedPath.startsWith("value.")) {
+            return readNestedValue(input.getValue(), normalizedPath.substring("value.".length()));
+        }
+
+        if (normalizedPath.startsWith("variables.")) {
+            return readNestedValue(
+                    input.getVariables(),
+                    normalizedPath.substring("variables.".length())
+            );
+        }
+
+        if (normalizedPath.startsWith("inputs.")) {
+            return readNestedValue(
+                    input.getInputs(),
+                    normalizedPath.substring("inputs.".length())
+            );
+        }
+
+        return readNestedValue(input.getValues(), normalizedPath);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Object readNestedValue(Object source, String path) {
+        if (source == null || path == null || path.isBlank()) {
+            return source;
+        }
+
+        Object current = source;
+
+        for (String segment : path.split("\\.")) {
+            if (current == null) {
+                return null;
+            }
+
+            if (current instanceof Map<?, ?> map) {
+                current = ((Map<String, Object>) map).get(segment);
+                continue;
+            }
+
+            if (current instanceof List<?> list && isInteger(segment)) {
+                int index = Integer.parseInt(segment);
+
+                if (index < 0 || index >= list.size()) {
+                    return null;
+                }
+
+                current = list.get(index);
+                continue;
+            }
+
+            return null;
+        }
+
+        return current;
+    }
+
+    private List<Object> toList(Object value) {
+        if (value == null) {
+            return List.of();
+        }
+
+        if (value instanceof List<?> list) {
+            return new ArrayList<>(list);
+        }
+
+        if (value instanceof Collection<?> collection) {
+            return new ArrayList<>(collection);
+        }
+
+        if (value.getClass().isArray()) {
+            int length = Array.getLength(value);
+            List<Object> result = new ArrayList<>(length);
+
+            for (int index = 0; index < length; index += 1) {
+                result.add(Array.get(value, index));
+            }
+
+            return result;
+        }
+
+        return List.of(value);
+    }
+
+    private List<String> getStringList(Object value) {
+        if (!(value instanceof List<?> list)) {
+            return List.of();
+        }
+
+        return list.stream()
+                .filter(item -> item != null)
+                .map(String::valueOf)
+                .toList();
+    }
+
+    private String getString(
+            Map<String, Object> config,
+            String key,
+            String fallback
+    ) {
+        Object value = config.get(key);
+
+        if (value == null) {
+            return fallback;
+        }
+
+        return String.valueOf(value);
+    }
+
+    private boolean isInteger(String value) {
+        try {
+            Integer.parseInt(value);
+            return true;
+        } catch (NumberFormatException ex) {
+            return false;
+        }
     }
 }

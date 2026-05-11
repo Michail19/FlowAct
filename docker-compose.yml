@@ -1,0 +1,139 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: flowact-postgres
+    environment:
+      POSTGRES_DB: flowact_execution
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - flowact-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d flowact_execution"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - flowact-network
+
+  kafka:
+    image: apache/kafka:4.1.2
+    container_name: flowact-kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: CONTROLLER://localhost:9091,HOST://0.0.0.0:9092,DOCKER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: HOST://localhost:9092,DOCKER://kafka:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,HOST:PLAINTEXT,DOCKER:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9091
+      KAFKA_INTER_BROKER_LISTENER_NAME: DOCKER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+    networks:
+      - flowact-network
+
+  execution-service:
+    build:
+      context: ./ExecutionService
+      dockerfile: Dockerfile
+    container_name: flowact-execution-service
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      SERVER_PORT: 8082
+      DB_URL: jdbc:postgresql://postgres:5432/flowact_execution
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9093
+      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL:-http://host.docker.internal:8083}
+      ML_SERVICE_URL: ${ML_SERVICE_URL:-http://host.docker.internal:8000}
+      GATEWAY_SERVICE_URL: ${GATEWAY_SERVICE_URL:-http://frontend}
+      SCHEDULE_SERVICE_URL: ${SCHEDULE_SERVICE_URL:-http://host.docker.internal:8084}
+      OPENAPI_ENABLED: "true"
+      SWAGGER_UI_ENABLED: "true"
+      HEALTH_DETAILS: always
+      LOG_LEVEL_ROOT: INFO
+      LOG_LEVEL_WEB: INFO
+      LOG_LEVEL_SQL: INFO
+      LOG_LEVEL_BIND: INFO
+      LOG_LEVEL_APP: DEBUG
+      JPA_SHOW_SQL: "false"
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8082/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - flowact-network
+
+  worker-service:
+    build:
+      context: ./WorkerService
+      dockerfile: Dockerfile
+    container_name: flowact-worker-service
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/flowact_execution
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9093
+      FLOWACT_ML_BASE_URL: ${FLOWACT_ML_BASE_URL:-http://host.docker.internal:8000}
+      FLOWACT_LLM_OPENROUTER_BASE_URL: ${FLOWACT_LLM_OPENROUTER_BASE_URL:-https://openrouter.ai}
+      FLOWACT_LLM_OPENROUTER_API_KEY: ${FLOWACT_LLM_OPENROUTER_API_KEY:-}
+      FLOWACT_LLM_OPENROUTER_DEFAULT_MODEL: ${FLOWACT_LLM_OPENROUTER_DEFAULT_MODEL:-openrouter/free}
+      FLOWACT_LLM_OPENROUTER_ALLOW_PAID_MODELS: ${FLOWACT_LLM_OPENROUTER_ALLOW_PAID_MODELS:-false}
+      FLOWACT_LLM_OPENROUTER_SITE_URL: ${FLOWACT_LLM_OPENROUTER_SITE_URL:-}
+      FLOWACT_LLM_OPENROUTER_APP_NAME: ${FLOWACT_LLM_OPENROUTER_APP_NAME:-FlowAct}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - flowact-network
+
+  frontend:
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: /api
+        VITE_DEV_AUTH_ENABLED: "true"
+        VITE_DEV_USER_ID: "11111111-1111-1111-1111-111111111111"
+        VITE_DEV_AUTH_TOKEN: "dev-token"
+    container_name: flowact-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      execution-service:
+        condition: service_healthy
+    networks:
+      - flowact-network
+
+volumes:
+  flowact-postgres-data:
+
+networks:
+  flowact-network:
+    driver: bridge
