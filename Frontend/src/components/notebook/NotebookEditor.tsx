@@ -61,6 +61,10 @@ import {
     mapApiExecutionLogStatus,
     mapApiExecutionStatus,
 } from './executionTypes';
+import {
+    getLocalNotebookRecommendations,
+} from './recommendationService';
+import type { NotebookRecommendation } from './recommendationTypes';
 
 import './NotebookEditor.css';
 
@@ -492,20 +496,21 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         );
     const [, setValidationIssues] = useState<WorkflowValidationIssue[]>([]);
 
-    const suggestion = useMemo(
-        () => ({
-            id: 'suggest-log-after-workflow',
-            blockType: 'log' as NotebookBlockType,
-            confidence: 87,
-            reason:
-                'После выполнения рабочих процессов обычно полезно добавить логирование, чтобы сохранять историю запусков и быстрее находить ошибки.',
-        }),
-        [],
+    const recommendations = useMemo(
+        () => getLocalNotebookRecommendations(
+            notebookPayload ?? loadedNotebookPayload,
+        ),
+        [loadedNotebookPayload, notebookPayload],
     );
 
-    const visibleSuggestion = dismissedSuggestionIds.includes(suggestion.id)
-        ? null
-        : suggestion;
+    const visibleSuggestion = useMemo(
+        () =>
+            recommendations.find(
+                (recommendation) =>
+                    !dismissedSuggestionIds.includes(recommendation.id),
+            ) ?? null,
+        [dismissedSuggestionIds, recommendations],
+    );
 
     useEffect(() => {
         const sourcePayload = loadedNotebookPayload ?? initialNotebookPayload;
@@ -693,8 +698,8 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
     }, []);
 
     const handleAcceptSuggestion = useCallback(
-        (blockType: NotebookBlockType) => {
-            handleAddBlock(blockType);
+        (recommendation: NotebookRecommendation) => {
+            handleAddBlock(recommendation.blockType);
         },
         [handleAddBlock],
     );

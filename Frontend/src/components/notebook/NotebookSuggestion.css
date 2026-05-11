@@ -189,3 +189,7 @@
     padding: 8px;
     font-size: 13px;
 }
+
+.notebook-suggestion__text strong {
+    color: var(--color-text);
+}

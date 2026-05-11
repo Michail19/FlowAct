@@ -1,21 +1,14 @@
 import { useState } from 'react';
 
 import { getBlockDefinition } from './blockLibrary';
-import type { NotebookBlockType } from './notebookTypes';
+import type { NotebookRecommendation } from './recommendationTypes';
 
 import './NotebookSuggestion.css';
 
-type NotebookSuggestionData = {
-    id: string;
-    blockType: NotebookBlockType;
-    reason: string;
-    confidence: number;
-};
-
 type NotebookSuggestionProps = {
     isMobile: boolean;
-    suggestion: NotebookSuggestionData | null;
-    onAccept: (blockType: NotebookBlockType) => void;
+    suggestion: NotebookRecommendation | null;
+    onAccept: (suggestion: NotebookRecommendation) => void;
     onDismiss: (suggestionId: string) => void;
 };
 
@@ -27,6 +20,26 @@ function getInitialVisibility() {
     }
 
     return localStorage.getItem(STORAGE_KEY) !== 'true';
+}
+
+function getSuggestionTitle(suggestion: NotebookRecommendation) {
+    if (suggestion.source === 'ai') {
+        return 'AI-подсказка';
+    }
+
+    if (suggestion.kind === 'workflow-fix') {
+        return 'Подсказка по схеме';
+    }
+
+    return 'Умная подсказка';
+}
+
+function getSuggestionSourceLabel(suggestion: NotebookRecommendation) {
+    if (suggestion.source === 'ai') {
+        return 'AI';
+    }
+
+    return 'локальные правила';
 }
 
 function NotebookSuggestion({
@@ -44,7 +57,7 @@ function NotebookSuggestion({
     const blockDefinition = getBlockDefinition(suggestion.blockType);
 
     const handleAccept = () => {
-        onAccept(suggestion.blockType);
+        onAccept(suggestion);
         onDismiss(suggestion.id);
     };
 
@@ -79,15 +92,21 @@ function NotebookSuggestion({
 
                 <div>
                     <strong className="notebook-suggestion__title">
-                        AI-подсказка
+                        {getSuggestionTitle(suggestion)}
                     </strong>
                     <span className="notebook-suggestion__confidence">
-                        уверенность: {suggestion.confidence}%
+                        {getSuggestionSourceLabel(suggestion)} · уверенность: {suggestion.confidence}%
                     </span>
                 </div>
             </div>
 
             <div className="notebook-suggestion__body">
+                {suggestion.targetBlockTitle && (
+                    <p className="notebook-suggestion__text">
+                        После блока: <strong>{suggestion.targetBlockTitle}</strong>
+                    </p>
+                )}
+
                 <p className="notebook-suggestion__text">
                     Возможный следующий блок:
                 </p>
