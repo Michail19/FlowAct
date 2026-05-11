@@ -141,3 +141,9 @@ export type WorkflowRequest = {
     blocks: BackendWorkflowBlockRequest[];
     connections: BackendWorkflowConnectionRequest[];
 };
+
+export type WorkflowValidationResponse = {
+    valid: boolean;
+    errors: string[];
+    warnings: string[];
+};

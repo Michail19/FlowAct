@@ -47,6 +47,7 @@ import type {
     ExecutionLogResponse,
     WorkflowResponse,
     WorkflowStatus,
+    WorkflowValidationResponse,
 } from '../../services/workflowApiTypes';
 import {
     validateNotebookPayload,
@@ -450,6 +451,78 @@ function resetPayloadBlockStatuses(
             ...block,
             status: 'idle',
         })),
+    };
+}
+
+function mapBackendValidationToIssues(
+    validation: WorkflowValidationResponse,
+): WorkflowValidationIssue[] {
+    return [
+        ...validation.errors.map((message, index) => ({
+            id: `backend-error-${index}`,
+            severity: 'error' as const,
+            message: `Backend: ${message}`,
+        })),
+        ...validation.warnings.map((message, index) => ({
+            id: `backend-warning-${index}`,
+            severity: 'warning' as const,
+            message: `Backend: ${message}`,
+        })),
+    ];
+}
+
+function createValidationLogs(issues: WorkflowValidationIssue[]): NotebookExecutionLog[] {
+    if (issues.length === 0) {
+        return [
+            createExecutionLog({
+                level: 'success',
+                status: 'success',
+                message:
+                    'Проверка завершена: frontend и backend не нашли ошибок схемы.',
+            }),
+        ];
+    }
+
+    return issues.slice(0, 15).map((issue) =>
+        createExecutionLog({
+            level: issue.severity === 'error' ? 'error' : 'warning',
+            status: issue.severity === 'error' ? 'error' : 'idle',
+            blockId: issue.blockId,
+            blockTitle: issue.blockTitle,
+            message: issue.message,
+        }),
+    );
+}
+
+function createValidationResult(params: {
+    issues: WorkflowValidationIssue[];
+    totalBlocks: number;
+    startedAt: Date;
+    idSuffix: string;
+}): WorkflowExecutionResult {
+    const blockingIssues = getBlockingValidationIssues(params.issues);
+    const warnings = params.issues.filter((issue) => issue.severity === 'warning');
+
+    return {
+        id: `${params.startedAt.getTime()}-${params.idSuffix}`,
+        status: blockingIssues.length > 0 ? 'error' : 'success',
+        startedAt: params.startedAt.toISOString(),
+        finishedAt: new Date().toISOString(),
+        durationMs: 0,
+        totalBlocks: params.totalBlocks,
+        completedBlocks: blockingIssues.length > 0 ? 0 : params.totalBlocks,
+        failedBlocks: blockingIssues.length,
+        warningsCount: warnings.length,
+        errorsCount: blockingIssues.length,
+        summary: getValidationResultSummary(params.issues),
+        output:
+            blockingIssues.length > 0
+                ? getValidationErrorSummary(params.issues) ?? 'Схема содержит ошибки.'
+                : warnings.length > 0
+                    ? 'Критических ошибок нет. Есть предупреждения, которые стоит проверить.'
+                    : 'Frontend и backend-валидация не нашли проблем. Можно запускать workflow.',
+        outputFormat: 'text',
+        rawOutput: JSON.stringify(params.issues, null, 2),
     };
 }
 
@@ -929,89 +1002,167 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         }
     }, [saveNotebookToBackend, validateCurrentNotebook]);
 
-    const handleValidateWorkflow = useCallback(() => {
-        const issues = validateCurrentNotebook();
-        const blockingIssues = getBlockingValidationIssues(issues);
-        const warnings = issues.filter((issue) => issue.severity === 'warning');
+    const handleValidateWorkflow = useCallback(async () => {
         const checkedAt = new Date();
+        const currentPayload = notebookPayload ?? loadedNotebookPayload;
+        const totalBlocks = currentPayload?.blocks.length ?? 0;
 
         setIsRunPanelOpen(true);
-        setExecutionStatus(blockingIssues.length > 0 ? 'error' : 'success');
+        setExecutionStatus('validating');
+        setExecutionResult(null);
+        setExecutionLogs([
+            createExecutionLog({
+                level: 'info',
+                status: 'validating',
+                message: 'Запущена frontend-проверка схемы.',
+            }),
+        ]);
 
-        if (issues.length === 0) {
+        const frontendIssues = validateCurrentNotebook();
+        const frontendBlockingIssues = getBlockingValidationIssues(frontendIssues);
+
+        if (frontendBlockingIssues.length > 0) {
+            setExecutionStatus('error');
+            setExecutionLogs(createValidationLogs(frontendIssues));
+            setExecutionResult(
+                createValidationResult({
+                    issues: frontendIssues,
+                    totalBlocks,
+                    startedAt: checkedAt,
+                    idSuffix: 'frontend-validation-result',
+                }),
+            );
+
+            setSaveError(
+                `Frontend-валидация нашла ошибок: ${frontendBlockingIssues.length}.`,
+            );
+
+            return;
+        }
+
+        setExecutionLogs([
+            createExecutionLog({
+                level: 'success',
+                status: 'success',
+                message:
+                    'Frontend-проверка завершена успешно. Сохранение workflow для backend-валидации.',
+            }),
+        ]);
+
+        setIsSaving(true);
+
+        try {
+            const savedPayload = await saveNotebookToBackend();
+
+            if (!savedPayload.serverNotebookId || !savedPayload.workflowId) {
+                throw new Error('Workflow не имеет serverNotebookId или workflowId.');
+            }
+
+            setExecutionStatus('validating');
             setExecutionLogs([
                 createExecutionLog({
                     level: 'success',
                     status: 'success',
-                    message: 'Проверка завершена: схема не содержит ошибок и предупреждений.',
+                    message: 'Frontend-проверка завершена успешно.',
+                }),
+                createExecutionLog({
+                    level: 'info',
+                    status: 'validating',
+                    message: 'Запущена backend-проверка схемы.',
                 }),
             ]);
 
-            setExecutionResult({
-                id: `${checkedAt.getTime()}-frontend-validation-success`,
-                status: 'success',
-                startedAt: checkedAt.toISOString(),
-                finishedAt: checkedAt.toISOString(),
-                durationMs: 0,
-                totalBlocks: notebookPayload?.blocks.length ?? loadedNotebookPayload?.blocks.length ?? 0,
-                completedBlocks: notebookPayload?.blocks.length ?? loadedNotebookPayload?.blocks.length ?? 0,
-                failedBlocks: 0,
-                warningsCount: 0,
-                errorsCount: 0,
-                summary: 'Схема готова к запуску',
-                output: 'Frontend-валидация не нашла проблем. Можно запускать workflow.',
-                outputFormat: 'text',
-                rawOutput: JSON.stringify([], null, 2),
-            });
+            const backendValidation = await workflowApi.validateWorkflow(
+                savedPayload.serverNotebookId,
+                savedPayload.workflowId,
+            );
+
+            const backendIssues = mapBackendValidationToIssues(backendValidation);
+            const allIssues = [...frontendIssues, ...backendIssues];
+            const blockingIssues = getBlockingValidationIssues(allIssues);
+
+            setValidationIssues(allIssues);
+            setExecutionStatus(blockingIssues.length > 0 ? 'error' : 'success');
+            setExecutionLogs([
+                createExecutionLog({
+                    level: 'success',
+                    status: 'success',
+                    message: 'Frontend-проверка завершена успешно.',
+                }),
+                ...createValidationLogs(backendIssues),
+            ]);
+            setExecutionResult(
+                createValidationResult({
+                    issues: allIssues,
+                    totalBlocks: savedPayload.blocks.length,
+                    startedAt: checkedAt,
+                    idSuffix: 'full-validation-result',
+                }),
+            );
+
+            if (blockingIssues.length > 0) {
+                setSaveError(
+                    `Backend-валидация нашла ошибок: ${blockingIssues.length}.`,
+                );
+                return;
+            }
 
             setSaveError(null);
-            return;
-        }
-
-        setExecutionLogs(
-            issues.slice(0, 12).map((issue) =>
-                createExecutionLog({
-                    level: issue.severity === 'error' ? 'error' : 'warning',
-                    status: issue.severity === 'error' ? 'error' : 'idle',
-                    blockId: issue.blockId,
-                    blockTitle: issue.blockTitle,
-                    message: issue.message,
-                }),
-            ),
-        );
-
-        setExecutionResult({
-            id: `${checkedAt.getTime()}-frontend-validation-result`,
-            status: blockingIssues.length > 0 ? 'error' : 'success',
-            startedAt: checkedAt.toISOString(),
-            finishedAt: checkedAt.toISOString(),
-            durationMs: 0,
-            totalBlocks: notebookPayload?.blocks.length ?? loadedNotebookPayload?.blocks.length ?? 0,
-            completedBlocks:
-                blockingIssues.length > 0
-                    ? 0
-                    : notebookPayload?.blocks.length ?? loadedNotebookPayload?.blocks.length ?? 0,
-            failedBlocks: blockingIssues.length,
-            warningsCount: warnings.length,
-            errorsCount: blockingIssues.length,
-            summary: getValidationResultSummary(issues),
-            output:
-                blockingIssues.length > 0
-                    ? getValidationErrorSummary(issues) ?? 'Схема содержит ошибки.'
-                    : 'Критических ошибок нет. Есть предупреждения, которые стоит проверить.',
-            outputFormat: 'text',
-            rawOutput: JSON.stringify(issues, null, 2),
-        });
-
-        if (blockingIssues.length > 0) {
-            setSaveError(
-                `Схема не готова к запуску: найдено ошибок ${blockingIssues.length}.`,
+            setSaveSuccessMessage(
+                backendValidation.warnings.length > 0
+                    ? `Проверка завершена. Предупреждений: ${backendValidation.warnings.length}.`
+                    : 'Проверка завершена: схема готова к запуску.',
             );
-            return;
-        }
+        } catch (error) {
+            const message =
+                error instanceof Error
+                    ? error.message
+                    : 'Не удалось выполнить backend-валидацию.';
 
-        setSaveError(null);
-    }, [loadedNotebookPayload, notebookPayload, validateCurrentNotebook]);
+            setExecutionStatus('error');
+            setExecutionLogs([
+                createExecutionLog({
+                    level: 'error',
+                    status: 'error',
+                    message: `Backend-проверка не выполнена: ${message}`,
+                }),
+            ]);
+            setExecutionResult({
+                id: `${checkedAt.getTime()}-backend-validation-error`,
+                status: 'error',
+                startedAt: checkedAt.toISOString(),
+                finishedAt: new Date().toISOString(),
+                durationMs: 0,
+                totalBlocks,
+                completedBlocks: 0,
+                failedBlocks: 1,
+                warningsCount: 0,
+                errorsCount: 1,
+                summary: 'Backend-проверка не выполнена',
+                output:
+                    'Не удалось сохранить workflow или получить результат backend-валидации.',
+                outputFormat: 'text',
+                rawOutput: JSON.stringify(
+                    {
+                        message,
+                        error,
+                    },
+                    null,
+                    2,
+                ),
+            });
+
+            setSaveError(`Backend-проверка не выполнена: ${message}`);
+            console.warn('Backend workflow validation failed:', error);
+        } finally {
+            setIsSaving(false);
+        }
+    }, [
+        loadedNotebookPayload,
+        notebookPayload,
+        saveNotebookToBackend,
+        validateCurrentNotebook,
+    ]);
 
     const handleRunWorkflow = useCallback(async () => {
         runRequestIdRef.current += 1;

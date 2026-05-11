@@ -4,6 +4,7 @@ import type {
     WorkflowRequest,
     WorkflowResponse,
     WorkflowShortResponse,
+    WorkflowValidationResponse,
 } from './workflowApiTypes';
 
 function getWorkflowEndpoint(notebookId: string) {
@@ -53,7 +54,7 @@ export const workflowApi = {
     },
 
     validateWorkflow(notebookId: string, workflowId: string) {
-        return apiClient.post(
+        return apiClient.post<WorkflowValidationResponse>(
             `${getWorkflowEndpoint(notebookId)}/${workflowId}/validate`,
         );
     },
