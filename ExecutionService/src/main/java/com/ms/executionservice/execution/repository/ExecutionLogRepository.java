@@ -11,4 +11,6 @@ public interface ExecutionLogRepository extends JpaRepository<ExecutionLogEntity
     List<ExecutionLogEntity> findByExecution_IdOrderByCreatedAtAsc(UUID executionId);
     List<ExecutionLogEntity> findByBlock_Id(UUID blockId);
     List<ExecutionLogEntity> findByStatus(ExecutionLogStatus status);
+
+    void deleteByExecution_Workflow_Id(UUID workflowId);
 }

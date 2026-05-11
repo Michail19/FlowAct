@@ -10,4 +10,6 @@ import java.util.UUID;
 public interface WorkflowBlockRepository extends JpaRepository<WorkflowBlockEntity, UUID> {
     List<WorkflowBlockEntity> findByWorkflow_Id(UUID workflowId);
     List<WorkflowBlockEntity> findByWorkflow_IdAndType(UUID workflowId, BlockType type);
+
+    void deleteByWorkflow_Id(UUID workflowId);
 }

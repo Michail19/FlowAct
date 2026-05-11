@@ -9,4 +9,6 @@ import java.util.UUID;
 public interface WorkflowConnectionRepository extends JpaRepository<WorkflowConnectionEntity, UUID> {
     List<WorkflowConnectionEntity> findByWorkflow_Id(UUID workflowId);
     List<WorkflowConnectionEntity> findByFromBlock_Id(UUID fromBlockId);
+
+    void deleteByWorkflow_Id(UUID workflowId);
 }

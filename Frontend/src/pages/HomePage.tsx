@@ -189,6 +189,12 @@ function HomePage() {
     const [notebookToDelete, setNotebookToDelete] = useState<NotebookListItem | null>(null);
     const [isSyncing, setIsSyncing] = useState(false);
 
+    const getVisibleLocalNotebooks = useCallback(() => {
+        return listNotebooksLocally().filter(
+            (notebook) => !deletedLocalNotebookIdsRef.current.has(notebook.id),
+        );
+    }, []);
+
     const syncNotebooksFromBackend = useCallback(async () => {
         setIsSyncing(true);
 
@@ -338,12 +344,6 @@ function HomePage() {
     };
 
     const showCreateButtonInEmptyState = notebooks.length === 0 && !isSearching;
-
-    const getVisibleLocalNotebooks = useCallback(() => {
-        return listNotebooksLocally().filter(
-            (notebook) => !deletedLocalNotebookIdsRef.current.has(notebook.id),
-        );
-    }, []);
 
     return (
         <main className="home-page">

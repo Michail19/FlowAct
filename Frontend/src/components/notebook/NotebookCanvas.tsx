@@ -504,7 +504,7 @@ function NotebookCanvas({
                         title: definition.title,
                         blockType: 'ai',
                         status: 'idle',
-                        aiConfig: request.proposedConfig?.ai ?? {
+                        aiConfig: {
                             prompt: '',
                             models: [...defaultAiConfig.models],
                         },
