@@ -1,6 +1,9 @@
 import { NOTEBOOK_BLOCK_LIBRARY } from './blockLibrary';
 import NotebookIconButton from './NotebookIconButton';
-import type { NotebookBlockType } from './notebookTypes';
+import type {
+    NotebookAutoLayoutMode,
+    NotebookBlockType,
+} from './notebookTypes';
 
 import './NotebookToolbar.css';
 
@@ -8,7 +11,7 @@ type NotebookToolbarProps = {
     onAddBlock: (blockType: NotebookBlockType) => void;
     onRunWorkflow: () => void;
     onOpenRunPanel: () => void;
-    onAutoLayout: () => void;
+    onAutoLayout: (mode?: NotebookAutoLayoutMode) => void;
     onValidateWorkflow: () => void;
     isWorkflowRunning: boolean;
 };
@@ -42,13 +45,13 @@ const blockDefinitionByType = new Map(
 );
 
 function NotebookToolbar({
-                             onAddBlock,
-                             onRunWorkflow,
-                             onOpenRunPanel,
-                             onAutoLayout,
-                             onValidateWorkflow,
-                             isWorkflowRunning,
-                         }: NotebookToolbarProps) {
+    onAddBlock,
+    onRunWorkflow,
+    onOpenRunPanel,
+    onAutoLayout,
+    onValidateWorkflow,
+    isWorkflowRunning,
+}: NotebookToolbarProps) {
     return (
         <aside className="notebook-toolbar" aria-label="Панель блоков">
             <div className="notebook-toolbar__blocks">
@@ -84,7 +87,7 @@ function NotebookToolbar({
                     icon="sparkles"
                     label="Автосборка схемы"
                     variant="circle"
-                    onClick={onAutoLayout}
+                    onClick={() => onAutoLayout('arrange-connect')}
                 />
 
                 <NotebookIconButton
