@@ -132,21 +132,15 @@ function mapFrontendBlockTypeToBackendBlockType(
         case 'merge':
             return 'MERGE';
 
-        /*
-         * Важно:
-         * backend BlockType содержит MAP, но текущий MapNodeHandler поддерживает
-         * только pick/rename, а не полноценный loop. Поэтому loop пока отправляем
-         * как INPUT/pass-through, чтобы не ломать выполнение.
-         */
         case 'loop':
             return 'MAP';
 
-        /*
-         * Для database/email/log в WorkerService пока нет отдельных BlockType.
-         * Отправляем как INPUT/pass-through и сохраняем frontendType в config.
-         */
         case 'database':
+            return 'DATABASE_QUERY';
+
         case 'email':
+            return 'EMAIL_SEND';
+
         case 'log':
             return 'INPUT';
 
@@ -513,6 +507,12 @@ function getFrontendBlockTypeFromBackendBlock(
         case 'LLM_REQUEST':
         case 'ML_REQUEST':
             return 'ai';
+
+        case 'DATABASE_QUERY':
+            return 'database';
+
+        case 'EMAIL_SEND':
+            return 'email';
 
         case 'TRANSFORM_JSON':
         case 'SET_VARIABLE':
