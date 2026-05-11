@@ -111,7 +111,9 @@ public class NextBlockResolver {
     private boolean requiresSingleOutgoing(WorkflowBlockEntity block) {
         return switch (block.getType()) {
             case START, INPUT, SET_VARIABLE, MAP, FILTER, TRANSFORM_JSON,
-                 HTTP_REQUEST, LLM_REQUEST, ML_REQUEST, DELAY, WAIT, WEBHOOK, MERGE -> true;
+                 HTTP_REQUEST, LLM_REQUEST, ML_REQUEST,
+                 DATABASE_QUERY, EMAIL_SEND, LOG_MESSAGE,
+                 DELAY, WAIT, WEBHOOK, MERGE -> true;
             case IF, SWITCH -> false;
             case END -> false;
         };
