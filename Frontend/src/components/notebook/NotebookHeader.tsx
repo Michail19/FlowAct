@@ -1,10 +1,14 @@
 import { Link } from 'react-router-dom';
-import { type FocusEvent, useState } from 'react';
+import { type FocusEvent, useEffect, useState } from 'react';
 
 import NotebookIconButton from './NotebookIconButton';
 import type { NotebookZoomValue } from './notebookTypes';
 import type { WorkflowStatus } from '../../services/workflowApiTypes';
-import NotebookSvgIcon from "./NotebookSvgIcon";
+import NotebookSvgIcon from './NotebookSvgIcon';
+import {
+    isSaveShortcut,
+    shouldIgnoreCanvasShortcut,
+} from './keyboardShortcutUtils';
 
 import './NotebookHeader.css';
 
@@ -64,6 +68,28 @@ function NotebookHeader({
                         }: NotebookHeaderProps) {
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [draftTitle, setDraftTitle] = useState(title);
+
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (!isSaveShortcut(event)) {
+                return;
+            }
+
+            event.preventDefault();
+
+            if (shouldIgnoreCanvasShortcut(event) || isSaving) {
+                return;
+            }
+
+            onSave?.();
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [isSaving, onSave]);
 
     const handleStartRename = () => {
         setDraftTitle(title);
@@ -137,7 +163,7 @@ function NotebookHeader({
                 {!isMobile && !isInterfaceHidden && (
                     <NotebookIconButton
                         icon={isSaving ? 'loading' : 'save'}
-                        label={isSaving ? 'Сохранение...' : 'Сохранить notebook'}
+                        label={isSaving ? 'Сохранение...' : 'Сохранить notebook (Ctrl+S)'}
                         active
                         onClick={onSave}
                         disabled={isSaving}
