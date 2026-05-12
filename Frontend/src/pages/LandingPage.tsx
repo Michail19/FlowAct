@@ -104,17 +104,22 @@ const shortcutCards = [
 function useLandingScrollReveal() {
     useEffect(() => {
         const pageElement = document.querySelector('.landing-page');
+        const bodyElement = document.body;
         const revealElements = Array.from(
             document.querySelectorAll<HTMLElement>('[data-reveal]'),
         );
 
+        bodyElement.classList.add('landing-page-body');
         pageElement?.classList.add('landing-page--animated');
 
         if (!('IntersectionObserver' in window)) {
             revealElements.forEach((element) => {
                 element.classList.add('landing-reveal--visible');
             });
-            return undefined;
+            return () => {
+                bodyElement.classList.remove('landing-page-body');
+                pageElement?.classList.remove('landing-page--animated');
+            };
         }
 
         const observer = new IntersectionObserver(
@@ -138,6 +143,7 @@ function useLandingScrollReveal() {
 
         return () => {
             observer.disconnect();
+            bodyElement.classList.remove('landing-page-body');
             pageElement?.classList.remove('landing-page--animated');
         };
     }, []);
@@ -161,8 +167,8 @@ function LandingEditorPreview() {
             <div className="landing-editor-preview__body">
                 <aside className="landing-editor-preview__toolbar" aria-hidden="true">
                     <span title="Старт" />
-                    <span title="AI" />
                     <span title="Условие" />
+                    <span title="AI" />
                     <span title="HTTP" />
                     <span title="Лог" />
                     <span title="Конец" />
@@ -172,11 +178,11 @@ function LandingEditorPreview() {
                     <div className="landing-editor-preview__node landing-editor-preview__node--start">
                         Старт
                     </div>
-                    <div className="landing-editor-preview__node landing-editor-preview__node--ai">
-                        AI-анализ
-                    </div>
                     <div className="landing-editor-preview__node landing-editor-preview__node--condition">
                         IF
+                    </div>
+                    <div className="landing-editor-preview__node landing-editor-preview__node--ai">
+                        AI-анализ
                     </div>
                     <div className="landing-editor-preview__node landing-editor-preview__node--log">
                         Лог
