@@ -18,7 +18,7 @@ body.landing-page-body #root {
 
 .landing-page {
     min-height: auto;
-    padding-top: 112px;
+    padding-top: 84px;
     overflow: visible;
     overflow-x: clip;
 }
@@ -29,7 +29,7 @@ body.landing-page-body #root {
 
 .landing-page__topbar {
     position: fixed;
-    top: 28px;
+    top: 22px;
     left: 50%;
     z-index: 70;
     width: min(1120px, calc(100% - 56px));
@@ -47,11 +47,11 @@ body.landing-page-body #root {
 }
 
 .landing-hero {
-    min-height: calc(100vh - 112px);
+    min-height: calc(100vh - 84px);
     grid-template-columns: minmax(0, 0.86fr) minmax(430px, 1.14fr);
     align-items: center;
     gap: clamp(56px, 6vw, 92px);
-    padding: 54px 0 74px;
+    padding: 22px 0 58px;
 }
 
 .landing-hero__content h1 {
@@ -88,7 +88,7 @@ body.landing-page-body #root {
 
 .landing-stats {
     gap: 22px;
-    margin: 44px 0 132px;
+    margin: 34px 0 108px;
 }
 
 .landing-stat-card {
@@ -98,6 +98,13 @@ body.landing-page-body #root {
 
 .landing-stat-card strong {
     font-size: clamp(24px, 3vw, 32px);
+}
+
+#features,
+#how-it-works,
+#ai,
+#tasks {
+    scroll-margin-top: 122px;
 }
 
 .landing-section-heading h2,
@@ -122,7 +129,7 @@ body.landing-page-body #root {
 .landing-features,
 .landing-steps,
 .landing-tasks {
-    margin-top: 128px;
+    margin-top: 112px;
 }
 
 .landing-features__grid,
@@ -157,17 +164,17 @@ body.landing-page-body #root {
 
 .landing-editor-preview__node--ai {
     top: 118px;
-    left: 378px;
+    left: 372px;
 }
 
 .landing-editor-preview__node--log {
     top: 28px;
-    left: 386px;
+    left: 408px;
 }
 
 .landing-editor-preview__node--end {
     top: 118px;
-    right: 26px;
+    right: 18px;
 }
 
 .landing-editor-preview__branch--yes {
@@ -182,7 +189,7 @@ body.landing-page-body #root {
 
 .landing-ai {
     gap: 52px;
-    margin-top: 138px;
+    margin-top: 124px;
     padding: 46px;
 }
 
@@ -207,7 +214,7 @@ body.landing-page-body #root {
 }
 
 .landing-cta {
-    margin-top: 138px;
+    margin-top: 124px;
     padding: 70px 30px;
 }
 
@@ -343,7 +350,7 @@ body.landing-page-body #root {
 
 @media (max-width: 1080px) {
     .landing-page {
-        padding-top: 96px;
+        padding-top: 84px;
     }
 
     .landing-page__shell {
@@ -358,7 +365,7 @@ body.landing-page-body #root {
     .landing-hero {
         min-height: auto;
         gap: 48px;
-        padding-top: 56px;
+        padding-top: 36px;
     }
 
     .landing-hero__content h1 {
@@ -366,17 +373,17 @@ body.landing-page-body #root {
     }
 
     .landing-stats {
-        margin-bottom: 96px;
+        margin-bottom: 88px;
     }
 
     .landing-features,
     .landing-steps,
     .landing-tasks {
-        margin-top: 96px;
+        margin-top: 88px;
     }
 
     .landing-ai {
-        margin-top: 108px;
+        margin-top: 100px;
     }
 
     .landing-run {
@@ -384,7 +391,7 @@ body.landing-page-body #root {
     }
 
     .landing-cta {
-        margin-top: 108px;
+        margin-top: 100px;
     }
 }
 
@@ -424,6 +431,13 @@ body.landing-page-body #root {
         font-size: clamp(28px, 8.5vw, 36px);
     }
 
+    #features,
+    #how-it-works,
+    #ai,
+    #tasks {
+        scroll-margin-top: 28px;
+    }
+
     .landing-stats {
         gap: 14px;
         margin: 28px 0 70px;
@@ -451,7 +465,7 @@ body.landing-page-body #root {
 
     .landing-editor-preview__node--ai {
         top: 105px;
-        left: 204px;
+        left: 186px;
     }
 
     .landing-editor-preview__node--log {
