@@ -1,0 +1,3 @@
+flowact.schema.ru, www.flowact.schema.ru {
+    reverse_proxy frontend:80
+}
