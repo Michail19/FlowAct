@@ -125,14 +125,32 @@ services:
     container_name: flowact-frontend
     ports:
       - "3000:80"
+    expose:
+      - "80"
     depends_on:
       execution-service:
         condition: service_healthy
     networks:
       - flowact-network
 
+  caddy:
+    image: caddy:2.8-alpine
+    container_name: flowact-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+
 volumes:
   flowact-postgres-data:
+  caddy_data:
+  caddy_config:
 
 networks:
   flowact-network:
