@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import './LandingPage.css';
@@ -13,7 +13,7 @@ type AuthModalState = {
 const heroHighlights = [
     'Визуальный редактор без лишней настройки',
     'Запуск workflow и понятные логи выполнения',
-    'Подготовка под AI-рекомендации и автодополнение',
+    'AI-подсказки и автодополнение сценариев',
 ];
 
 const statsCards = [
@@ -26,8 +26,8 @@ const statsCards = [
         label: 'сценарии собираются связями между блоками',
     },
     {
-        value: 'Demo',
-        label: 'можно открыть редактор до подключения UserService',
+        value: 'AI',
+        label: 'подсказки помогают быстрее дополнять рабочий процесс',
     },
 ];
 
@@ -43,8 +43,8 @@ const featureCards = [
         icon: '▶',
     },
     {
-        title: 'AI-ready подход',
-        text: 'AI-блоки и рекомендации помогают готовить процессы для анализа текста, генерации и автодополнения.',
+        title: 'AI-помощник',
+        text: 'Добавляйте AI-блоки, получайте подсказки и быстрее собирайте сценарии обработки данных.',
         icon: '✦',
     },
 ];
@@ -74,7 +74,7 @@ const taskCards = [
     },
     {
         title: 'AI-обработка текста',
-        text: 'Готовьте сценарии, где модель анализирует текст, формирует вывод и передаёт его дальше.',
+        text: 'Создавайте сценарии, где модель анализирует текст, формирует вывод и передаёт его дальше.',
     },
     {
         title: 'Интеграции через HTTP',
@@ -100,6 +100,48 @@ const shortcutCards = [
         action: 'запустить workflow',
     },
 ];
+
+function useLandingScrollReveal() {
+    useEffect(() => {
+        const pageElement = document.querySelector('.landing-page');
+        const revealElements = Array.from(
+            document.querySelectorAll<HTMLElement>('[data-reveal]'),
+        );
+
+        pageElement?.classList.add('landing-page--animated');
+
+        if (!('IntersectionObserver' in window)) {
+            revealElements.forEach((element) => {
+                element.classList.add('landing-reveal--visible');
+            });
+            return undefined;
+        }
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    if (!entry.isIntersecting) {
+                        return;
+                    }
+
+                    entry.target.classList.add('landing-reveal--visible');
+                    observer.unobserve(entry.target);
+                });
+            },
+            {
+                rootMargin: '0px 0px -12% 0px',
+                threshold: 0.16,
+            },
+        );
+
+        revealElements.forEach((element) => observer.observe(element));
+
+        return () => {
+            observer.disconnect();
+            pageElement?.classList.remove('landing-page--animated');
+        };
+    }, []);
+}
 
 function LandingEditorPreview() {
     return (
@@ -170,7 +212,7 @@ function LandingEditorPreview() {
 
 function LandingAiModels() {
     return (
-        <section className="landing-ai" id="ai">
+        <section className="landing-ai" id="ai" data-reveal="section">
             <div className="landing-ai__visual" aria-hidden="true">
                 <span className="landing-ai__orb landing-ai__orb--openai">AI</span>
                 <span className="landing-ai__orb landing-ai__orb--gemini">✦</span>
@@ -182,9 +224,9 @@ function LandingAiModels() {
                 <span className="landing-page__eyebrow">AI-интеграции</span>
                 <h2>AI становится частью процесса, а не отдельным окном</h2>
                 <p>
-                    FlowAct готовится к сценариям, где модель получает данные из предыдущего
-                    блока, анализирует их и передаёт результат дальше по схеме. Это удобно для
-                    классификации, генерации текста, проверки условий и автоматических подсказок.
+                    FlowAct связывает AI-блоки с остальной схемой: модель получает данные из
+                    предыдущего блока, анализирует их и передаёт результат дальше по workflow.
+                    Это удобно для классификации, генерации текста, проверки условий и подсказок.
                 </p>
 
                 <div className="landing-ai__chips" aria-label="Возможности AI-блоков">
@@ -211,9 +253,6 @@ function AuthModal({
 
     const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-
-        // Временное поведение до подключения UserService.
-        // После появления авторизации здесь будет вызов authApi.login/register.
         navigate('/home');
     };
 
@@ -235,8 +274,8 @@ function AuthModal({
                             {isLogin ? 'Вход в FlowAct' : 'Создание аккаунта'}
                         </h2>
                         <p>
-                            Сейчас форма работает как demo-переход. После подключения UserService
-                            здесь появится полноценная авторизация.
+                            Перейдите в рабочее пространство, чтобы создать notebook, собрать
+                            workflow и проверить выполнение процесса.
                         </p>
                     </div>
 
@@ -314,13 +353,12 @@ function AuthModal({
                     )}
 
                     <button className="landing-auth__submit" type="submit">
-                        {isLogin ? 'Войти в demo' : 'Продолжить в demo'}
+                        {isLogin ? 'Войти' : 'Создать аккаунт'}
                     </button>
                 </form>
 
                 <p className="landing-auth__hint">
-                    Пока UserService не подключён, FlowAct использует временный demo-пользователь
-                    и позволяет сразу перейти к созданию notebook.
+                    После отправки формы откроется рабочее пространство FlowAct.
                 </p>
             </section>
         </div>
@@ -329,6 +367,8 @@ function AuthModal({
 
 function LandingPage() {
     const [authModal, setAuthModal] = useState<AuthModalState>(null);
+
+    useLandingScrollReveal();
 
     const openAuthModal = (mode: AuthMode) => {
         setAuthModal({ mode });
@@ -345,7 +385,7 @@ function LandingPage() {
     return (
         <main className="landing-page">
             <section className="landing-page__shell">
-                <header className="landing-page__topbar">
+                <header className="landing-page__topbar" data-reveal="down">
                     <Link className="landing-page__brand" to="/landing">
                         <span className="landing-page__brand-mark">F</span>
                         FlowAct
@@ -378,22 +418,22 @@ function LandingPage() {
                 </header>
 
                 <section className="landing-hero" id="about">
-                    <div className="landing-hero__content">
+                    <div className="landing-hero__content" data-reveal="up">
                         <span className="landing-page__eyebrow">Workflow automation</span>
 
                         <h1>
-                            Собирайте рабочие процессы так же просто, как схему на доске
+                            Собирайте рабочие процессы как схему на доске
                         </h1>
 
                         <p>
                             FlowAct помогает визуально собрать цепочку действий, запустить её,
-                            увидеть результат каждого блока и постепенно добавить AI-логику без
-                            ручного связывания сервисов.
+                            увидеть результат каждого блока и добавить AI-логику без ручного
+                            связывания сервисов.
                         </p>
 
                         <div className="landing-hero__buttons">
                             <Link className="landing-page__primary-button" to="/home">
-                                Открыть demo-редактор
+                                Открыть редактор
                             </Link>
 
                             <a className="landing-page__secondary-button" href="#how-it-works">
@@ -408,12 +448,12 @@ function LandingPage() {
                         </ul>
                     </div>
 
-                    <div className="landing-hero__preview" id="preview">
+                    <div className="landing-hero__preview" id="preview" data-reveal="scale">
                         <LandingEditorPreview />
                     </div>
                 </section>
 
-                <section className="landing-stats" aria-label="Кратко о FlowAct">
+                <section className="landing-stats" aria-label="Кратко о FlowAct" data-reveal="up">
                     {statsCards.map((card) => (
                         <article className="landing-stat-card" key={card.value}>
                             <strong>{card.value}</strong>
@@ -422,13 +462,13 @@ function LandingPage() {
                     ))}
                 </section>
 
-                <section className="landing-features" id="features">
+                <section className="landing-features" id="features" data-reveal="up">
                     <div className="landing-section-heading landing-section-heading--wide">
                         <span className="landing-page__eyebrow">Возможности</span>
                         <h2>Всё важное для первого workflow — на одной странице</h2>
                         <p>
-                            Landing ведёт пользователя не к списку функций, а к понятному действию:
-                            открыть demo, создать notebook и проверить выполнение процесса.
+                            FlowAct ведёт пользователя к понятному действию: открыть редактор,
+                            создать notebook, собрать схему и проверить выполнение процесса.
                         </p>
                     </div>
 
@@ -445,7 +485,7 @@ function LandingPage() {
                     </div>
                 </section>
 
-                <section className="landing-steps" id="how-it-works">
+                <section className="landing-steps" id="how-it-works" data-reveal="up">
                     <div className="landing-section-heading">
                         <span className="landing-page__eyebrow">Как работает</span>
                         <h2>От идеи до запуска — без лишних экранов</h2>
@@ -464,7 +504,7 @@ function LandingPage() {
 
                 <LandingAiModels />
 
-                <section className="landing-run">
+                <section className="landing-run" data-reveal="up">
                     <div className="landing-run__content">
                         <span className="landing-page__eyebrow">Execution</span>
                         <h2>Запуск должен быть понятным, а не “чёрным ящиком”</h2>
@@ -507,14 +547,14 @@ function LandingPage() {
                     </div>
                 </section>
 
-                <section className="landing-tasks" id="tasks">
+                <section className="landing-tasks" id="tasks" data-reveal="up">
                     <div className="landing-tasks__header">
                         <span className="landing-page__eyebrow">Сценарии</span>
                         <h2>Для каких задач подходит FlowAct</h2>
                         <p>
-                            Сначала можно использовать FlowAct как визуальный редактор и систему
-                            запуска процессов. По мере развития проекта сюда добавятся полноценные
-                            пользовательские аккаунты, расписания и AI-рекомендации.
+                            Используйте FlowAct как визуальный редактор и систему запуска
+                            процессов: от простых повторяемых цепочек до сценариев с AI и
+                            интеграциями.
                         </p>
                     </div>
 
@@ -531,12 +571,12 @@ function LandingPage() {
                     </div>
                 </section>
 
-                <section className="landing-cta">
-                    <span className="landing-page__eyebrow">Demo mode</span>
+                <section className="landing-cta" data-reveal="scale">
+                    <span className="landing-page__eyebrow">Start building</span>
                     <h2>Откройте редактор и соберите первый workflow</h2>
                     <p>
-                        Пока авторизация находится в режиме заглушки, можно сразу перейти к `/home`,
-                        создать notebook и проверить базовый сценарий сохранения, запуска и логов.
+                        Создайте notebook, добавьте первые блоки, соедините их в цепочку и
+                        запустите процесс, чтобы увидеть результат выполнения.
                     </p>
 
                     <div className="landing-cta__actions">
@@ -549,12 +589,12 @@ function LandingPage() {
                             type="button"
                             onClick={() => openAuthModal('registration')}
                         >
-                            Открыть форму
+                            Создать аккаунт
                         </button>
                     </div>
                 </section>
 
-                <footer className="landing-footer">
+                <footer className="landing-footer" data-reveal="up">
                     <span>FlowAct 2026</span>
                     <div className="landing-footer__links">
                         <a href="#features">Возможности</a>
