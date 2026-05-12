@@ -50,12 +50,39 @@ function toNotebookListItem(payload: NotebookPayloadDto): NotebookListItem {
     };
 }
 
+function getNotebookServerId(notebookId: string) {
+    return safeParseNotebook(
+        localStorage.getItem(getNotebookStorageKey(notebookId)),
+    )?.serverNotebookId;
+}
+
+function dedupeNotebookListByServerId(list: NotebookListItem[]) {
+    const seenServerIds = new Set<string>();
+
+    return list.filter((item) => {
+        const serverNotebookId = getNotebookServerId(item.id);
+
+        if (!serverNotebookId) {
+            return true;
+        }
+
+        if (seenServerIds.has(serverNotebookId)) {
+            return false;
+        }
+
+        seenServerIds.add(serverNotebookId);
+        return true;
+    });
+}
+
 export function listNotebooksLocally(): NotebookListItem[] {
-    return safeParseNotebookList(localStorage.getItem(NOTEBOOK_LIST_KEY)).sort(
+    const sortedList = safeParseNotebookList(localStorage.getItem(NOTEBOOK_LIST_KEY)).sort(
         (firstNotebook, secondNotebook) =>
             new Date(secondNotebook.updatedAt).getTime() -
             new Date(firstNotebook.updatedAt).getTime(),
     );
+
+    return dedupeNotebookListByServerId(sortedList);
 }
 
 export function saveNotebookLocally(payload: NotebookPayloadDto): NotebookPayloadDto {
@@ -77,7 +104,21 @@ export function saveNotebookLocally(payload: NotebookPayloadDto): NotebookPayloa
 
     const nextList = [
         nextItem,
-        ...list.filter((item) => item.id !== notebookId),
+        ...list.filter((item) => {
+            if (item.id === notebookId) {
+                return false;
+            }
+
+            if (
+                normalizedPayload.serverNotebookId &&
+                getNotebookServerId(item.id) === normalizedPayload.serverNotebookId
+            ) {
+                localStorage.removeItem(getNotebookStorageKey(item.id));
+                return false;
+            }
+
+            return true;
+        }),
     ];
 
     localStorage.setItem(NOTEBOOK_LIST_KEY, JSON.stringify(nextList, null, 2));
