@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.util.Map;
 import java.util.Objects;
+import java.util.OptionalInt;
 
 @Component
 public class IfNodeHandler implements NodeHandler {
@@ -90,8 +91,12 @@ public class IfNodeHandler implements NodeHandler {
             case "equals" -> compareAsNormalizedValues(actualValue, expectedValue) == 0;
             case "notEquals" -> compareAsNormalizedValues(actualValue, expectedValue) != 0;
             case "contains" -> contains(actualValue, expectedValue);
-            case "greaterThan" -> compareAsNumbers(actualValue, expectedValue) > 0;
-            case "lessThan" -> compareAsNumbers(actualValue, expectedValue) < 0;
+            case "greaterThan" -> compareAsNumbers(actualValue, expectedValue)
+                    .stream()
+                    .anyMatch(comparison -> comparison > 0);
+            case "lessThan" -> compareAsNumbers(actualValue, expectedValue)
+                    .stream()
+                    .anyMatch(comparison -> comparison < 0);
             default -> toBoolean(actualValue);
         };
     }
@@ -145,15 +150,15 @@ public class IfNodeHandler implements NodeHandler {
         return actualString.contains(expectedString);
     }
 
-    private int compareAsNumbers(Object actualValue, Object expectedValue) {
+    private OptionalInt compareAsNumbers(Object actualValue, Object expectedValue) {
         BigDecimal actualNumber = toBigDecimalOrNull(actualValue);
         BigDecimal expectedNumber = toBigDecimalOrNull(expectedValue);
 
         if (actualNumber == null || expectedNumber == null) {
-            return -1;
+            return OptionalInt.empty();
         }
 
-        return actualNumber.compareTo(expectedNumber);
+        return OptionalInt.of(actualNumber.compareTo(expectedNumber));
     }
 
     private Object normalizeComparableValue(Object value) {
