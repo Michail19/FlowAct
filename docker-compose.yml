@@ -146,6 +146,8 @@ services:
       - caddy_config:/config
     depends_on:
       - frontend
+    networks:
+      - flowact-network
 
 volumes:
   flowact-postgres-data:
