@@ -6,8 +6,21 @@
     scroll-behavior: smooth;
 }
 
+body.landing-page-body {
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+body.landing-page-body #root {
+    min-height: auto;
+    overflow: visible;
+}
+
 .landing-page {
+    min-height: auto;
     padding-top: 112px;
+    overflow: visible;
+    overflow-x: clip;
 }
 
 .landing-page__shell {
@@ -135,6 +148,36 @@
 .landing-task-card p {
     font-size: 15px;
     line-height: 1.66;
+}
+
+.landing-editor-preview__node--condition {
+    top: 72px;
+    left: 220px;
+}
+
+.landing-editor-preview__node--ai {
+    top: 118px;
+    left: 378px;
+}
+
+.landing-editor-preview__node--log {
+    top: 28px;
+    left: 386px;
+}
+
+.landing-editor-preview__node--end {
+    top: 118px;
+    right: 26px;
+}
+
+.landing-editor-preview__branch--yes {
+    top: 84px;
+    left: 346px;
+}
+
+.landing-editor-preview__branch--no {
+    top: 132px;
+    left: 342px;
 }
 
 .landing-ai {
@@ -399,6 +442,26 @@
     .landing-tasks__grid {
         gap: 16px;
         margin-top: 24px;
+    }
+
+    .landing-editor-preview__node--condition {
+        top: 58px;
+        left: 118px;
+    }
+
+    .landing-editor-preview__node--ai {
+        top: 105px;
+        left: 204px;
+    }
+
+    .landing-editor-preview__node--log {
+        top: 24px;
+        left: 205px;
+    }
+
+    .landing-editor-preview__node--end {
+        top: 105px;
+        right: 12px;
     }
 
     .landing-ai,
