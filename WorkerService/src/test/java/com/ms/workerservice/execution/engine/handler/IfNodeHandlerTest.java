@@ -80,6 +80,76 @@ class IfNodeHandlerTest {
     }
 
     @Test
+    void shouldEvaluateEqualsOperatorAgainstExpectedValue() {
+        WorkflowBlockEntity block = block("""
+                {"inputKey":"status","operator":"equals","expectedValue":"ok"}
+                """);
+
+        ExecutionContext context = new ExecutionContext(UUID.randomUUID(), UUID.randomUUID());
+        ResolvedInput input = new ResolvedInput(Map.of("status", "ok"));
+
+        NodeResult result = ifNodeHandler.handle(block, input, context);
+
+        assertEquals("true", result.getSelectedBranch());
+    }
+
+    @Test
+    void shouldEvaluateNotEqualsOperatorAgainstExpectedValue() {
+        WorkflowBlockEntity block = block("""
+                {"inputKey":"status","operator":"notEquals","expectedValue":"ok"}
+                """);
+
+        ExecutionContext context = new ExecutionContext(UUID.randomUUID(), UUID.randomUUID());
+        ResolvedInput input = new ResolvedInput(Map.of("status", "error"));
+
+        NodeResult result = ifNodeHandler.handle(block, input, context);
+
+        assertEquals("true", result.getSelectedBranch());
+    }
+
+    @Test
+    void shouldEvaluateContainsOperatorAgainstExpectedValue() {
+        WorkflowBlockEntity block = block("""
+                {"inputKey":"message","operator":"contains","expectedValue":"done"}
+                """);
+
+        ExecutionContext context = new ExecutionContext(UUID.randomUUID(), UUID.randomUUID());
+        ResolvedInput input = new ResolvedInput(Map.of("message", "Job is done"));
+
+        NodeResult result = ifNodeHandler.handle(block, input, context);
+
+        assertEquals("true", result.getSelectedBranch());
+    }
+
+    @Test
+    void shouldEvaluateGreaterThanOperatorAgainstExpectedValue() {
+        WorkflowBlockEntity block = block("""
+                {"inputKey":"score","operator":"greaterThan","expectedValue":"10"}
+                """);
+
+        ExecutionContext context = new ExecutionContext(UUID.randomUUID(), UUID.randomUUID());
+        ResolvedInput input = new ResolvedInput(Map.of("score", 15));
+
+        NodeResult result = ifNodeHandler.handle(block, input, context);
+
+        assertEquals("true", result.getSelectedBranch());
+    }
+
+    @Test
+    void shouldEvaluateLessThanOperatorAgainstExpectedValue() {
+        WorkflowBlockEntity block = block("""
+                {"inputKey":"score","operator":"lessThan","expectedValue":"10"}
+                """);
+
+        ExecutionContext context = new ExecutionContext(UUID.randomUUID(), UUID.randomUUID());
+        ResolvedInput input = new ResolvedInput(Map.of("score", 5));
+
+        NodeResult result = ifNodeHandler.handle(block, input, context);
+
+        assertEquals("true", result.getSelectedBranch());
+    }
+
+    @Test
     void shouldFallbackToSingleInputValue() {
         WorkflowBlockEntity block = block("""
                 {}
