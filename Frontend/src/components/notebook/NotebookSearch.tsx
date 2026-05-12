@@ -1,7 +1,12 @@
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 
 import NotebookSvgIcon from './NotebookSvgIcon';
 import type { NotebookSearchResult } from './notebookTypes';
+import {
+    isRedoShortcut,
+    isUndoShortcut,
+    shouldIgnoreCanvasShortcut,
+} from './keyboardShortcutUtils';
 
 import './NotebookSearch.css';
 
@@ -39,6 +44,39 @@ function NotebookSearch({
                             canRedo = false,
                         }: NotebookSearchProps) {
     const [query, setQuery] = useState('');
+
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (shouldIgnoreCanvasShortcut(event)) {
+                return;
+            }
+
+            if (isUndoShortcut(event)) {
+                if (!canUndo) {
+                    return;
+                }
+
+                event.preventDefault();
+                onUndo?.();
+                return;
+            }
+
+            if (isRedoShortcut(event)) {
+                if (!canRedo) {
+                    return;
+                }
+
+                event.preventDefault();
+                onRedo?.();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [canRedo, canUndo, onRedo, onUndo]);
 
     const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -90,7 +128,7 @@ function NotebookSearch({
                     onClick={onUndo}
                     disabled={!canUndo}
                     aria-label="Отменить последнее действие"
-                    title={canUndo ? 'Отменить последнее действие' : 'Нет действий для отмены'}
+                    title={canUndo ? 'Отменить последнее действие (Ctrl+Z)' : 'Нет действий для отмены'}
                 >
                     <NotebookSvgIcon name="undo" size={17} />
                 </button>
@@ -101,7 +139,7 @@ function NotebookSearch({
                     onClick={onRedo}
                     disabled={!canRedo}
                     aria-label="Повторить отменённое действие"
-                    title={canRedo ? 'Повторить отменённое действие' : 'Нет действий для повтора'}
+                    title={canRedo ? 'Повторить отменённое действие (Ctrl+Shift+Z / Ctrl+Y)' : 'Нет действий для повтора'}
                 >
                     <NotebookSvgIcon name="redo" size={17} />
                 </button>

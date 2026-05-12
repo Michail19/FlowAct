@@ -8,6 +8,8 @@ services:
       POSTGRES_PASSWORD: postgres
     ports:
       - "5433:5432"
+    expose:
+      - "5432"
     volumes:
       - flowact-postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -23,6 +25,8 @@ services:
     container_name: flowact-kafka
     ports:
       - "9092:9092"
+    expose:
+      - "9092"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
@@ -71,6 +75,8 @@ services:
       JPA_SHOW_SQL: "false"
     ports:
       - "8082:8082"
+    expose:
+      - "8082"
     depends_on:
       postgres:
         condition: service_healthy
@@ -103,6 +109,16 @@ services:
       FLOWACT_LLM_OPENROUTER_ALLOW_PAID_MODELS: ${FLOWACT_LLM_OPENROUTER_ALLOW_PAID_MODELS:-false}
       FLOWACT_LLM_OPENROUTER_SITE_URL: ${FLOWACT_LLM_OPENROUTER_SITE_URL:-}
       FLOWACT_LLM_OPENROUTER_APP_NAME: ${FLOWACT_LLM_OPENROUTER_APP_NAME:-FlowAct}
+      FLOWACT_EMAIL_ENABLED: ${FLOWACT_EMAIL_ENABLED:-false}
+      FLOWACT_EMAIL_DEFAULT_FROM: ${FLOWACT_EMAIL_DEFAULT_FROM:-noreply@flowact.local}
+      SPRING_MAIL_HOST: ${SPRING_MAIL_HOST:-localhost}
+      SPRING_MAIL_PORT: ${SPRING_MAIL_PORT:-25}
+      SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME:-}
+      SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD:-}
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH:-true}
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_SSL_ENABLE: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_SSL_ENABLE:-false}
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE:-false}
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_REQUIRED: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_REQUIRED:-false}
     depends_on:
       postgres:
         condition: service_healthy

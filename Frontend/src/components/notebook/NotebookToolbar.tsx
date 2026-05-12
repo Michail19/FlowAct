@@ -1,9 +1,16 @@
+import { useEffect } from 'react';
+
 import { NOTEBOOK_BLOCK_LIBRARY } from './blockLibrary';
 import NotebookIconButton from './NotebookIconButton';
 import type {
     NotebookAutoLayoutMode,
     NotebookBlockType,
 } from './notebookTypes';
+import {
+    isPrimaryShortcut,
+    isShortcutKey,
+    shouldIgnoreCanvasShortcut,
+} from './keyboardShortcutUtils';
 
 import './NotebookToolbar.css';
 
@@ -52,6 +59,53 @@ function NotebookToolbar({
     onValidateWorkflow,
     isWorkflowRunning,
 }: NotebookToolbarProps) {
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (shouldIgnoreCanvasShortcut(event) || !isPrimaryShortcut(event)) {
+                return;
+            }
+
+            if (isShortcutKey(event, 'Enter')) {
+                if (isWorkflowRunning) {
+                    return;
+                }
+
+                event.preventDefault();
+                onRunWorkflow();
+                return;
+            }
+
+            if (event.shiftKey && isShortcutKey(event, 'a')) {
+                event.preventDefault();
+                onAutoLayout('arrange-connect');
+                return;
+            }
+
+            if (event.shiftKey && isShortcutKey(event, 'v')) {
+                event.preventDefault();
+                onValidateWorkflow();
+                return;
+            }
+
+            if (event.shiftKey && isShortcutKey(event, 'l')) {
+                event.preventDefault();
+                onOpenRunPanel();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [
+        isWorkflowRunning,
+        onAutoLayout,
+        onOpenRunPanel,
+        onRunWorkflow,
+        onValidateWorkflow,
+    ]);
+
     return (
         <aside className="notebook-toolbar" aria-label="Панель блоков">
             <div className="notebook-toolbar__blocks">
@@ -85,28 +139,28 @@ function NotebookToolbar({
             <div className="notebook-toolbar__actions">
                 <NotebookIconButton
                     icon="sparkles"
-                    label="Автосборка схемы"
+                    label="Автосборка схемы (Ctrl+Shift+A)"
                     variant="circle"
                     onClick={() => onAutoLayout('arrange-connect')}
                 />
 
                 <NotebookIconButton
                     icon="schemaCheck"
-                    label="Проверить схему"
+                    label="Проверить схему (Ctrl+Shift+V)"
                     variant="circle"
                     onClick={onValidateWorkflow}
                 />
 
                 <NotebookIconButton
                     icon="logs"
-                    label="Показать логи выполнения"
+                    label="Показать логи выполнения (Ctrl+Shift+L)"
                     variant="circle"
                     onClick={onOpenRunPanel}
                 />
 
                 <NotebookIconButton
                     icon={isWorkflowRunning ? 'loading' : 'play'}
-                    label={isWorkflowRunning ? 'Рабочий процесс выполняется' : 'Запустить рабочий процесс'}
+                    label={isWorkflowRunning ? 'Рабочий процесс выполняется' : 'Запустить рабочий процесс (Ctrl+Enter)'}
                     active
                     variant="circle"
                     onClick={onRunWorkflow}
