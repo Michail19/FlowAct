@@ -1,0 +1,125 @@
+.home-page__user-menu {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.home-page__user-info {
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 10px 6px 6px;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--color-text);
+    text-decoration: none;
+    transition:
+            border-color 0.15s ease,
+            background 0.15s ease,
+            transform 0.15s ease;
+}
+
+.home-page__user-info:hover {
+    transform: translateY(-1px);
+    border-color: rgba(34, 211, 238, 0.42);
+    background: rgba(34, 211, 238, 0.08);
+}
+
+.home-page__user-avatar {
+    display: grid;
+    width: 32px;
+    height: 32px;
+    flex: 0 0 auto;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--color-primary);
+    color: #07111f;
+    font-size: 12px;
+    font-weight: 900;
+}
+
+.home-page__user-text {
+    display: grid;
+    min-width: 0;
+    gap: 1px;
+}
+
+.home-page__user-text strong,
+.home-page__user-text small {
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.home-page__user-text strong {
+    font-size: 13px;
+    line-height: 1.15;
+}
+
+.home-page__user-text small {
+    color: var(--color-muted);
+    font-size: 11px;
+    line-height: 1.15;
+}
+
+.home-page__logout-button {
+    min-height: 36px;
+    padding: 0 12px;
+    border: 1px solid rgba(239, 68, 68, 0.34);
+    border-radius: 999px;
+    background: rgba(239, 68, 68, 0.1);
+    color: #fecaca;
+    cursor: pointer;
+    font-weight: 800;
+    transition:
+            background 0.15s ease,
+            transform 0.15s ease,
+            opacity 0.15s ease;
+}
+
+.home-page__logout-button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    background: rgba(239, 68, 68, 0.2);
+}
+
+.home-page__logout-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+}
+
+@media (max-width: 767px) {
+    .home-page__topbar {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 10px;
+        padding: 12px;
+    }
+
+    .home-page__user-menu {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .home-page__user-info {
+        flex: 1 1 auto;
+    }
+
+    .home-page__user-text strong,
+    .home-page__user-text small {
+        max-width: 180px;
+    }
+}
+
+@media (max-width: 480px) {
+    .home-page__user-menu {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .home-page__logout-button {
+        width: 100%;
+    }
+}
