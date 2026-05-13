@@ -1,13 +1,14 @@
 package com.ms.userservice.users.controller;
 
+import com.ms.userservice.security.util.CurrentUserUtils;
 import com.ms.userservice.users.dto.request.UpdateCurrentUserRequest;
 import com.ms.userservice.users.dto.response.UserResponse;
 import com.ms.userservice.users.service.UserService;
 import jakarta.validation.Valid;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -24,15 +25,17 @@ public class UserController {
     }
 
     @GetMapping("/me")
-    public UserResponse getCurrentUser(@RequestHeader("X-User-Id") UUID userId) {
+    public UserResponse getCurrentUser(Authentication authentication) {
+        UUID userId = CurrentUserUtils.getCurrentUserId(authentication);
         return userService.getCurrentUser(userId);
     }
 
     @PatchMapping("/me")
     public UserResponse updateCurrentUser(
-            @RequestHeader("X-User-Id") UUID userId,
+            Authentication authentication,
             @Valid @RequestBody UpdateCurrentUserRequest request
     ) {
+        UUID userId = CurrentUserUtils.getCurrentUserId(authentication);
         return userService.updateCurrentUser(userId, request);
     }
 }
