@@ -1,7 +1,9 @@
 import type { NotebookPayloadDto } from '../components/notebook/notebookBackendTypes';
+import { getStoredAuthUser } from '../auth/authStorage';
 
 const NOTEBOOK_LIST_KEY = 'flowact-notebooks';
 const NOTEBOOK_KEY_PREFIX = 'flowact-notebook:';
+const ANONYMOUS_STORAGE_SCOPE = 'anonymous';
 
 export type NotebookListItem = {
     id: string;
@@ -11,8 +13,16 @@ export type NotebookListItem = {
     connectionsCount: number;
 };
 
+function getCurrentStorageScope() {
+    return getStoredAuthUser()?.id ?? ANONYMOUS_STORAGE_SCOPE;
+}
+
+function getNotebookListStorageKey() {
+    return `${NOTEBOOK_LIST_KEY}:${getCurrentStorageScope()}`;
+}
+
 function getNotebookStorageKey(notebookId: string) {
-    return `${NOTEBOOK_KEY_PREFIX}${notebookId}`;
+    return `${NOTEBOOK_KEY_PREFIX}${getCurrentStorageScope()}:${notebookId}`;
 }
 
 function safeParseNotebook(rawPayload: string | null): NotebookPayloadDto | null {
@@ -35,7 +45,7 @@ function safeParseNotebookList(rawList: string | null): NotebookListItem[] {
     try {
         return JSON.parse(rawList) as NotebookListItem[];
     } catch {
-        localStorage.removeItem(NOTEBOOK_LIST_KEY);
+        localStorage.removeItem(getNotebookListStorageKey());
         return [];
     }
 }
@@ -76,7 +86,7 @@ function dedupeNotebookListByServerId(list: NotebookListItem[]) {
 }
 
 export function listNotebooksLocally(): NotebookListItem[] {
-    const sortedList = safeParseNotebookList(localStorage.getItem(NOTEBOOK_LIST_KEY)).sort(
+    const sortedList = safeParseNotebookList(localStorage.getItem(getNotebookListStorageKey())).sort(
         (firstNotebook, secondNotebook) =>
             new Date(secondNotebook.updatedAt).getTime() -
             new Date(firstNotebook.updatedAt).getTime(),
@@ -121,7 +131,7 @@ export function saveNotebookLocally(payload: NotebookPayloadDto): NotebookPayloa
         }),
     ];
 
-    localStorage.setItem(NOTEBOOK_LIST_KEY, JSON.stringify(nextList, null, 2));
+    localStorage.setItem(getNotebookListStorageKey(), JSON.stringify(nextList, null, 2));
 
     return normalizedPayload;
 }
@@ -145,7 +155,7 @@ export function deleteNotebookLocally(notebookId: string) {
         (notebook) => notebook.id !== notebookId,
     );
 
-    localStorage.setItem(NOTEBOOK_LIST_KEY, JSON.stringify(nextList, null, 2));
+    localStorage.setItem(getNotebookListStorageKey(), JSON.stringify(nextList, null, 2));
 }
 
 export function createEmptyNotebookLocally(title = 'Новый notebook'): NotebookPayloadDto {
@@ -159,4 +169,16 @@ export function createEmptyNotebookLocally(title = 'Новый notebook'): Noteb
         connections: [],
         updatedAt: now,
     });
+}
+
+export function clearLegacyNotebookStorage() {
+    localStorage.removeItem(NOTEBOOK_LIST_KEY);
+
+    Object.keys(localStorage)
+        .filter((key) => key.startsWith(NOTEBOOK_KEY_PREFIX) && !key.startsWith(`${NOTEBOOK_KEY_PREFIX}${getCurrentStorageScope()}:`))
+        .forEach((key) => {
+            if (!key.includes(':', NOTEBOOK_KEY_PREFIX.length)) {
+                localStorage.removeItem(key);
+            }
+        });
 }
