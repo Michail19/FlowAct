@@ -11,6 +11,7 @@ import {
     getAuthSession,
     saveAuthSession,
 } from './authSession';
+import { subscribeAuthSessionEnded } from './authEvents';
 import { authApi, type AuthUser } from '../services/authApi';
 import {
     AuthContext,
@@ -36,6 +37,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
 
         setUser(currentUser);
+    }, []);
+
+    useEffect(() => {
+        return subscribeAuthSessionEnded(() => {
+            setUser(null);
+            setIsInitializing(false);
+        });
     }, []);
 
     useEffect(() => {
