@@ -18,6 +18,7 @@ import NotebookSvgIcon from '../components/notebook/NotebookSvgIcon';
 import { useAuth } from '../auth/useAuth';
 
 import './HomePage.css';
+import './HomeAuthUx.css';
 
 function formatNotebookDate(date: string) {
     return new Date(date).toLocaleString('ru-RU', {
