@@ -17,4 +17,9 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshTokenEntity
             UserEntity user,
             OffsetDateTime now
     );
+
+    List<RefreshTokenEntity> findAllByUser_IdAndRevokedAtIsNullAndExpiresAtAfter(
+            UUID userId,
+            OffsetDateTime now
+    );
 }
