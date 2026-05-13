@@ -15,6 +15,7 @@ import { fromBackendWorkflowResponse } from '../components/notebook/backendWorkf
 import type { NotebookPayloadDto } from '../components/notebook/notebookBackendTypes';
 import type { WorkflowResponse } from '../services/workflowApiTypes';
 import NotebookSvgIcon from '../components/notebook/NotebookSvgIcon';
+import { useAuth } from '../auth/useAuth';
 
 import './HomePage.css';
 
@@ -33,6 +34,17 @@ function getPreviewBlockClass(blockType: string) {
         'home-page__preview-block',
         `home-page__preview-block--${blockType}`,
     ].join(' ');
+}
+
+function getUserInitials(displayName?: string | null, email?: string | null) {
+    const source = displayName?.trim() || email?.trim() || 'U';
+    const parts = source.split(/\s+/).filter(Boolean);
+
+    if (parts.length >= 2) {
+        return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    }
+
+    return source.slice(0, 2).toUpperCase();
 }
 
 function findLocalNotebookByServerNotebookId(
@@ -178,6 +190,7 @@ function NotebookPreview({ notebookId }: { notebookId: string }) {
 
 function HomePage() {
     const navigate = useNavigate();
+    const { user, logout } = useAuth();
 
     const deletedLocalNotebookIdsRef = useRef<Set<string>>(new Set());
     const deletedServerNotebookIdsRef = useRef<Set<string>>(new Set());
@@ -188,6 +201,10 @@ function HomePage() {
     const [search, setSearch] = useState('');
     const [notebookToDelete, setNotebookToDelete] = useState<NotebookListItem | null>(null);
     const [isSyncing, setIsSyncing] = useState(false);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+    const userInitials = getUserInitials(user?.displayName, user?.email);
+    const userLabel = user?.displayName || user?.email || 'Пользователь';
 
     const getVisibleLocalNotebooks = useCallback(() => {
         return listNotebooksLocally().filter(
@@ -306,6 +323,17 @@ function HomePage() {
         navigate(`/notebook/${notebook.id}`);
     };
 
+    const handleLogout = async () => {
+        setIsLoggingOut(true);
+
+        try {
+            await logout();
+            navigate('/landing');
+        } finally {
+            setIsLoggingOut(false);
+        }
+    };
+
     const handleAskDeleteNotebook = (notebook: NotebookListItem) => {
         setNotebookToDelete(notebook);
     };
@@ -353,14 +381,29 @@ function HomePage() {
                         FlowAct
                     </Link>
 
-                    <Link
-                        className="home-page__profile"
-                        to="/my-account"
-                        aria-label="Профиль"
-                        title="Профиль"
-                    >
-                        <NotebookSvgIcon name="user" size={18} />
-                    </Link>
+                    <div className="home-page__user-menu">
+                        <Link
+                            className="home-page__user-info"
+                            to="/my-account"
+                            aria-label="Открыть профиль"
+                            title={user?.email ?? 'Профиль'}
+                        >
+                            <span className="home-page__user-avatar">{userInitials}</span>
+                            <span className="home-page__user-text">
+                                <strong>{userLabel}</strong>
+                                <small>{user?.email}</small>
+                            </span>
+                        </Link>
+
+                        <button
+                            className="home-page__logout-button"
+                            type="button"
+                            onClick={handleLogout}
+                            disabled={isLoggingOut}
+                        >
+                            {isLoggingOut ? 'Выход...' : 'Выйти'}
+                        </button>
+                    </div>
                 </header>
 
                 <section className="home-page__content">
