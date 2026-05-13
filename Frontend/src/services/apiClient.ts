@@ -4,6 +4,7 @@ import {
     getAuthSession,
     saveAuthSession,
 } from '../auth/authSession';
+import { notifyAuthSessionEnded } from '../auth/authEvents';
 
 const DEFAULT_API_BASE_URL = '/api';
 const AUTH_REFRESH_PATH = '/v1/auth/refresh';
@@ -42,6 +43,11 @@ function shouldClearAuthSession(status: number) {
 
 function shouldRefreshAuthSession(path: string, status: number, auth: boolean) {
     return auth && status === 401 && path !== AUTH_REFRESH_PATH;
+}
+
+function endAuthSession(message: string) {
+    clearAuthSession();
+    notifyAuthSessionEnded(message);
 }
 
 async function parseResponseBody(response: Response) {
@@ -142,7 +148,7 @@ async function request<T>(path: string, options: ApiRequestOptions = {}): Promis
             await refreshAuthSession();
             response = await performFetch(path, json, auth, headers, requestOptions);
         } catch (error) {
-            clearAuthSession();
+            endAuthSession('Сессия завершена. Войдите снова.');
             throw error;
         }
     }
@@ -151,7 +157,7 @@ async function request<T>(path: string, options: ApiRequestOptions = {}): Promis
 
     if (!response.ok) {
         if (auth && shouldClearAuthSession(response.status)) {
-            clearAuthSession();
+            endAuthSession('Сессия завершена. Войдите снова.');
         }
 
         throw new ApiError(
