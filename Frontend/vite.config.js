@@ -6,24 +6,27 @@ import react from '@vitejs/plugin-react'
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
 
-  const apiProxyTarget =
-      env.VITE_DEV_API_PROXY_TARGET || 'http://localhost:8082'
+  const executionApiProxyTarget =
+      env.VITE_DEV_EXECUTION_API_PROXY_TARGET || 'http://localhost:8082'
 
-  const devUserId =
-      env.VITE_DEV_USER_ID || '00000000-0000-0000-0000-000000000001'
+  const userApiProxyTarget =
+      env.VITE_DEV_USER_API_PROXY_TARGET || 'http://localhost:8083'
 
   return {
     plugins: [react()],
     server: {
       proxy: {
-        '/api': {
-          target: apiProxyTarget,
+        '/api/v1/auth': {
+          target: userApiProxyTarget,
           changeOrigin: true,
-          configure(proxy) {
-            proxy.on('proxyReq', (proxyReq) => {
-              proxyReq.setHeader('X-User-Id', devUserId)
-            })
-          },
+        },
+        '/api/v1/users': {
+          target: userApiProxyTarget,
+          changeOrigin: true,
+        },
+        '/api': {
+          target: executionApiProxyTarget,
+          changeOrigin: true,
         },
       },
     },
