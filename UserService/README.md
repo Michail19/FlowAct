@@ -44,6 +44,30 @@ UserService/
 └── README.md
 ```
 
+## Роль в архитектуре FlowAct
+
+UserService является источником пользовательской идентичности в проекте.
+
+```text
+Frontend
+  -> /api/v1/auth/**  -> UserService
+  -> /api/v1/users/** -> UserService
+
+Frontend
+  -> /api/v1/notebooks/**
+  -> /api/v1/notebooks/{notebookId}/workflows/**
+  -> /api/v1/notebooks/{notebookId}/workflows/{workflowId}/executions/**
+      -> ExecutionService
+```
+
+UserService выпускает JWT, а ExecutionService проверяет этот JWT и берёт `userId` из claim `sub`.
+
+```http
+Authorization: Bearer <accessToken>
+```
+
+`X-User-Id` в актуальной JWT-схеме не используется.
+
 ## База данных
 
 UserService использует отдельную PostgreSQL БД:
@@ -70,6 +94,41 @@ localhost:5434 -> user-db:5432
 users
 refresh_tokens
 ```
+
+### `users`
+
+Назначение: хранение аккаунтов пользователей.
+
+Ключевые поля:
+
+| Поле | Назначение |
+| --- | --- |
+| `id` | UUID пользователя, используется в JWT `sub` |
+| `email` | email для входа, уникален без учёта регистра |
+| `password_hash` | BCrypt-хеш пароля |
+| `display_name` | отображаемое имя пользователя |
+| `role` | роль пользователя: `USER`, `ADMIN` |
+| `status` | статус аккаунта: `ACTIVE`, `BLOCKED`, `DELETED` |
+| `last_login_at` | время последнего входа |
+| `created_at`, `updated_at` | технические timestamps |
+
+### `refresh_tokens`
+
+Назначение: хранение refresh token для продления сессии.
+
+Ключевые поля:
+
+| Поле | Назначение |
+| --- | --- |
+| `id` | UUID refresh token записи |
+| `user_id` | ссылка на пользователя |
+| `token_hash` | SHA-256 hash refresh token |
+| `expires_at` | срок действия |
+| `revoked_at` | время отзыва token |
+| `revoked_reason` | причина отзыва: например `LOGOUT` или `ROTATED` |
+| `replaced_by_token_id` | новый token при ротации |
+| `user_agent`, `ip_address` | техническая информация о клиенте |
+| `created_at` | время создания |
 
 Refresh token хранится в БД только в виде hash, не в открытом виде.
 
@@ -114,6 +173,15 @@ DB_URL=jdbc:postgresql://user-db:5432/flowact_users
 ```text
 /api/v1
 ```
+
+| Метод | Endpoint | Доступ | Назначение |
+| --- | --- | --- | --- |
+| `POST` | `/api/v1/auth/register` | публичный | регистрация пользователя |
+| `POST` | `/api/v1/auth/login` | публичный | вход пользователя |
+| `POST` | `/api/v1/auth/refresh` | публичный | ротация refresh token и выпуск нового access token |
+| `POST` | `/api/v1/auth/logout` | публичный | отзыв refresh token |
+| `GET` | `/api/v1/users/me` | JWT | получение текущего пользователя |
+| `PATCH` | `/api/v1/users/me` | JWT | обновление профиля текущего пользователя |
 
 ### Регистрация
 
@@ -305,7 +373,163 @@ Linux/macOS:
 ./gradlew bootRun
 ```
 
-## Проверка
+## Smoke-test через curl
+
+Ниже команды для проверки сервиса через Docker Compose. Если запросы идут напрямую в UserService, используется порт `8083`. Если через frontend/nginx, можно заменить base URL на `http://localhost:3000`.
+
+### 1. Healthcheck
+
+```bash
+curl http://localhost:8083/actuator/health
+```
+
+Ожидаемый ответ:
+
+```json
+{"status":"UP"}
+```
+
+### 2. Регистрация
+
+Linux/macOS:
+
+```bash
+curl -X POST http://localhost:8083/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","password":"password123","displayName":"Test User"}'
+```
+
+Windows PowerShell:
+
+```powershell
+$registerResponse = Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://localhost:8083/api/v1/auth/register" `
+  -ContentType "application/json" `
+  -Body '{"email":"test@example.com","password":"password123","displayName":"Test User"}'
+
+$accessToken = $registerResponse.accessToken
+$refreshToken = $registerResponse.refreshToken
+```
+
+### 3. Получение текущего пользователя
+
+Linux/macOS:
+
+```bash
+curl http://localhost:8083/api/v1/users/me \
+  -H "Authorization: Bearer <accessToken>"
+```
+
+Windows PowerShell:
+
+```powershell
+Invoke-RestMethod `
+  -Method Get `
+  -Uri "http://localhost:8083/api/v1/users/me" `
+  -Headers @{ Authorization = "Bearer $accessToken" }
+```
+
+### 4. Обновление профиля
+
+Linux/macOS:
+
+```bash
+curl -X PATCH http://localhost:8083/api/v1/users/me \
+  -H "Authorization: Bearer <accessToken>" \
+  -H "Content-Type: application/json" \
+  -d '{"displayName":"Updated User"}'
+```
+
+Windows PowerShell:
+
+```powershell
+Invoke-RestMethod `
+  -Method Patch `
+  -Uri "http://localhost:8083/api/v1/users/me" `
+  -Headers @{ Authorization = "Bearer $accessToken" } `
+  -ContentType "application/json" `
+  -Body '{"displayName":"Updated User"}'
+```
+
+### 5. Refresh token
+
+Linux/macOS:
+
+```bash
+curl -X POST http://localhost:8083/api/v1/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"refreshToken":"<refreshToken>"}'
+```
+
+Windows PowerShell:
+
+```powershell
+$refreshResponse = Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://localhost:8083/api/v1/auth/refresh" `
+  -ContentType "application/json" `
+  -Body "{`"refreshToken`":`"$refreshToken`"}"
+
+$accessToken = $refreshResponse.accessToken
+$refreshToken = $refreshResponse.refreshToken
+```
+
+После refresh старый refresh token становится недействительным.
+
+### 6. Logout
+
+Linux/macOS:
+
+```bash
+curl -i -X POST http://localhost:8083/api/v1/auth/logout \
+  -H "Content-Type: application/json" \
+  -d '{"refreshToken":"<refreshToken>"}'
+```
+
+Windows PowerShell:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://localhost:8083/api/v1/auth/logout" `
+  -ContentType "application/json" `
+  -Body "{`"refreshToken`":`"$refreshToken`"}"
+```
+
+После logout refresh token становится отозванным.
+
+## Проверка БД
+
+Подключиться к БД UserService:
+
+```bash
+docker compose exec user-db psql -U postgres -d flowact_users
+```
+
+Проверить пользователей:
+
+```sql
+SELECT id, email, display_name, role, status, last_login_at, created_at
+FROM users
+ORDER BY created_at DESC;
+```
+
+Проверить refresh token записи:
+
+```sql
+SELECT id, user_id, expires_at, revoked_at, revoked_reason, created_at
+FROM refresh_tokens
+ORDER BY created_at DESC;
+```
+
+Проверить Flyway-миграции:
+
+```sql
+SELECT * FROM flyway_schema_history ORDER BY installed_rank;
+```
+
+## Проверка сборки
 
 ```bash
 ./gradlew test
@@ -335,6 +559,18 @@ spring.jpa.hibernate.ddl-auto=validate
 
 При изменении entity нужно добавлять новую SQL-миграцию.
 
+## Типовые HTTP-ответы
+
+| Код | Ситуация |
+| --- | --- |
+| `200` | успешный login, refresh, получение/обновление пользователя |
+| `201` | успешная регистрация |
+| `204` | успешный logout |
+| `400` | ошибка валидации request body |
+| `401` | неверный пароль, отсутствующий/некорректный JWT, недействительный refresh token |
+| `404` | пользователь не найден |
+| `409` | email уже занят |
+
 ## Частые проблемы
 
 ### UserService не стартует из-за JWT_SECRET
@@ -358,3 +594,23 @@ Refresh token может быть:
 - уже заменён при прошлой refresh-операции.
 
 В таком случае пользователь должен войти заново.
+
+### `users` или `refresh_tokens` не найдены
+
+Проверьте, что Flyway применил миграции к правильной БД:
+
+```bash
+docker compose exec user-db psql -U postgres -d flowact_users
+```
+
+```sql
+\dt
+SELECT * FROM flyway_schema_history ORDER BY installed_rank;
+```
+
+Если локальные данные не важны, можно пересоздать volume:
+
+```bash
+docker compose down -v
+docker compose up -d --build user-db user-service
+```
