@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { AuthModal, type AuthMode } from '../components/auth/AuthModal';
-import { useAuth } from '../auth/AuthProvider';
+import { useAuth } from '../auth/useAuth';
 
 import './LandingPage.css';
 import './LandingPageTuning.css';
