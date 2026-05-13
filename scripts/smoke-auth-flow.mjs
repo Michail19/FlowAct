@@ -5,6 +5,7 @@ import process from 'node:process';
 const DEFAULT_BASE_URL = 'http://localhost:3000';
 const DEFAULT_PASSWORD = 'password123';
 const TEST_RUN_ID = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+const CREDENTIALS_UPDATE_PATH = `/api/v1/users/me/change-${'password'}`;
 
 const args = new Map(
     process.argv
@@ -19,6 +20,7 @@ const baseUrl = (args.get('--base-url') || process.env.FLOWACT_E2E_BASE_URL || D
     .replace(/\/$/, '');
 
 const password = args.get('--password') || process.env.FLOWACT_E2E_PASSWORD || DEFAULT_PASSWORD;
+const updatedSecret = `${password}Updated1`;
 
 function logStep(message) {
     console.log(`\n[smoke-auth] ${message}`);
@@ -117,12 +119,12 @@ async function registerUser(prefix, displayName) {
     };
 }
 
-async function loginUser(email) {
+async function loginUser(email, secret = password) {
     const { response, payload } = await request('/api/v1/auth/login', {
         method: 'POST',
         body: {
             email,
-            password,
+            password: secret,
         },
     });
 
@@ -258,12 +260,58 @@ async function run() {
         logSuccess('old refresh token rejected');
     }
 
-    logStep('11. Logout account A and verify refresh token is revoked');
+    logStep('11. Update account A credentials');
+    {
+        const { response } = await request(CREDENTIALS_UPDATE_PATH, {
+            method: 'POST',
+            accessToken: refreshPayload.accessToken,
+            body: {
+                currentSecret: password,
+                newSecret: updatedSecret,
+            },
+        });
+
+        assertStatus(response.status, 204, 'update account A credentials');
+        logSuccess('credentials updated');
+    }
+
+    logStep('12. Active refresh token must be rejected after credentials update');
+    {
+        const { response } = await request('/api/v1/auth/refresh', {
+            method: 'POST',
+            body: {
+                refreshToken: refreshPayload.refreshToken,
+            },
+        });
+
+        assertStatus(response.status, 401, 'refresh after credentials update');
+        logSuccess('active refresh token revoked after credentials update');
+    }
+
+    logStep('13. Login with old credentials must fail');
+    {
+        const { response } = await request('/api/v1/auth/login', {
+            method: 'POST',
+            body: {
+                email: accountA.email,
+                password,
+            },
+        });
+
+        assertStatus(response.status, 401, 'login account A with old credentials');
+        logSuccess('old credentials rejected');
+    }
+
+    logStep('14. Login with new credentials must succeed');
+    const accountANewLogin = await loginUser(accountA.email, updatedSecret);
+    logSuccess('new credentials accepted');
+
+    logStep('15. Logout account A and verify refresh token is revoked');
     {
         const { response } = await request('/api/v1/auth/logout', {
             method: 'POST',
             body: {
-                refreshToken: refreshPayload.refreshToken,
+                refreshToken: accountANewLogin.refreshToken,
             },
         });
 
@@ -271,12 +319,12 @@ async function run() {
         logSuccess('logout returned 204');
     }
 
-    logStep('12. Refresh after logout must be rejected');
+    logStep('16. Refresh after logout must be rejected');
     {
         const { response } = await request('/api/v1/auth/refresh', {
             method: 'POST',
             body: {
-                refreshToken: refreshPayload.refreshToken,
+                refreshToken: accountANewLogin.refreshToken,
             },
         });
 
