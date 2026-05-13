@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
-import { useAuth } from '../auth/AuthProvider';
+import { useAuth } from '../auth/useAuth';
 import { authApi } from '../services/authApi';
 import { ApiError } from '../services/apiClient';
 import NotebookSvgIcon from '../components/notebook/NotebookSvgIcon';
@@ -31,7 +31,7 @@ function AccountPage() {
     const navigate = useNavigate();
     const { user, logout, refreshUser } = useAuth();
 
-    const [displayName, setDisplayName] = useState(user?.displayName ?? '');
+    const [displayNameDraft, setDisplayNameDraft] = useState<string | null>(null);
     const [isPasswordSectionOpen, setIsPasswordSectionOpen] = useState(false);
     const [oldPassword, setOldPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
@@ -41,9 +41,7 @@ function AccountPage() {
     const [message, setMessage] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-    useEffect(() => {
-        setDisplayName(user?.displayName ?? '');
-    }, [user?.displayName]);
+    const displayName = displayNameDraft ?? user?.displayName ?? '';
 
     const initials = useMemo(
         () => getInitials(user?.displayName, user?.email),
@@ -67,6 +65,7 @@ function AccountPage() {
                 displayName: displayName.trim() || null,
             });
             await refreshUser();
+            setDisplayNameDraft(null);
             setMessage('Изменения сохранены.');
         } catch (error) {
             setErrorMessage(getErrorMessage(error));
@@ -128,7 +127,7 @@ function AccountPage() {
                                 <span>Имя / display name</span>
                                 <input
                                     value={displayName}
-                                    onChange={(event) => setDisplayName(event.target.value)}
+                                    onChange={(event) => setDisplayNameDraft(event.target.value)}
                                     placeholder="Как отображать ваше имя"
                                     maxLength={255}
                                 />
