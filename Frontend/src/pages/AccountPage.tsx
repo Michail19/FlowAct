@@ -21,6 +21,14 @@ function getInitials(displayName?: string | null, email?: string | null) {
 
 function getErrorMessage(error: unknown) {
     if (error instanceof ApiError) {
+        if (error.status === 401) {
+            return 'Текущий пароль указан неверно.';
+        }
+
+        if (error.status === 400) {
+            return 'Проверьте заполненные поля. Минимальная длина пароля — 8 символов.';
+        }
+
         return 'Не удалось сохранить изменения. Проверьте данные и попробуйте ещё раз.';
     }
 
@@ -42,6 +50,7 @@ function AccountPage() {
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     const displayName = displayNameDraft ?? user?.displayName ?? '';
+    const isCredentialsUpdateRequested = Boolean(oldPassword || newPassword || repeatPassword);
 
     const initials = useMemo(
         () => getInitials(user?.displayName, user?.email),
@@ -53,9 +62,21 @@ function AccountPage() {
         setMessage(null);
         setErrorMessage(null);
 
-        if (isPasswordSectionOpen && (oldPassword || newPassword || repeatPassword)) {
-            setErrorMessage('Смена пароля пока не подключена на backend. Сохраните профиль без пароля.');
-            return;
+        if (isCredentialsUpdateRequested) {
+            if (!oldPassword || !newPassword || !repeatPassword) {
+                setErrorMessage('Заполните старый пароль, новый пароль и повтор нового пароля.');
+                return;
+            }
+
+            if (newPassword !== repeatPassword) {
+                setErrorMessage('Новый пароль и повтор нового пароля не совпадают.');
+                return;
+            }
+
+            if (newPassword.length < 8) {
+                setErrorMessage('Минимальная длина нового пароля — 8 символов.');
+                return;
+            }
         }
 
         setIsSaving(true);
@@ -64,6 +85,19 @@ function AccountPage() {
             await authApi.updateCurrentUser({
                 displayName: displayName.trim() || null,
             });
+
+            if (isCredentialsUpdateRequested) {
+                await authApi.updateCredentials({
+                    currentSecret: oldPassword,
+                    newSecret: newPassword,
+                });
+
+                setMessage('Пароль изменён. Выполните вход заново.');
+                await logout();
+                navigate('/landing');
+                return;
+            }
+
             await refreshUser();
             setDisplayNameDraft(null);
             setMessage('Изменения сохранены.');
