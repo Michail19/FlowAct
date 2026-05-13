@@ -52,7 +52,7 @@ CREATE TABLE refresh_tokens (
                                 revoked_reason VARCHAR(255),
                                 replaced_by_token_id UUID,
                                 user_agent TEXT,
-                                ip_address INET,
+                                ip_address VARCHAR(45),
                                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
                                 CONSTRAINT fk_refresh_tokens_user
