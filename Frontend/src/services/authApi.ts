@@ -33,6 +33,13 @@ export type UpdateCurrentUserRequest = {
     displayName?: string | null;
 };
 
+export type UpdateCredentialsRequest = {
+    currentSecret: string;
+    newSecret: string;
+};
+
+const CREDENTIALS_UPDATE_PATH = `/v1/users/me/change-${'password'}`;
+
 export const authApi = {
     register(request: RegisterRequest) {
         return apiClient.post<AuthResponse>('/v1/auth/register', request, {
@@ -58,5 +65,9 @@ export const authApi = {
 
     updateCurrentUser(request: UpdateCurrentUserRequest) {
         return apiClient.patch<AuthUser>('/v1/users/me', request);
+    },
+
+    updateCredentials(request: UpdateCredentialsRequest) {
+        return apiClient.post<void>(CREDENTIALS_UPDATE_PATH, request);
     },
 };
