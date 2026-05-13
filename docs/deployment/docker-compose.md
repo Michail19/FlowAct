@@ -38,6 +38,7 @@ Authorization: Bearer <accessToken>
 
 - Docker;
 - Docker Compose;
+- Node.js 22+, если запускается smoke-test из `scripts/`;
 - свободные порты `3000`, `5433`, `5434`, `8082`, `8083`, `9092`;
 - свободные порты `80` и `443`, если запускается Caddy.
 
@@ -279,7 +280,73 @@ docker compose down -v
 docker compose up --build
 ```
 
-## Проверка JWT-сценария
+## Автоматическая проверка полного auth-сценария
+
+Для проверки полного сценария авторизации добавлен smoke-test:
+
+```text
+scripts/smoke-auth-flow.mjs
+```
+
+Он проверяет:
+
+1. защищённый `/api/v1/notebooks` возвращает `401` без токена;
+2. аккаунт A регистрируется;
+3. аккаунт A создаёт notebook;
+4. аккаунт A видит свой notebook;
+5. аккаунт B регистрируется;
+6. аккаунт B не видит notebook аккаунта A;
+7. аккаунт B не может открыть notebook аккаунта A по id;
+8. аккаунт A входит повторно и видит свой notebook;
+9. refresh token ротируется;
+10. старый refresh token отклоняется;
+11. logout отзывает refresh token;
+12. refresh после logout возвращает `401`.
+
+Перед запуском теста поднимите сервисы:
+
+```bash
+docker compose up -d --build postgres user-db kafka user-service execution-service worker-service frontend
+```
+
+Запуск smoke-test из корня проекта:
+
+```bash
+node scripts/smoke-auth-flow.mjs
+```
+
+По умолчанию тест обращается к frontend/nginx:
+
+```text
+http://localhost:3000
+```
+
+Для другого base URL:
+
+```bash
+node scripts/smoke-auth-flow.mjs --base-url=http://localhost:3000
+```
+
+Или через переменную окружения:
+
+```bash
+FLOWACT_E2E_BASE_URL=http://localhost:3000 node scripts/smoke-auth-flow.mjs
+```
+
+На Windows PowerShell:
+
+```powershell
+$env:FLOWACT_E2E_BASE_URL="http://localhost:3000"
+node scripts/smoke-auth-flow.mjs
+```
+
+Успешный результат заканчивается строкой:
+
+```text
+[smoke-auth] SUCCESS: full auth flow works
+```
+
+## Проверка JWT-сценария вручную
 
 Регистрация через frontend/nginx:
 
