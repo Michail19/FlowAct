@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { AuthModal, type AuthMode } from '../components/auth/AuthModal';
+import { consumeAuthSessionMessage } from '../auth/authEvents';
 import { useAuth } from '../auth/useAuth';
 
 import './LandingPage.css';
@@ -248,11 +249,19 @@ function LandingAiModels() {
 
 function LandingPage() {
     const [authModal, setAuthModal] = useState<AuthModalState>(null);
+    const [sessionMessage, setSessionMessage] = useState<string | null>(() =>
+        consumeAuthSessionMessage(),
+    );
     const { isAuthenticated } = useAuth();
 
     useLandingScrollReveal();
 
     const openAuthModal = (mode: AuthMode) => {
+        if (isAuthenticated) {
+            return;
+        }
+
+        setSessionMessage(null);
         setAuthModal({ mode });
     };
 
@@ -261,6 +270,10 @@ function LandingPage() {
     };
 
     const switchAuthMode = (mode: AuthMode) => {
+        if (isAuthenticated) {
+            return;
+        }
+
         setAuthModal({ mode });
     };
 
@@ -306,6 +319,15 @@ function LandingPage() {
                         )}
                     </div>
                 </header>
+
+                {sessionMessage && !isAuthenticated && (
+                    <div className="landing-page__session-message" role="status">
+                        <span>{sessionMessage}</span>
+                        <button type="button" onClick={() => setSessionMessage(null)}>
+                            ×
+                        </button>
+                    </div>
+                )}
 
                 <section className="landing-hero" id="about">
                     <div className="landing-hero__content" data-reveal="up">
@@ -516,7 +538,7 @@ function LandingPage() {
                 </footer>
             </section>
 
-            {authModal && (
+            {authModal && !isAuthenticated && (
                 <AuthModal
                     mode={authModal.mode}
                     onClose={closeAuthModal}
