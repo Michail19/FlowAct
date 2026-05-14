@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { type FocusEvent, useEffect, useState } from 'react';
 
 import NotebookIconButton from './NotebookIconButton';
@@ -10,6 +10,8 @@ import {
     shouldIgnoreCanvasShortcut,
 } from './keyboardShortcutUtils';
 import { useDemoNotebookMode } from './useDemoNotebookMode';
+import { useAuth } from '../../auth/useAuth';
+import { clearDemoNotebooksLocally } from '../../services/notebookStorage';
 
 import './NotebookHeader.css';
 
@@ -73,9 +75,12 @@ function NotebookHeader({
                             onZoomChange,
                             isDemoMode = false,
                         }: NotebookHeaderProps) {
+    const navigate = useNavigate();
+    const { logout } = useAuth();
     const isDemoNotebook = useDemoNotebookMode() || isDemoMode;
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [draftTitle, setDraftTitle] = useState(title);
+    const [isLeavingDemo, setIsLeavingDemo] = useState(false);
 
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
@@ -120,6 +125,21 @@ function NotebookHeader({
         setIsEditingTitle(false);
     };
 
+    const handleLeaveDemo = async () => {
+        if (isLeavingDemo) {
+            return;
+        }
+
+        setIsLeavingDemo(true);
+        clearDemoNotebooksLocally();
+
+        try {
+            await logout();
+        } finally {
+            navigate('/landing', { replace: true });
+        }
+    };
+
     const handleTitleEditBlur = (event: FocusEvent<HTMLDivElement>) => {
         const nextFocusedElement = event.relatedTarget;
 
@@ -149,9 +169,21 @@ function NotebookHeader({
                 />
 
                 {isMobile ? (
-                    <Link to={isDemoNotebook ? '/landing' : '/home'} className="notebook-header__home-link" aria-label={isDemoNotebook ? 'На главный экран' : 'На главную'}>
-                        <NotebookSvgIcon name="home" />
-                    </Link>
+                    isDemoNotebook ? (
+                        <button
+                            className="notebook-header__home-link"
+                            type="button"
+                            aria-label="На главный экран"
+                            onClick={handleLeaveDemo}
+                            disabled={isLeavingDemo}
+                        >
+                            <NotebookSvgIcon name="home" />
+                        </button>
+                    ) : (
+                        <Link to="/home" className="notebook-header__home-link" aria-label="На главную">
+                            <NotebookSvgIcon name="home" />
+                        </Link>
+                    )
                 ) : (
                     <label className="notebook-header__zoom">
                         <span className="notebook-header__zoom-label">Масштаб</span>
@@ -236,9 +268,14 @@ function NotebookHeader({
 
             <div className="notebook-header__right">
                 {isDemoNotebook ? (
-                    <Link to="/landing" className="notebook-header__landing-link">
-                        На главный экран
-                    </Link>
+                    <button
+                        className="notebook-header__landing-link"
+                        type="button"
+                        onClick={handleLeaveDemo}
+                        disabled={isLeavingDemo}
+                    >
+                        {isLeavingDemo ? 'Выход...' : 'На главный экран'}
+                    </button>
                 ) : (
                     <>
                         {!isMobile && (
