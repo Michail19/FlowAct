@@ -9,6 +9,7 @@ import com.ms.userservice.common.exception.ConflictException;
 import com.ms.userservice.common.exception.UnauthorizedException;
 import com.ms.userservice.security.service.JwtService;
 import com.ms.userservice.security.service.PasswordService;
+import com.ms.userservice.users.entity.UserAccountType;
 import com.ms.userservice.users.entity.UserEntity;
 import com.ms.userservice.users.entity.UserRole;
 import com.ms.userservice.users.entity.UserStatus;
@@ -24,6 +25,8 @@ import java.util.UUID;
 
 @Service
 public class AuthService {
+
+    private static final long DEMO_SESSION_TTL_HOURS = 24;
 
     private final UserRepository userRepository;
     private final PasswordService passwordService;
@@ -58,8 +61,11 @@ public class AuthService {
                 .email(normalizedEmail)
                 .passwordHash(passwordService.hash(request.password()))
                 .displayName(normalizeDisplayName(request.displayName()))
+                .avatarUrl(null)
                 .role(UserRole.USER)
                 .status(UserStatus.ACTIVE)
+                .accountType(UserAccountType.REGULAR)
+                .demoExpiresAt(null)
                 .lastLoginAt(OffsetDateTime.now())
                 .build();
 
@@ -84,6 +90,12 @@ public class AuthService {
             throw new UnauthorizedException("User account is not active");
         }
 
+        if (user.getAccountType() == UserAccountType.DEMO
+                && user.getDemoExpiresAt() != null
+                && user.getDemoExpiresAt().isBefore(OffsetDateTime.now())) {
+            throw new UnauthorizedException("Demo session expired");
+        }
+
         if (!passwordService.matches(request.password(), user.getPasswordHash())) {
             throw new UnauthorizedException("Invalid email or password");
         }
@@ -102,13 +114,50 @@ public class AuthService {
     }
 
     @Transactional
+    public AuthResponse createDemoSession(HttpServletRequest servletRequest) {
+        OffsetDateTime now = OffsetDateTime.now();
+        UUID userId = UUID.randomUUID();
+
+        UserEntity user = UserEntity.builder()
+                .id(userId)
+                .email("demo-" + userId + "@flowact.local")
+                .passwordHash(passwordService.hash(UUID.randomUUID().toString()))
+                .displayName("Demo user")
+                .avatarUrl(null)
+                .role(UserRole.USER)
+                .status(UserStatus.ACTIVE)
+                .accountType(UserAccountType.DEMO)
+                .demoExpiresAt(now.plusHours(DEMO_SESSION_TTL_HOURS))
+                .lastLoginAt(now)
+                .build();
+
+        UserEntity savedUser = userRepository.save(user);
+        String accessToken = jwtService.generateAccessToken(savedUser);
+        String refreshToken = refreshTokenService.create(savedUser, servletRequest);
+
+        return new AuthResponse(
+                accessToken,
+                refreshToken,
+                userMapper.toResponse(savedUser)
+        );
+    }
+
+    @Transactional
     public TokenResponse refresh(RefreshTokenRequest request, HttpServletRequest servletRequest) {
         RefreshTokenService.RefreshTokenRotation rotation = refreshTokenService.rotate(
                 request.refreshToken(),
                 servletRequest
         );
 
-        String accessToken = jwtService.generateAccessToken(rotation.user());
+        UserEntity user = rotation.user();
+
+        if (user.getAccountType() == UserAccountType.DEMO
+                && user.getDemoExpiresAt() != null
+                && user.getDemoExpiresAt().isBefore(OffsetDateTime.now())) {
+            throw new UnauthorizedException("Demo session expired");
+        }
+
+        String accessToken = jwtService.generateAccessToken(user);
 
         return new TokenResponse(accessToken, rotation.refreshToken());
     }
