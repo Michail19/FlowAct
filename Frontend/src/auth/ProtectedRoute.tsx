@@ -3,9 +3,14 @@ import type { ReactNode } from 'react';
 
 import { useAuth } from './useAuth';
 
-export function ProtectedRoute({ children }: { children: ReactNode }) {
+type ProtectedRouteProps = {
+    children: ReactNode;
+    requiredRole?: string;
+};
+
+export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
     const location = useLocation();
-    const { isAuthenticated, isInitializing } = useAuth();
+    const { isAuthenticated, isInitializing, user } = useAuth();
 
     if (isInitializing) {
         return (
@@ -20,6 +25,10 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
 
     if (!isAuthenticated) {
         return <Navigate to="/landing" replace state={{ from: location }} />;
+    }
+
+    if (requiredRole && user?.role !== requiredRole) {
+        return <Navigate to="/home" replace />;
     }
 
     return children;
