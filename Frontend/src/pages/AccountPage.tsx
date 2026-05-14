@@ -1,23 +1,15 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/useAuth';
 import { authApi } from '../services/authApi';
+import { profileApi } from '../services/profileApi';
 import { ApiError } from '../services/apiClient';
 import NotebookSvgIcon from '../components/notebook/NotebookSvgIcon';
+import { UserAvatar } from '../components/user/UserAvatar';
 
 import './AccountPage.css';
-
-function getInitials(displayName?: string | null, email?: string | null) {
-    const source = displayName?.trim() || email?.trim() || 'U';
-    const parts = source.split(/\s+/).filter(Boolean);
-
-    if (parts.length >= 2) {
-        return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-    }
-
-    return source.slice(0, 2).toUpperCase();
-}
+import './AccountAvatarUx.css';
 
 function getErrorMessage(error: unknown) {
     if (error instanceof ApiError) {
@@ -26,7 +18,7 @@ function getErrorMessage(error: unknown) {
         }
 
         if (error.status === 400) {
-            return 'Проверьте заполненные поля. Минимальная длина пароля — 8 символов.';
+            return 'Проверьте заполненные поля. Для аватара укажите ссылку, начинающуюся с http:// или https://.';
         }
 
         return 'Не удалось сохранить изменения. Проверьте данные и попробуйте ещё раз.';
@@ -35,11 +27,23 @@ function getErrorMessage(error: unknown) {
     return 'Не удалось подключиться к серверу.';
 }
 
+function isValidAvatarUrl(value: string) {
+    const normalizedValue = value.trim();
+
+    if (!normalizedValue) {
+        return true;
+    }
+
+    return normalizedValue.startsWith('http://') || normalizedValue.startsWith('https://');
+}
+
 function AccountPage() {
     const navigate = useNavigate();
     const { user, logout, refreshUser } = useAuth();
 
     const [displayNameDraft, setDisplayNameDraft] = useState<string | null>(null);
+    const [avatarUrlDraft, setAvatarUrlDraft] = useState<string | null>(null);
+    const [isAvatarEditorOpen, setIsAvatarEditorOpen] = useState(false);
     const [isPasswordSectionOpen, setIsPasswordSectionOpen] = useState(false);
     const [oldPassword, setOldPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
@@ -50,17 +54,19 @@ function AccountPage() {
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     const displayName = displayNameDraft ?? user?.displayName ?? '';
+    const avatarUrl = avatarUrlDraft ?? user?.avatarUrl ?? '';
+    const avatarPreviewUrl = isValidAvatarUrl(avatarUrl) ? avatarUrl.trim() : null;
     const isCredentialsUpdateRequested = Boolean(oldPassword || newPassword || repeatPassword);
-
-    const initials = useMemo(
-        () => getInitials(user?.displayName, user?.email),
-        [user?.displayName, user?.email],
-    );
 
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         setMessage(null);
         setErrorMessage(null);
+
+        if (!isValidAvatarUrl(avatarUrl)) {
+            setErrorMessage('Ссылка на аватар должна начинаться с http:// или https://.');
+            return;
+        }
 
         if (isCredentialsUpdateRequested) {
             if (!oldPassword || !newPassword || !repeatPassword) {
@@ -82,8 +88,9 @@ function AccountPage() {
         setIsSaving(true);
 
         try {
-            await authApi.updateCurrentUser({
+            await profileApi.updateCurrentUser({
                 displayName: displayName.trim() || null,
+                avatarUrl: avatarUrl.trim() || null,
             });
 
             if (isCredentialsUpdateRequested) {
@@ -100,6 +107,7 @@ function AccountPage() {
 
             await refreshUser();
             setDisplayNameDraft(null);
+            setAvatarUrlDraft(null);
             setMessage('Изменения сохранены.');
         } catch (error) {
             setErrorMessage(getErrorMessage(error));
@@ -151,9 +159,12 @@ function AccountPage() {
                         </div>
 
                         <div className="account-page__mobile-avatar">
-                            <div className="account-page__avatar account-page__avatar--small">
-                                <span>{initials}</span>
-                            </div>
+                            <UserAvatar
+                                displayName={user?.displayName}
+                                email={user?.email}
+                                avatarUrl={avatarPreviewUrl}
+                                size="lg"
+                            />
                         </div>
 
                         <div className="account-page__fields">
@@ -188,6 +199,21 @@ function AccountPage() {
                                     <input value={user?.status ?? 'ACTIVE'} readOnly />
                                 </label>
                             </div>
+
+                            {isAvatarEditorOpen && (
+                                <label className="account-page__field account-page__avatar-url-field">
+                                    <span>Ссылка на аватар</span>
+                                    <input
+                                        value={avatarUrl}
+                                        onChange={(event) => setAvatarUrlDraft(event.target.value)}
+                                        placeholder="https://example.com/avatar.png"
+                                        maxLength={2048}
+                                    />
+                                    <small>
+                                        Укажите прямую ссылку на изображение. Загрузку файла можно добавить позже.
+                                    </small>
+                                </label>
+                            )}
 
                             <section className="account-page__password-card">
                                 <button
@@ -229,9 +255,12 @@ function AccountPage() {
                     </section>
 
                     <aside className="account-page__side-panel">
-                        <div className="account-page__avatar">
-                            <span>{initials}</span>
-                        </div>
+                        <UserAvatar
+                            displayName={user?.displayName}
+                            email={user?.email}
+                            avatarUrl={avatarPreviewUrl}
+                            size="xl"
+                        />
 
                         <p className="account-page__profile-name">
                             {user?.displayName || user?.email || 'Пользователь'}
@@ -244,10 +273,9 @@ function AccountPage() {
                         <button
                             className="account-page__avatar-button"
                             type="button"
-                            disabled
-                            title="Загрузка аватара будет добавлена позже"
+                            onClick={() => setIsAvatarEditorOpen((value) => !value)}
                         >
-                            Редактировать
+                            {isAvatarEditorOpen ? 'Скрыть поле' : 'Редактировать'}
                         </button>
                     </aside>
 
