@@ -1,5 +1,6 @@
 package com.ms.userservice.users.dto.response;
 
+import com.ms.userservice.users.entity.UserAccountType;
 import com.ms.userservice.users.entity.UserRole;
 import com.ms.userservice.users.entity.UserStatus;
 
@@ -13,6 +14,8 @@ public record UserResponse(
         String avatarUrl,
         UserRole role,
         UserStatus status,
+        UserAccountType accountType,
+        OffsetDateTime demoExpiresAt,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt
 ) {
