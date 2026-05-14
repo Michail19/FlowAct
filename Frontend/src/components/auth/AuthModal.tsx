@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { ApiError } from '../../services/apiClient';
@@ -42,6 +42,14 @@ export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
     const [repeatPassword, setRepeatPassword] = useState('');
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    useEffect(() => {
+        document.body.classList.add('flowact-modal-open');
+
+        return () => {
+            document.body.classList.remove('flowact-modal-open');
+        };
+    }, []);
 
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -141,7 +149,7 @@ export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
                         <label>
                             <span>Имя</span>
                             <input
-                                placeholder="Михаил"
+                                placeholder="Ваше имя или название команды"
                                 autoComplete="name"
                                 value={displayName}
                                 onChange={(event) => setDisplayName(event.target.value)}
@@ -153,7 +161,7 @@ export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
                         <span>Пароль</span>
                         <input
                             type="password"
-                            placeholder="••••••••"
+                            placeholder="Минимум 8 символов"
                             autoComplete={isLogin ? 'current-password' : 'new-password'}
                             value={password}
                             onChange={(event) => setPassword(event.target.value)}
@@ -167,7 +175,7 @@ export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
                             <span>Повторите пароль</span>
                             <input
                                 type="password"
-                                placeholder="••••••••"
+                                placeholder="Повторите пароль"
                                 autoComplete="new-password"
                                 value={repeatPassword}
                                 onChange={(event) => setRepeatPassword(event.target.value)}
@@ -185,7 +193,9 @@ export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
 
                     <button className="auth-modal__submit" type="submit" disabled={isSubmitting}>
                         {isSubmitting
-                            ? 'Отправка...'
+                            ? isLogin
+                                ? 'Вход...'
+                                : 'Создание...'
                             : isLogin
                                 ? 'Войти'
                                 : 'Создать аккаунт'}
