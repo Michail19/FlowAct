@@ -4,6 +4,30 @@
     gap: 10px;
 }
 
+.home-page__admin-link {
+    display: inline-flex;
+    min-height: 36px;
+    align-items: center;
+    justify-content: center;
+    padding: 0 12px;
+    border: 1px solid rgba(34, 211, 238, 0.34);
+    border-radius: 999px;
+    background: rgba(34, 211, 238, 0.1);
+    color: var(--color-text);
+    font-weight: 900;
+    text-decoration: none;
+    transition:
+            border-color 0.15s ease,
+            background 0.15s ease,
+            transform 0.15s ease;
+}
+
+.home-page__admin-link:hover {
+    transform: translateY(-1px);
+    border-color: rgba(34, 211, 238, 0.62);
+    background: rgba(34, 211, 238, 0.18);
+}
+
 .home-page__user-info {
     display: inline-flex;
     min-width: 0;
@@ -103,6 +127,10 @@
         justify-content: space-between;
     }
 
+    .home-page__admin-link {
+        flex: 0 0 auto;
+    }
+
     .home-page__user-info {
         flex: 1 1 auto;
     }
@@ -119,6 +147,7 @@
         flex-direction: column;
     }
 
+    .home-page__admin-link,
     .home-page__logout-button {
         width: 100%;
     }
