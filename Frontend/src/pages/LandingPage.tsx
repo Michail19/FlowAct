@@ -4,7 +4,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { AuthModal, type AuthMode } from '../components/auth/AuthModal';
 import { consumeAuthSessionMessage } from '../auth/authEvents';
 import { useAuth } from '../auth/useAuth';
-import { createDemoNotebookLocally } from '../services/notebookStorage';
+import {
+    clearDemoNotebooksLocally,
+    createDemoNotebookLocally,
+} from '../services/notebookStorage';
 
 import './LandingPage.css';
 import './LandingPageTuning.css';
@@ -257,9 +260,28 @@ function LandingPage() {
         consumeAuthSessionMessage(),
     );
     const [isDemoStarting, setIsDemoStarting] = useState(false);
-    const { isAuthenticated, startDemo } = useAuth();
+    const { isAuthenticated, logout, startDemo, user } = useAuth();
 
     useLandingScrollReveal();
+
+    useEffect(() => {
+        if (user?.accountType !== 'DEMO') {
+            return;
+        }
+
+        let isCancelled = false;
+
+        clearDemoNotebooksLocally();
+        void logout().finally(() => {
+            if (!isCancelled) {
+                setSessionMessage(null);
+            }
+        });
+
+        return () => {
+            isCancelled = true;
+        };
+    }, [logout, user?.accountType]);
 
     const openAuthModal = (mode: AuthMode) => {
         if (isAuthenticated) {
