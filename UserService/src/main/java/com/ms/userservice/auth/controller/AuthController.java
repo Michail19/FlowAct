@@ -42,6 +42,12 @@ public class AuthController {
         return authService.login(request, servletRequest);
     }
 
+    @PostMapping("/demo")
+    @ResponseStatus(HttpStatus.CREATED)
+    public AuthResponse demo(HttpServletRequest servletRequest) {
+        return authService.createDemoSession(servletRequest);
+    }
+
     @PostMapping("/refresh")
     public TokenResponse refresh(
             @Valid @RequestBody RefreshTokenRequest request,
