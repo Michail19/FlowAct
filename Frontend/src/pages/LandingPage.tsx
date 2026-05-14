@@ -265,7 +265,7 @@ function LandingPage() {
     useLandingScrollReveal();
 
     useEffect(() => {
-        if (user?.accountType !== 'DEMO') {
+        if (isDemoStarting || user?.accountType !== 'DEMO') {
             return;
         }
 
@@ -281,7 +281,7 @@ function LandingPage() {
         return () => {
             isCancelled = true;
         };
-    }, [logout, user?.accountType]);
+    }, [isDemoStarting, logout, user?.accountType]);
 
     const openAuthModal = (mode: AuthMode) => {
         if (isAuthenticated) {
