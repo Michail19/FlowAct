@@ -9,6 +9,7 @@ import {
     isSaveShortcut,
     shouldIgnoreCanvasShortcut,
 } from './keyboardShortcutUtils';
+import { useDemoNotebookMode } from './useDemoNotebookMode';
 
 import './NotebookHeader.css';
 
@@ -72,6 +73,7 @@ function NotebookHeader({
                             onZoomChange,
                             isDemoMode = false,
                         }: NotebookHeaderProps) {
+    const isDemoNotebook = useDemoNotebookMode() || isDemoMode;
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [draftTitle, setDraftTitle] = useState(title);
 
@@ -83,7 +85,7 @@ function NotebookHeader({
 
             event.preventDefault();
 
-            if (isDemoMode || shouldIgnoreCanvasShortcut(event) || isSaving) {
+            if (isDemoNotebook || shouldIgnoreCanvasShortcut(event) || isSaving) {
                 return;
             }
 
@@ -95,10 +97,10 @@ function NotebookHeader({
         return () => {
             window.removeEventListener('keydown', handleKeyDown);
         };
-    }, [isDemoMode, isSaving, onSave]);
+    }, [isDemoNotebook, isSaving, onSave]);
 
     const handleStartRename = () => {
-        if (isDemoMode) {
+        if (isDemoNotebook) {
             return;
         }
 
@@ -147,7 +149,7 @@ function NotebookHeader({
                 />
 
                 {isMobile ? (
-                    <Link to={isDemoMode ? '/landing' : '/home'} className="notebook-header__home-link" aria-label={isDemoMode ? 'На главный экран' : 'На главную'}>
+                    <Link to={isDemoNotebook ? '/landing' : '/home'} className="notebook-header__home-link" aria-label={isDemoNotebook ? 'На главный экран' : 'На главную'}>
                         <NotebookSvgIcon name="home" />
                     </Link>
                 ) : (
@@ -170,7 +172,7 @@ function NotebookHeader({
                     </label>
                 )}
 
-                {!isDemoMode && !isMobile && !isInterfaceHidden && (
+                {!isDemoNotebook && !isMobile && !isInterfaceHidden && (
                     <NotebookIconButton
                         icon={isSaving ? 'loading' : 'save'}
                         label={isSaving ? 'Сохранение...' : 'Сохранить notebook (Ctrl+S)'}
@@ -217,23 +219,23 @@ function NotebookHeader({
                         className="notebook-header__title"
                         type="button"
                         onClick={handleStartRename}
-                        disabled={isDemoMode}
+                        disabled={isDemoNotebook}
                     >
                         <span className="notebook-header__title-text">{title}</span>
                         <span className="notebook-header__subtitle">
-                            {isDemoMode ? 'временный notebook, не сохраняется после перезагрузки' : formatUpdatedAt(updatedAt)}
+                            {isDemoNotebook ? 'временный notebook, не сохраняется после перезагрузки' : formatUpdatedAt(updatedAt)}
                         </span>
                         <span
-                            className={`notebook-header__workflow-status notebook-header__workflow-status--${isDemoMode ? 'demo' : workflowStatus ?? 'unknown'}`}
+                            className={`notebook-header__workflow-status notebook-header__workflow-status--${isDemoNotebook ? 'demo' : workflowStatus ?? 'unknown'}`}
                         >
-                            {getWorkflowStatusLabel(workflowStatus, isDemoMode)}
+                            {getWorkflowStatusLabel(workflowStatus, isDemoNotebook)}
                         </span>
                     </button>
                 )}
             </div>
 
             <div className="notebook-header__right">
-                {isDemoMode ? (
+                {isDemoNotebook ? (
                     <Link to="/landing" className="notebook-header__landing-link">
                         На главный экран
                     </Link>
