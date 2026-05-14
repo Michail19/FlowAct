@@ -43,6 +43,7 @@ public class JwtService {
                 .subject(user.getId().toString())
                 .claim("email", user.getEmail())
                 .claim("role", user.getRole().name())
+                .claim("accountType", user.getAccountType().name())
                 .claim("type", "access")
                 .build();
 
