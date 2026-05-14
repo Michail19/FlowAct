@@ -6,6 +6,7 @@ export type StoredAuthUser = {
     id: string;
     email?: string | null;
     displayName?: string | null;
+    avatarUrl?: string | null;
     role?: string | null;
 };
 
@@ -33,6 +34,7 @@ function safeParseAuthUser(rawUser: string | null): StoredAuthUser | null {
             id: parsedUser.id,
             email: parsedUser.email ?? null,
             displayName: parsedUser.displayName ?? null,
+            avatarUrl: parsedUser.avatarUrl ?? null,
             role: parsedUser.role ?? null,
         };
     } catch {
