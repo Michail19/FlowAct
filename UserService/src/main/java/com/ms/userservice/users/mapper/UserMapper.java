@@ -15,6 +15,8 @@ public class UserMapper {
                 user.getAvatarUrl(),
                 user.getRole(),
                 user.getStatus(),
+                user.getAccountType(),
+                user.getDemoExpiresAt(),
                 user.getCreatedAt(),
                 user.getUpdatedAt()
         );
