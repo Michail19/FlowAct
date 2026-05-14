@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { AuthModal, type AuthMode } from '../components/auth/AuthModal';
 import { consumeAuthSessionMessage } from '../auth/authEvents';
 import { useAuth } from '../auth/useAuth';
+import { createDemoNotebookLocally } from '../services/notebookStorage';
 
 import './LandingPage.css';
 import './LandingPageTuning.css';
@@ -291,7 +292,11 @@ function LandingPage() {
 
         try {
             await startDemo();
-            navigate('/home');
+            const demoNotebook = createDemoNotebookLocally();
+            navigate(`/notebook/${demoNotebook.id}`, {
+                replace: true,
+                state: { isDemo: true },
+            });
         } catch {
             setSessionMessage('Не удалось запустить demo-режим. Попробуйте ещё раз.');
         } finally {
