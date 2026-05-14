@@ -22,4 +22,6 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshTokenEntity
             UUID userId,
             OffsetDateTime now
     );
+
+    long countByRevokedAtIsNullAndExpiresAtAfter(OffsetDateTime now);
 }
