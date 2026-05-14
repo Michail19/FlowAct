@@ -13,6 +13,7 @@ import {
 } from './authSession';
 import { subscribeAuthSessionEnded } from './authEvents';
 import { authApi, type AuthUser } from '../services/authApi';
+import { demoAuthApi } from '../services/demoAuthApi';
 import {
     AuthContext,
     type AuthContextValue,
@@ -107,6 +108,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(authResponse.user);
     }, []);
 
+    const startDemo = useCallback(async () => {
+        const authResponse = await demoAuthApi.startDemo();
+        saveAuthSession(authResponse);
+        setUser(authResponse.user);
+    }, []);
+
     const logout = useCallback(async () => {
         const session = getAuthSession();
 
@@ -126,9 +133,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isInitializing,
         login,
         register,
+        startDemo,
         logout,
         refreshUser,
-    }), [isInitializing, login, logout, refreshUser, register, user]);
+    }), [isInitializing, login, logout, refreshUser, register, startDemo, user]);
 
     return (
         <AuthContext.Provider value={value}>
