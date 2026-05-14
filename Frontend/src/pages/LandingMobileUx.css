@@ -1,0 +1,251 @@
+/* Mobile and CTA polish for the landing page. */
+
+.landing-page__nav a,
+.landing-page__ghost-button,
+.landing-page__login-button,
+.landing-page__primary-button,
+.landing-page__secondary-button {
+    font-family: inherit;
+    letter-spacing: -0.01em;
+}
+
+.landing-page__ghost-button,
+.landing-page__login-button,
+.landing-page__secondary-button {
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.landing-page__primary-button,
+.landing-page__secondary-button {
+    font-size: 16px;
+    font-weight: 800;
+}
+
+.landing-page__primary-button--large {
+    min-height: 56px;
+    padding: 0 30px;
+    border-radius: 16px;
+    font-size: clamp(18px, 2.1vw, 22px);
+    font-weight: 850;
+}
+
+@media (max-width: 720px) {
+    .landing-page {
+        padding: 6px;
+    }
+
+    .landing-page__topbar {
+        position: sticky;
+        top: 6px;
+        display: grid;
+        min-height: 84px;
+        grid-template-columns: 1fr auto;
+        align-items: center;
+        gap: 10px;
+        padding: 8px;
+        border-radius: 5px;
+    }
+
+    .landing-page__brand {
+        gap: 0;
+        font-size: 27px;
+        font-weight: 500;
+        letter-spacing: -0.02em;
+    }
+
+    .landing-page__brand-mark {
+        display: none;
+    }
+
+    .landing-page__actions {
+        display: inline-flex;
+        width: auto;
+        justify-content: flex-end;
+        gap: 8px;
+    }
+
+    .landing-page__ghost-button,
+    .landing-page__login-button {
+        width: auto;
+        min-height: 54px;
+        padding: 0 18px;
+        border-radius: 14px;
+        font-size: 16px;
+        font-weight: 700;
+    }
+
+    .landing-page__actions .landing-page__login-button:not(:only-child) {
+        display: none;
+    }
+
+    .landing-hero {
+        gap: 26px;
+        padding: 56px 22px 28px;
+        text-align: center;
+    }
+
+    .landing-page__eyebrow {
+        justify-content: center;
+        width: 100%;
+        font-size: 11px;
+    }
+
+    .landing-hero__content h1 {
+        max-width: 330px;
+        margin: 0 auto;
+        font-size: 26px;
+        line-height: 1.08;
+        letter-spacing: -0.035em;
+    }
+
+    .landing-hero__content p {
+        max-width: 320px;
+        margin: 18px auto 0;
+        font-size: 14px;
+        line-height: 1.22;
+    }
+
+    .landing-hero__buttons {
+        display: grid;
+        max-width: 290px;
+        grid-template-columns: 1fr;
+        margin: 22px auto 0;
+    }
+
+    .landing-page__primary-button,
+    .landing-page__secondary-button {
+        min-height: 48px;
+        border-radius: 14px;
+        font-size: 15px;
+    }
+
+    .landing-hero__preview {
+        width: 100%;
+        max-width: 320px;
+        margin: 0 auto;
+    }
+
+    .landing-editor-preview {
+        border-radius: 0;
+    }
+
+    .landing-editor-preview__header {
+        min-height: 24px;
+        padding: 0 6px;
+    }
+
+    .landing-editor-preview__header strong {
+        font-size: 7px;
+    }
+
+    .landing-editor-preview__window-actions {
+        gap: 3px;
+    }
+
+    .landing-editor-preview__dot {
+        width: 5px;
+        height: 5px;
+    }
+
+    .landing-editor-preview__body {
+        min-height: 205px;
+        grid-template-columns: 20px 1fr;
+    }
+
+    .landing-editor-preview__toolbar {
+        gap: 5px;
+        padding-top: 7px;
+    }
+
+    .landing-editor-preview__toolbar span {
+        width: 12px;
+        height: 12px;
+        border-radius: 4px;
+    }
+
+    .landing-editor-preview__node,
+    .landing-editor-preview__branch,
+    .landing-editor-preview__suggestion {
+        transform: scale(0.72);
+        transform-origin: center;
+    }
+
+    .landing-editor-preview__suggestion {
+        right: -18px;
+        bottom: -2px;
+    }
+
+    .landing-hero__highlights {
+        max-width: 320px;
+        margin: 14px auto 0;
+        text-align: left;
+    }
+
+    .landing-stats,
+    .landing-features,
+    .landing-steps,
+    .landing-ai,
+    .landing-run,
+    .landing-tasks,
+    .landing-cta {
+        margin-top: 36px;
+    }
+
+    .landing-section-heading h2,
+    .landing-ai h2,
+    .landing-run h2,
+    .landing-tasks h2,
+    .landing-cta h2 {
+        font-size: 28px;
+        line-height: 1.08;
+        text-align: center;
+    }
+
+    .landing-section-heading p,
+    .landing-ai p,
+    .landing-run p,
+    .landing-tasks__header p,
+    .landing-cta p {
+        font-size: 14px;
+        line-height: 1.48;
+        text-align: center;
+    }
+
+    .landing-cta {
+        padding: 34px 16px;
+        border-radius: 22px;
+    }
+
+    .landing-page__primary-button--large {
+        min-height: 52px;
+        font-size: 18px;
+    }
+
+    .landing-footer {
+        align-items: center;
+        flex-direction: column;
+        justify-content: center;
+        text-align: center;
+    }
+
+    .landing-footer__links {
+        justify-content: center;
+    }
+}
+
+@media (max-width: 380px) {
+    .landing-hero {
+        padding-inline: 14px;
+    }
+
+    .landing-page__brand {
+        font-size: 25px;
+    }
+
+    .landing-page__ghost-button,
+    .landing-page__login-button {
+        min-height: 50px;
+        padding: 0 14px;
+    }
+}
