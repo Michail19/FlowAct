@@ -38,6 +38,9 @@ public class UserEntity extends BaseEntity {
     @Column(name = "display_name", length = 255)
     private String displayName;
 
+    @Column(name = "avatar_url")
+    private String avatarUrl;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false, length = 30)
     private UserRole role;
