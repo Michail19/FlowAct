@@ -49,7 +49,8 @@ public class UserService {
     @Transactional
     public UserResponse updateCurrentUser(UUID userId, UpdateCurrentUserRequest request) {
         UserEntity user = findUserById(userId);
-        user.setDisplayName(normalizeDisplayName(request.displayName()));
+        user.setDisplayName(normalizeNullableText(request.displayName()));
+        user.setAvatarUrl(normalizeAvatarUrl(request.avatarUrl()));
         return userMapper.toResponse(userRepository.save(user));
     }
 
@@ -89,10 +90,24 @@ public class UserService {
                 .orElseThrow(() -> new NotFoundException("User not found"));
     }
 
-    private String normalizeDisplayName(String displayName) {
-        if (displayName == null || displayName.isBlank()) {
+    private String normalizeNullableText(String value) {
+        if (value == null || value.isBlank()) {
             return null;
         }
-        return displayName.trim();
+        return value.trim();
+    }
+
+    private String normalizeAvatarUrl(String avatarUrl) {
+        String normalizedAvatarUrl = normalizeNullableText(avatarUrl);
+
+        if (normalizedAvatarUrl == null) {
+            return null;
+        }
+
+        if (!normalizedAvatarUrl.startsWith("http://") && !normalizedAvatarUrl.startsWith("https://")) {
+            throw new IllegalArgumentException("Avatar URL must start with http:// or https://");
+        }
+
+        return normalizedAvatarUrl;
     }
 }
