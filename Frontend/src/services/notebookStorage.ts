@@ -92,6 +92,10 @@ export function isDemoNotebookId(notebookId?: string | null) {
     return Boolean(notebookId?.startsWith(DEMO_NOTEBOOK_ID_PREFIX));
 }
 
+export function clearDemoNotebooksLocally() {
+    demoNotebookMemoryStorage.clear();
+}
+
 export function listNotebooksLocally(): NotebookListItem[] {
     const sortedList = safeParseNotebookList(localStorage.getItem(getNotebookListStorageKey())).sort(
         (firstNotebook, secondNotebook) =>
