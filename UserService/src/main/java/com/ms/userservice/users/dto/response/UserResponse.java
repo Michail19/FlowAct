@@ -10,6 +10,7 @@ public record UserResponse(
         UUID id,
         String email,
         String displayName,
+        String avatarUrl,
         UserRole role,
         UserStatus status,
         OffsetDateTime createdAt,
