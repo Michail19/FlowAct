@@ -17,6 +17,7 @@ export type AuthContextValue = {
     isInitializing: boolean;
     login: (input: LoginInput) => Promise<void>;
     register: (input: RegisterInput) => Promise<void>;
+    startDemo: () => Promise<void>;
     logout: () => Promise<void>;
     refreshUser: () => Promise<void>;
 };
