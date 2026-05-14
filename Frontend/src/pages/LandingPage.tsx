@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import { AuthModal, type AuthMode } from '../components/auth/AuthModal';
 import { consumeAuthSessionMessage } from '../auth/authEvents';
@@ -250,11 +250,13 @@ function LandingAiModels() {
 }
 
 function LandingPage() {
+    const navigate = useNavigate();
     const [authModal, setAuthModal] = useState<AuthModalState>(null);
     const [sessionMessage, setSessionMessage] = useState<string | null>(() =>
         consumeAuthSessionMessage(),
     );
-    const { isAuthenticated } = useAuth();
+    const [isDemoStarting, setIsDemoStarting] = useState(false);
+    const { isAuthenticated, startDemo } = useAuth();
 
     useLandingScrollReveal();
 
@@ -278,6 +280,39 @@ function LandingPage() {
 
         setAuthModal({ mode });
     };
+
+    const handleStartDemo = async () => {
+        if (isAuthenticated || isDemoStarting) {
+            return;
+        }
+
+        setSessionMessage(null);
+        setIsDemoStarting(true);
+
+        try {
+            await startDemo();
+            navigate('/home');
+        } catch {
+            setSessionMessage('Не удалось запустить demo-режим. Попробуйте ещё раз.');
+        } finally {
+            setIsDemoStarting(false);
+        }
+    };
+
+    const mainCta = isAuthenticated ? (
+        <Link className="landing-page__primary-button" to="/home">
+            Открыть редактор
+        </Link>
+    ) : (
+        <button
+            className="landing-page__primary-button"
+            type="button"
+            onClick={handleStartDemo}
+            disabled={isDemoStarting}
+        >
+            {isDemoStarting ? 'Запуск...' : 'Попробовать'}
+        </button>
+    );
 
     return (
         <main className="landing-page">
@@ -313,9 +348,10 @@ function LandingPage() {
                                 <button
                                     className="landing-page__login-button"
                                     type="button"
-                                    onClick={() => openAuthModal('registration')}
+                                    onClick={handleStartDemo}
+                                    disabled={isDemoStarting}
                                 >
-                                    Попробовать
+                                    {isDemoStarting ? 'Запуск...' : 'Попробовать'}
                                 </button>
                             </>
                         )}
@@ -346,23 +382,23 @@ function LandingPage() {
                         </p>
 
                         <div className="landing-hero__buttons">
-                            {isAuthenticated ? (
-                                <Link className="landing-page__primary-button" to="/home">
-                                    Открыть редактор
-                                </Link>
-                            ) : (
+                            {mainCta}
+
+                            {!isAuthenticated && (
                                 <button
-                                    className="landing-page__primary-button"
+                                    className="landing-page__secondary-button"
                                     type="button"
                                     onClick={() => openAuthModal('registration')}
                                 >
-                                    Открыть редактор
+                                    Создать аккаунт
                                 </button>
                             )}
 
-                            <a className="landing-page__secondary-button" href="#how-it-works">
-                                Как это работает
-                            </a>
+                            {isAuthenticated && (
+                                <a className="landing-page__secondary-button" href="#how-it-works">
+                                    Как это работает
+                                </a>
+                            )}
                         </div>
 
                         <ul className="landing-hero__highlights" aria-label="Ключевые преимущества">
@@ -512,9 +548,10 @@ function LandingPage() {
                             <button
                                 className="landing-page__primary-button landing-page__primary-button--large"
                                 type="button"
-                                onClick={() => openAuthModal('registration')}
+                                onClick={handleStartDemo}
+                                disabled={isDemoStarting}
                             >
-                                Перейти к notebook
+                                {isDemoStarting ? 'Запуск...' : 'Попробовать demo'}
                             </button>
                         )}
 
