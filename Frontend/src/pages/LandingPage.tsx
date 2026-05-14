@@ -353,10 +353,9 @@ function LandingPage() {
                                 <button
                                     className="landing-page__login-button"
                                     type="button"
-                                    onClick={handleStartDemo}
-                                    disabled={isDemoStarting}
+                                    onClick={() => openAuthModal('registration')}
                                 >
-                                    {isDemoStarting ? 'Запуск...' : 'Попробовать'}
+                                    Зарегистрироваться
                                 </button>
                             </>
                         )}
