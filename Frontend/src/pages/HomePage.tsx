@@ -195,6 +195,7 @@ function HomePage() {
     const [isLoggingOut, setIsLoggingOut] = useState(false);
 
     const userLabel = user?.displayName || user?.email || 'Пользователь';
+    const isAdmin = user?.role === 'ADMIN';
 
     const getVisibleLocalNotebooks = useCallback(() => {
         return listNotebooksLocally().filter(
@@ -372,6 +373,12 @@ function HomePage() {
                     </Link>
 
                     <div className="home-page__user-menu">
+                        {isAdmin && (
+                            <Link className="home-page__admin-link" to="/admin">
+                                Admin panel
+                            </Link>
+                        )}
+
                         <Link
                             className="home-page__user-info"
                             to="/my-account"
