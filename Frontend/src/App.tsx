@@ -4,6 +4,7 @@ import LandingPage from './pages/LandingPage';
 import HomePage from './pages/HomePage';
 import NotebookPage from './pages/NotebookPage';
 import AccountPage from './pages/AccountPage';
+import AdminPage from './pages/AdminPage';
 import { AuthProvider } from './auth/AuthProvider';
 import { ProtectedRoute } from './auth/ProtectedRoute';
 
@@ -22,6 +23,14 @@ function App() {
                         element={(
                             <ProtectedRoute>
                                 <HomePage />
+                            </ProtectedRoute>
+                        )}
+                    />
+                    <Route
+                        path="/admin"
+                        element={(
+                            <ProtectedRoute requiredRole="ADMIN">
+                                <AdminPage />
                             </ProtectedRoute>
                         )}
                     />
