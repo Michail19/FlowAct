@@ -12,6 +12,10 @@
     backdrop-filter: blur(10px);
 }
 
+body.flowact-modal-open {
+    overflow: hidden;
+}
+
 .auth-modal__card {
     width: min(560px, 100%);
     padding: 28px;
