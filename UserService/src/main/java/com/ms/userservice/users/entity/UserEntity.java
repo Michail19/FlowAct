@@ -49,6 +49,13 @@ public class UserEntity extends BaseEntity {
     @Column(name = "status", nullable = false, length = 30)
     private UserStatus status;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "account_type", nullable = false, length = 30)
+    private UserAccountType accountType;
+
+    @Column(name = "demo_expires_at")
+    private OffsetDateTime demoExpiresAt;
+
     @Column(name = "last_login_at")
     private OffsetDateTime lastLoginAt;
 }
