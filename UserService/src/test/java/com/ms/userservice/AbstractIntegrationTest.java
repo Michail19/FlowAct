@@ -75,8 +75,7 @@ public abstract class AbstractIntegrationTest {
 
     @BeforeEach
     void cleanDatabase() {
-        refreshTokenRepository.deleteAll();
-        userRepository.deleteAll();
+        jdbcTemplate.execute("TRUNCATE TABLE refresh_tokens, users RESTART IDENTITY CASCADE");
     }
 
     protected AuthResponse register(String email, String password, String displayName) {
