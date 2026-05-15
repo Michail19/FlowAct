@@ -1,0 +1,246 @@
+name: FlowAct CI/CD
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - 'feature/**'
+      - 'bug-fix/**'
+  pull_request:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+    inputs:
+      run_deploy:
+        description: 'Run optional deploy dry-run stage'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flowact-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint and typecheck
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: Frontend
+        run: npm ci
+
+      - name: Lint frontend
+        working-directory: Frontend
+        run: npm run lint
+
+      - name: Typecheck frontend
+        working-directory: Frontend
+        run: npm run typecheck
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Prepare Gradle wrappers
+        run: |
+          chmod +x UserService/gradlew
+          chmod +x ExecutionService/gradlew
+          chmod +x WorkerService/gradlew
+
+      - name: Check UserService sources compile
+        working-directory: UserService
+        run: ./gradlew --no-daemon classes testClasses -x test -x fuzzingTest
+
+      - name: Check ExecutionService sources compile
+        working-directory: ExecutionService
+        run: ./gradlew --no-daemon classes testClasses -x test
+
+      - name: Check WorkerService sources compile
+        working-directory: WorkerService
+        run: ./gradlew --no-daemon classes testClasses -x test
+
+  unit-tests:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Prepare Gradle wrappers
+        run: |
+          chmod +x UserService/gradlew
+          chmod +x ExecutionService/gradlew
+          chmod +x WorkerService/gradlew
+
+      - name: Test UserService without fuzzing tests
+        working-directory: UserService
+        run: ./gradlew --no-daemon test
+
+      - name: Test ExecutionService
+        working-directory: ExecutionService
+        run: ./gradlew --no-daemon test
+
+      - name: Test WorkerService
+        working-directory: WorkerService
+        run: ./gradlew --no-daemon test
+
+      - name: Upload unit test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports
+          if-no-files-found: ignore
+          path: |
+            UserService/build/reports/tests/test
+            ExecutionService/build/reports/tests/test
+            WorkerService/build/reports/tests/test
+
+  fuzzing-tests:
+    name: Fuzzing tests
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Prepare UserService Gradle wrapper
+        run: chmod +x UserService/gradlew
+
+      - name: Run UserService fuzzing tests
+        working-directory: UserService
+        run: ./gradlew --no-daemon fuzzingTest
+
+      - name: Upload fuzzing test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzzing-test-reports
+          if-no-files-found: ignore
+          path: UserService/build/reports/tests/fuzzingTest
+
+  ci:
+    name: Build and compose validation
+    runs-on: ubuntu-latest
+    needs:
+      - unit-tests
+      - fuzzing-tests
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: Frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: Frontend
+        run: npm run build
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Prepare Gradle wrappers
+        run: |
+          chmod +x UserService/gradlew
+          chmod +x ExecutionService/gradlew
+          chmod +x WorkerService/gradlew
+
+      - name: Build UserService artifact
+        working-directory: UserService
+        run: ./gradlew --no-daemon build -x test -x fuzzingTest
+
+      - name: Build ExecutionService artifact
+        working-directory: ExecutionService
+        run: ./gradlew --no-daemon build -x test
+
+      - name: Build WorkerService artifact
+        working-directory: WorkerService
+        run: ./gradlew --no-daemon build -x test
+
+      - name: Validate Docker Compose config
+        run: docker compose config --quiet
+
+      - name: Prepare local Caddyfile for Docker build validation
+        run: cp Caddyfile.example Caddyfile
+
+      - name: Validate Docker images can be built
+        run: docker compose build --pull frontend user-service execution-service worker-service
+
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          if-no-files-found: ignore
+          path: |
+            Frontend/dist
+            UserService/build/libs/*.jar
+            ExecutionService/build/libs/*.jar
+            WorkerService/build/libs/*.jar
+
+  deploy:
+    name: Deploy optional dry-run
+    runs-on: ubuntu-latest
+    needs: ci
+    if: github.event_name == 'workflow_dispatch' && inputs.run_deploy == 'true'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deployment stage placeholder
+        run: |
+          echo "Deploy stage is optional for the coursework pipeline."
+          echo "CI artifacts are ready. Add VPS/Render deployment commands here when production hosting is selected."
