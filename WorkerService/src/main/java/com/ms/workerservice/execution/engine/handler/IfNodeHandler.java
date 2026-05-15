@@ -36,7 +36,7 @@ public class IfNodeHandler implements NodeHandler {
         Map<String, Object> config = jsonHelper.toMap(block.getConfig());
 
         Object conditionValue = resolveConditionValue(config, input, context);
-        String operator = String.valueOf(config.getOrDefault("operator", "exists"));
+        String operator = String.valueOf(config.getOrDefault("operator", "truthy"));
         Object expectedValue = config.get("expectedValue");
 
         boolean result = evaluateCondition(conditionValue, operator, expectedValue);
@@ -87,6 +87,7 @@ public class IfNodeHandler implements NodeHandler {
 
     private boolean evaluateCondition(Object actualValue, String operator, Object expectedValue) {
         return switch (normalizeOperator(operator)) {
+            case "truthy" -> toBoolean(actualValue);
             case "exists" -> isPresent(actualValue);
             case "equals" -> compareAsNormalizedValues(actualValue, expectedValue) == 0;
             case "notEquals" -> compareAsNormalizedValues(actualValue, expectedValue) != 0;
@@ -103,7 +104,7 @@ public class IfNodeHandler implements NodeHandler {
 
     private String normalizeOperator(String operator) {
         if (operator == null || operator.isBlank()) {
-            return "exists";
+            return "truthy";
         }
 
         return operator.trim();
