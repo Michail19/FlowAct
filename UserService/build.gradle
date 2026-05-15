@@ -63,5 +63,20 @@ dependencies {
 }
 
 tasks.named('test') {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        excludeTags 'fuzzing'
+    }
 }
+
+tasks.register('fuzzingTest', Test) {
+    description = 'Runs UserService fuzzing tests.'
+    group = 'verification'
+
+    useJUnitPlatform {
+        includeTags 'fuzzing'
+    }
+
+    shouldRunAfter tasks.named('test')
+}
+
+check.dependsOn tasks.named('fuzzingTest')
