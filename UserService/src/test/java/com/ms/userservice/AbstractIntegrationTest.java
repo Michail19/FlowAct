@@ -20,8 +20,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
@@ -32,17 +30,19 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Testcontainers
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 public abstract class AbstractIntegrationTest {
 
     private static final String TEST_JWT_SECRET = "test-secret-for-user-service-integration-tests-32-characters";
 
-    @Container
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
+    private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine")
             .withDatabaseName("flowact_users_test")
             .withUsername("postgres")
             .withPassword("postgres");
+
+    static {
+        POSTGRES.start();
+    }
 
     @Autowired
     protected TestRestTemplate restTemplate;
@@ -61,6 +61,15 @@ public abstract class AbstractIntegrationTest {
 
     @DynamicPropertySource
     static void registerDynamicProperties(DynamicPropertyRegistry registry) {
+        registry.add("DB_URL", POSTGRES::getJdbcUrl);
+        registry.add("DB_USERNAME", POSTGRES::getUsername);
+        registry.add("DB_PASSWORD", POSTGRES::getPassword);
+        registry.add("JWT_SECRET", () -> TEST_JWT_SECRET);
+        registry.add("JWT_ISSUER", () -> "flowact-user-service-test");
+        registry.add("JWT_ACCESS_TOKEN_TTL_MINUTES", () -> "30");
+        registry.add("JWT_REFRESH_TOKEN_TTL_DAYS", () -> "14");
+        registry.add("BCRYPT_STRENGTH", () -> "4");
+
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
