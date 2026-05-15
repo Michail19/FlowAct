@@ -1,68 +1,193 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
-import './LandingPage.css';
+import { AuthModal, type AuthMode } from '../components/auth/AuthModal';
+import { consumeAuthSessionMessage } from '../auth/authEvents';
+import { useAuth } from '../auth/useAuth';
+import { createDemoNotebookLocally } from '../services/notebookStorage';
 
-type AuthMode = 'login' | 'registration';
+import './LandingPage.css';
+import './LandingPageTuning.css';
+import './LandingAuthUx.css';
+import './LandingMobileUx.css';
 
 type AuthModalState = {
     mode: AuthMode;
 } | null;
 
+const heroHighlights = [
+    'Визуальный редактор без лишней настройки',
+    'Запуск workflow и понятные логи выполнения',
+    'AI-подсказки и автодополнение сценариев',
+];
+
+const statsCards = [
+    {
+        value: '3 шага',
+        label: 'создать notebook, добавить блоки, запустить workflow',
+    },
+    {
+        value: '0 кода',
+        label: 'сценарии собираются связями между блоками',
+    },
+    {
+        value: 'AI',
+        label: 'подсказки помогают быстрее дополнять рабочий процесс',
+    },
+];
+
 const featureCards = [
     {
-        title: 'Визуальные workflow',
-        text: 'Собирайте рабочие процессы из блоков, соединяйте их связями и контролируйте порядок выполнения.',
+        title: 'Понятная сборка схемы',
+        text: 'Перетаскивайте блоки, соединяйте их ветками и сразу видьте порядок выполнения процесса.',
         icon: '▧',
     },
     {
-        title: 'AI-блоки',
-        text: 'Добавляйте AI-обработку текста, генерацию ответов, классификацию и преобразование данных.',
-        icon: '✦',
+        title: 'Контроль результата',
+        text: 'Запускайте workflow, отслеживайте статусы блоков и открывайте логи, если нужно найти ошибку.',
+        icon: '▶',
     },
     {
-        title: 'Запуск и логи',
-        text: 'Запускайте workflow, отслеживайте состояние блоков и анализируйте результат выполнения.',
-        icon: '▶',
+        title: 'AI-помощник',
+        text: 'Добавляйте AI-блоки, получайте подсказки и быстрее собирайте сценарии обработки данных.',
+        icon: '✦',
+    },
+];
+
+const workflowSteps = [
+    {
+        step: '01',
+        title: 'Создайте notebook',
+        text: 'Notebook хранит схему рабочего процесса, связи, настройки блоков и состояние выполнения.',
+    },
+    {
+        step: '02',
+        title: 'Соберите workflow',
+        text: 'Добавьте старт, действия, условия, AI-блоки, HTTP-запросы, логирование и финальный блок.',
+    },
+    {
+        step: '03',
+        title: 'Запустите и проверьте',
+        text: 'FlowAct покажет статусы блоков, сохранит execution logs и поможет понять итог выполнения.',
     },
 ];
 
 const taskCards = [
-    'Автоматизация рутинных процессов',
-    'Аналитика и обработка данных',
-    'Контроль выполнения сценариев',
-    'Обучение и эксперименты с workflow-моделями',
+    {
+        title: 'Автоматизация рутины',
+        text: 'Собирайте повторяемые цепочки действий и запускайте их из одного интерфейса.',
+    },
+    {
+        title: 'AI-обработка текста',
+        text: 'Создавайте сценарии, где модель анализирует текст, формирует вывод и передаёт его дальше.',
+    },
+    {
+        title: 'Интеграции через HTTP',
+        text: 'Добавляйте запросы к внешним API и используйте ответ в следующих блоках процесса.',
+    },
+    {
+        title: 'Отладка процессов',
+        text: 'Проверяйте схему, смотрите логи и быстро находите место, где workflow требует настройки.',
+    },
 ];
+
+const shortcutCards = [
+    {
+        keys: 'Ctrl + S',
+        action: 'сохранить notebook',
+    },
+    {
+        keys: 'Ctrl + Z',
+        action: 'отменить действие',
+    },
+    {
+        keys: 'Ctrl + Enter',
+        action: 'запустить workflow',
+    },
+];
+
+function useLandingScrollReveal() {
+    useEffect(() => {
+        const pageElement = document.querySelector('.landing-page');
+        const bodyElement = document.body;
+        const revealElements = Array.from(
+            document.querySelectorAll<HTMLElement>('[data-reveal]'),
+        );
+
+        bodyElement.classList.add('landing-page-body');
+        pageElement?.classList.add('landing-page--animated');
+
+        if (!('IntersectionObserver' in window)) {
+            revealElements.forEach((element) => {
+                element.classList.add('landing-reveal--visible');
+            });
+            return () => {
+                bodyElement.classList.remove('landing-page-body');
+                pageElement?.classList.remove('landing-page--animated');
+            };
+        }
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    if (!entry.isIntersecting) {
+                        return;
+                    }
+
+                    entry.target.classList.add('landing-reveal--visible');
+                    observer.unobserve(entry.target);
+                });
+            },
+            {
+                rootMargin: '0px 0px -12% 0px',
+                threshold: 0.16,
+            },
+        );
+
+        revealElements.forEach((element) => observer.observe(element));
+
+        return () => {
+            observer.disconnect();
+            bodyElement.classList.remove('landing-page-body');
+            pageElement?.classList.remove('landing-page--animated');
+        };
+    }, []);
+}
 
 function LandingEditorPreview() {
     return (
         <div className="landing-editor-preview" aria-label="Пример редактора workflow">
             <div className="landing-editor-preview__header">
-                <span className="landing-editor-preview__dot" />
-                <span className="landing-editor-preview__dot" />
-                <span className="landing-editor-preview__dot" />
-                <strong>Название notebook</strong>
+                <div className="landing-editor-preview__window-actions" aria-hidden="true">
+                    <span className="landing-editor-preview__dot" />
+                    <span className="landing-editor-preview__dot" />
+                    <span className="landing-editor-preview__dot" />
+                </div>
+
+                <strong>Заявка клиента</strong>
+
+                <span className="landing-editor-preview__status">Сохранено</span>
             </div>
 
             <div className="landing-editor-preview__body">
-                <aside className="landing-editor-preview__toolbar">
-                    <span />
-                    <span />
-                    <span />
-                    <span />
-                    <span />
-                    <span />
+                <aside className="landing-editor-preview__toolbar" aria-hidden="true">
+                    <span title="Старт" />
+                    <span title="Условие" />
+                    <span title="AI" />
+                    <span title="HTTP" />
+                    <span title="Лог" />
+                    <span title="Конец" />
                 </aside>
 
                 <div className="landing-editor-preview__canvas">
                     <div className="landing-editor-preview__node landing-editor-preview__node--start">
                         Старт
                     </div>
-                    <div className="landing-editor-preview__node landing-editor-preview__node--ai">
-                        AI
-                    </div>
                     <div className="landing-editor-preview__node landing-editor-preview__node--condition">
-                        ?
+                        IF
+                    </div>
+                    <div className="landing-editor-preview__node landing-editor-preview__node--ai">
+                        AI-анализ
                     </div>
                     <div className="landing-editor-preview__node landing-editor-preview__node--log">
                         Лог
@@ -70,6 +195,13 @@ function LandingEditorPreview() {
                     <div className="landing-editor-preview__node landing-editor-preview__node--end">
                         Конец
                     </div>
+
+                    <span className="landing-editor-preview__branch landing-editor-preview__branch--yes">
+                        Да
+                    </span>
+                    <span className="landing-editor-preview__branch landing-editor-preview__branch--no">
+                        Нет
+                    </span>
 
                     <svg className="landing-editor-preview__lines" viewBox="0 0 560 260" aria-hidden="true">
                         <path d="M118 88 C170 88 175 88 224 88" />
@@ -82,7 +214,7 @@ function LandingEditorPreview() {
 
             <div className="landing-editor-preview__suggestion">
                 <span>AI-подсказка</span>
-                <strong>Добавить логирование</strong>
+                <strong>Добавить логирование ответа</strong>
                 <button type="button">Добавить</button>
             </div>
         </div>
@@ -91,150 +223,50 @@ function LandingEditorPreview() {
 
 function LandingAiModels() {
     return (
-        <section className="landing-ai" id="ai">
+        <section className="landing-ai" id="ai" data-reveal="section">
             <div className="landing-ai__visual" aria-hidden="true">
-                <span className="landing-ai__orb landing-ai__orb--openai">◎</span>
+                <span className="landing-ai__orb landing-ai__orb--openai">AI</span>
                 <span className="landing-ai__orb landing-ai__orb--gemini">✦</span>
-                <span className="landing-ai__orb landing-ai__orb--deepseek">◆</span>
-                <span className="landing-ai__orb landing-ai__orb--other">●</span>
+                <span className="landing-ai__orb landing-ai__orb--deepseek">ML</span>
+                <span className="landing-ai__orb landing-ai__orb--other">API</span>
             </div>
 
             <div className="landing-ai__content">
                 <span className="landing-page__eyebrow">AI-интеграции</span>
-                <h2>Добавляйте AI в свои процессы</h2>
+                <h2>AI становится частью процесса, а не отдельным окном</h2>
                 <p>
-                    FlowAct подготавливается к работе с AI-блоками, рекомендациями следующего
-                    действия и автодополнением схемы. Пользователь сможет собрать цепочку,
-                    где нейросеть анализирует текст, формирует результат и передаёт его дальше.
+                    FlowAct связывает AI-блоки с остальной схемой: модель получает данные из
+                    предыдущего блока, анализирует их и передаёт результат дальше по workflow.
+                    Это удобно для классификации, генерации текста, проверки условий и подсказок.
                 </p>
+
+                <div className="landing-ai__chips" aria-label="Возможности AI-блоков">
+                    <span>Анализ текста</span>
+                    <span>Генерация ответа</span>
+                    <span>Рекомендация блока</span>
+                </div>
             </div>
         </section>
     );
 }
 
-function AuthModal({
-                       mode,
-                       onClose,
-                       onSwitchMode,
-                   }: {
-    mode: AuthMode;
-    onClose: () => void;
-    onSwitchMode: (mode: AuthMode) => void;
-}) {
-    const navigate = useNavigate();
-    const isLogin = mode === 'login';
-
-    const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-
-        // Временное поведение до подключения UserService.
-        // После появления авторизации здесь будет вызов authApi.login/register.
-        navigate('/home');
-    };
-
-    return (
-        <div className="landing-auth" role="presentation" onMouseDown={onClose}>
-            <section
-                className="landing-auth__card"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="landing-auth-title"
-                onMouseDown={(event) => event.stopPropagation()}
-            >
-                <header className="landing-auth__header">
-                    <div>
-                        <span className="landing-page__eyebrow">
-                            {isLogin ? 'Login' : 'Registration'}
-                        </span>
-                        <h2 id="landing-auth-title">
-                            {isLogin ? 'Вход в аккаунт' : 'Регистрация'}
-                        </h2>
-                    </div>
-
-                    <button
-                        className="landing-auth__close"
-                        type="button"
-                        aria-label="Закрыть окно"
-                        onClick={onClose}
-                    >
-                        ×
-                    </button>
-                </header>
-
-                <form className="landing-auth__form" onSubmit={handleSubmit}>
-                    {!isLogin && (
-                        <>
-                            <label>
-                                <span>Email</span>
-                                <input type="email" placeholder="user@example.com" />
-                            </label>
-
-                            <label>
-                                <span>Username</span>
-                                <input placeholder="mikhail" />
-                            </label>
-
-                            <div className="landing-auth__grid">
-                                <label>
-                                    <span>Имя</span>
-                                    <input placeholder="Михаил" />
-                                </label>
-
-                                <label>
-                                    <span>Фамилия</span>
-                                    <input placeholder="Ершов" />
-                                </label>
-                            </div>
-                        </>
-                    )}
-
-                    {isLogin && (
-                        <label>
-                            <span>Email / Username</span>
-                            <input placeholder="user@example.com" />
-                        </label>
-                    )}
-
-                    <label>
-                        <span>Пароль</span>
-                        <input type="password" placeholder="••••••••" />
-                    </label>
-
-                    {!isLogin && (
-                        <label>
-                            <span>Повторите пароль</span>
-                            <input type="password" placeholder="••••••••" />
-                        </label>
-                    )}
-
-                    <button className="landing-auth__submit" type="submit">
-                        {isLogin ? 'Войти' : 'Зарегистрироваться'}
-                    </button>
-                </form>
-
-                <button
-                    className="landing-auth__switch"
-                    type="button"
-                    onClick={() => onSwitchMode(isLogin ? 'registration' : 'login')}
-                >
-                    {isLogin
-                        ? 'Нет аккаунта? Зарегистрироваться'
-                        : 'Уже есть аккаунт? Войти'}
-                </button>
-
-                <p className="landing-auth__hint">
-                    Форма подготовлена под будущий UserService. Сейчас переход выполняется
-                    в demo-режим.
-                </p>
-            </section>
-        </div>
-    );
-}
-
 function LandingPage() {
+    const navigate = useNavigate();
     const [authModal, setAuthModal] = useState<AuthModalState>(null);
+    const [sessionMessage, setSessionMessage] = useState<string | null>(() =>
+        consumeAuthSessionMessage(),
+    );
+    const [isDemoStarting, setIsDemoStarting] = useState(false);
+    const { isAuthenticated, startDemo } = useAuth();
+
+    useLandingScrollReveal();
 
     const openAuthModal = (mode: AuthMode) => {
+        if (isAuthenticated) {
+            return;
+        }
+
+        setSessionMessage(null);
         setAuthModal({ mode });
     };
 
@@ -243,102 +275,223 @@ function LandingPage() {
     };
 
     const switchAuthMode = (mode: AuthMode) => {
+        if (isAuthenticated) {
+            return;
+        }
+
         setAuthModal({ mode });
     };
+
+    const handleStartDemo = async () => {
+        if (isAuthenticated || isDemoStarting) {
+            return;
+        }
+
+        setSessionMessage(null);
+        setIsDemoStarting(true);
+
+        try {
+            await startDemo();
+            const demoNotebook = createDemoNotebookLocally();
+            navigate(`/notebook/${demoNotebook.id}`, {
+                replace: true,
+                state: { isDemo: true },
+            });
+        } catch {
+            setSessionMessage('Не удалось запустить demo-режим. Попробуйте ещё раз.');
+        } finally {
+            setIsDemoStarting(false);
+        }
+    };
+
+    const mainCta = isAuthenticated ? (
+        <Link className="landing-page__primary-button" to="/home">
+            Открыть редактор
+        </Link>
+    ) : (
+        <button
+            className="landing-page__primary-button"
+            type="button"
+            onClick={handleStartDemo}
+            disabled={isDemoStarting}
+        >
+            {isDemoStarting ? 'Запуск...' : 'Попробовать'}
+        </button>
+    );
 
     return (
         <main className="landing-page">
             <section className="landing-page__shell">
-                <header className="landing-page__topbar">
+                <header className="landing-page__topbar" data-reveal="down">
                     <Link className="landing-page__brand" to="/landing">
+                        <span className="landing-page__brand-mark">F</span>
                         FlowAct
                     </Link>
 
                     <nav className="landing-page__nav" aria-label="Навигация по лендингу">
-                        <a href="#about">Что такое FlowAct?</a>
-                        <a href="#features">Преимущества</a>
-                        <a href="#tasks">Задачи</a>
+                        <a href="#features">Возможности</a>
+                        <a href="#how-it-works">Как работает</a>
+                        <a href="#ai">AI</a>
+                        <a href="#tasks">Сценарии</a>
                     </nav>
 
                     <div className="landing-page__actions">
-                        <button
-                            className="landing-page__ghost-button"
-                            type="button"
-                            onClick={() => openAuthModal('registration')}
-                        >
-                            Регистрация
-                        </button>
+                        {isAuthenticated ? (
+                            <Link className="landing-page__login-button" to="/home">
+                                В workspace
+                            </Link>
+                        ) : (
+                            <>
+                                <button
+                                    className="landing-page__ghost-button"
+                                    type="button"
+                                    onClick={() => openAuthModal('login')}
+                                >
+                                    Войти
+                                </button>
 
-                        <button
-                            className="landing-page__login-button"
-                            type="button"
-                            onClick={() => openAuthModal('login')}
-                        >
-                            Войти
-                        </button>
+                                <button
+                                    className="landing-page__login-button"
+                                    type="button"
+                                    onClick={() => openAuthModal('registration')}
+                                >
+                                    Зарегистрироваться
+                                </button>
+                            </>
+                        )}
                     </div>
                 </header>
 
+                {sessionMessage && !isAuthenticated && (
+                    <div className="landing-page__session-message" role="status">
+                        <span>{sessionMessage}</span>
+                        <button type="button" onClick={() => setSessionMessage(null)}>
+                            ×
+                        </button>
+                    </div>
+                )}
+
                 <section className="landing-hero" id="about">
-                    <div className="landing-hero__content">
+                    <div className="landing-hero__content" data-reveal="up">
                         <span className="landing-page__eyebrow">Workflow automation</span>
 
                         <h1>
-                            FlowAct — визуальные workflow для автоматизации задач
+                            Собирайте рабочие процессы как схему на доске
                         </h1>
 
                         <p>
-                            Создавайте, запускайте и контролируйте цепочки действий без кода:
-                            от простых сценариев до AI-процессов, HTTP-запросов и анализа
-                            результатов.
+                            FlowAct помогает визуально собрать цепочку действий, запустить её,
+                            увидеть результат каждого блока и добавить AI-логику без ручного
+                            связывания сервисов.
                         </p>
 
                         <div className="landing-hero__buttons">
-                            <Link className="landing-page__primary-button" to="/home">
-                                Начать работу
-                            </Link>
+                            {mainCta}
 
-                            <a className="landing-page__secondary-button" href="#preview">
-                                Посмотреть пример
-                            </a>
+                            {!isAuthenticated && (
+                                <button
+                                    className="landing-page__secondary-button"
+                                    type="button"
+                                    onClick={() => openAuthModal('registration')}
+                                >
+                                    Создать аккаунт
+                                </button>
+                            )}
+
+                            {isAuthenticated && (
+                                <a className="landing-page__secondary-button" href="#how-it-works">
+                                    Как это работает
+                                </a>
+                            )}
                         </div>
+
+                        <ul className="landing-hero__highlights" aria-label="Ключевые преимущества">
+                            {heroHighlights.map((highlight) => (
+                                <li key={highlight}>{highlight}</li>
+                            ))}
+                        </ul>
                     </div>
 
-                    <div className="landing-hero__preview" id="preview">
+                    <div className="landing-hero__preview" id="preview" data-reveal="scale">
                         <LandingEditorPreview />
                     </div>
                 </section>
 
-                <section className="landing-features" id="features">
-                    {featureCards.map((feature) => (
-                        <article className="landing-feature-card" key={feature.title}>
-                            <span className="landing-feature-card__icon" aria-hidden="true">
-                                {feature.icon}
-                            </span>
-                            <h2>{feature.title}</h2>
-                            <p>{feature.text}</p>
+                <section className="landing-stats" aria-label="Кратко о FlowAct" data-reveal="up">
+                    {statsCards.map((card) => (
+                        <article className="landing-stat-card" key={card.value}>
+                            <strong>{card.value}</strong>
+                            <span>{card.label}</span>
                         </article>
                     ))}
                 </section>
 
+                <section className="landing-features" id="features" data-reveal="up">
+                    <div className="landing-section-heading landing-section-heading--wide">
+                        <span className="landing-page__eyebrow">Возможности</span>
+                        <h2>Всё важное для первого workflow — на одной странице</h2>
+                        <p>
+                            FlowAct ведёт пользователя к понятному действию: открыть редактор,
+                            создать notebook, собрать схему и проверить выполнение процесса.
+                        </p>
+                    </div>
+
+                    <div className="landing-features__grid">
+                        {featureCards.map((feature) => (
+                            <article className="landing-feature-card" key={feature.title}>
+                                <span className="landing-feature-card__icon" aria-hidden="true">
+                                    {feature.icon}
+                                </span>
+                                <h3>{feature.title}</h3>
+                                <p>{feature.text}</p>
+                            </article>
+                        ))}
+                    </div>
+                </section>
+
+                <section className="landing-steps" id="how-it-works" data-reveal="up">
+                    <div className="landing-section-heading">
+                        <span className="landing-page__eyebrow">Как работает</span>
+                        <h2>От идеи до запуска — без лишних экранов</h2>
+                    </div>
+
+                    <div className="landing-steps__grid">
+                        {workflowSteps.map((item) => (
+                            <article className="landing-step-card" key={item.step}>
+                                <span>{item.step}</span>
+                                <h3>{item.title}</h3>
+                                <p>{item.text}</p>
+                            </article>
+                        ))}
+                    </div>
+                </section>
+
                 <LandingAiModels />
 
-                <section className="landing-run">
+                <section className="landing-run" data-reveal="up">
                     <div className="landing-run__content">
                         <span className="landing-page__eyebrow">Execution</span>
-                        <h2>Запускайте, отслеживайте, анализируйте</h2>
+                        <h2>Запуск должен быть понятным, а не “чёрным ящиком”</h2>
                         <p>
-                            Запускайте отдельные блоки или весь workflow целиком. Состояние
-                            каждого шага отображается в редакторе, а логи и итоговый результат
-                            помогают быстро понять, где процесс завершился успешно, а где нужна
-                            настройка.
+                            FlowAct показывает состояние блоков, сохраняет логи и даёт быстрые
+                            действия для проверки схемы. Пользователь видит, что именно произошло
+                            с workflow после запуска.
                         </p>
+
+                        <div className="landing-shortcuts" aria-label="Горячие клавиши редактора">
+                            {shortcutCards.map((shortcut) => (
+                                <div className="landing-shortcut" key={shortcut.keys}>
+                                    <kbd>{shortcut.keys}</kbd>
+                                    <span>{shortcut.action}</span>
+                                </div>
+                            ))}
+                        </div>
                     </div>
 
                     <div className="landing-run__panel" aria-hidden="true">
                         <div className="landing-run__panel-header">
                             <span>Выполнение</span>
-                            <strong>Выполнено</strong>
+                            <strong>Успешно</strong>
                         </div>
 
                         <div className="landing-run__log landing-run__log--success">
@@ -358,51 +511,77 @@ function LandingPage() {
                     </div>
                 </section>
 
-                <section className="landing-tasks" id="tasks">
+                <section className="landing-tasks" id="tasks" data-reveal="up">
                     <div className="landing-tasks__header">
-                        <span className="landing-page__eyebrow">Use cases</span>
-                        <h2>Подходит для разных задач</h2>
+                        <span className="landing-page__eyebrow">Сценарии</span>
+                        <h2>Для каких задач подходит FlowAct</h2>
+                        <p>
+                            Используйте FlowAct как визуальный редактор и систему запуска
+                            процессов: от простых повторяемых цепочек до сценариев с AI и
+                            интеграциями.
+                        </p>
                     </div>
 
                     <div className="landing-tasks__grid">
                         {taskCards.map((task) => (
-                            <article className="landing-task-card" key={task}>
+                            <article className="landing-task-card" key={task.title}>
                                 <span>✓</span>
-                                <p>{task}</p>
+                                <div>
+                                    <h3>{task.title}</h3>
+                                    <p>{task.text}</p>
+                                </div>
                             </article>
                         ))}
                     </div>
                 </section>
 
-                <section className="landing-cta">
-                    <h2>Начните создавать свой первый workflow</h2>
+                <section className="landing-cta" data-reveal="scale">
+                    <span className="landing-page__eyebrow">Start building</span>
+                    <h2>Откройте редактор и соберите первый workflow</h2>
                     <p>
-                        Регистрация займёт меньше минуты. Сейчас можно открыть demo-режим и
-                        проверить редактор без подключения UserService.
+                        Создайте notebook, добавьте первые блоки, соедините их в цепочку и
+                        запустите процесс, чтобы увидеть результат выполнения.
                     </p>
 
                     <div className="landing-cta__actions">
-                        <Link className="landing-page__primary-button landing-page__primary-button--large" to="/home">
-                            Начать работу
-                        </Link>
+                        {isAuthenticated ? (
+                            <Link className="landing-page__primary-button landing-page__primary-button--large" to="/home">
+                                Перейти к notebook
+                            </Link>
+                        ) : (
+                            <button
+                                className="landing-page__primary-button landing-page__primary-button--large"
+                                type="button"
+                                onClick={handleStartDemo}
+                                disabled={isDemoStarting}
+                            >
+                                {isDemoStarting ? 'Запуск...' : 'Попробовать demo'}
+                            </button>
+                        )}
 
-                        <button
-                            className="landing-page__secondary-button"
-                            type="button"
-                            onClick={() => openAuthModal('registration')}
-                        >
-                            Зарегистрироваться
-                        </button>
+                        {!isAuthenticated && (
+                            <button
+                                className="landing-page__secondary-button"
+                                type="button"
+                                onClick={() => openAuthModal('registration')}
+                            >
+                                Создать аккаунт
+                            </button>
+                        )}
                     </div>
                 </section>
 
-                <footer className="landing-footer">
+                <footer className="landing-footer" data-reveal="up">
                     <span>FlowAct 2026</span>
-                    <Link to="/home">Перейти к notebook</Link>
+                    <div className="landing-footer__links">
+                        <a href="#features">Возможности</a>
+                        <a href="#how-it-works">Как работает</a>
+                        <Link to={isAuthenticated ? '/home' : '/landing'}>Notebook</Link>
+                    </div>
                 </footer>
             </section>
 
-            {authModal && (
+            {authModal && !isAuthenticated && (
                 <AuthModal
                     mode={authModal.mode}
                     onClose={closeAuthModal}

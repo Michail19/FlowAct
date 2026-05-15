@@ -50,9 +50,8 @@ public class WorkflowService {
     }
 
     @Transactional
-    public WorkflowResponse create(UUID notebookId, CreateWorkflowRequest request) {
-        NotebookEntity notebook = notebookRepository.findById(notebookId)
-                .orElseThrow(() -> new EntityNotFoundException("Notebook not found"));
+    public WorkflowResponse create(UUID currentUserId, UUID notebookId, CreateWorkflowRequest request) {
+        NotebookEntity notebook = findNotebookForUser(currentUserId, notebookId);
 
         if (request.blocks() == null || request.blocks().isEmpty()) {
             throw new IllegalArgumentException("Workflow must contain at least one block");
@@ -123,14 +122,16 @@ public class WorkflowService {
     }
 
     @Transactional(readOnly = true)
-    public WorkflowResponse getById(UUID notebookId, UUID workflowId) {
-        WorkflowEntity workflow = findWorkflowInNotebook(notebookId, workflowId);
+    public WorkflowResponse getById(UUID currentUserId, UUID notebookId, UUID workflowId) {
+        WorkflowEntity workflow = findWorkflowInUserNotebook(currentUserId, notebookId, workflowId);
 
         return mapToWorkflowResponse(workflow);
     }
 
     @Transactional(readOnly = true)
-    public List<WorkflowShortResponse> getAll(UUID notebookId) {
+    public List<WorkflowShortResponse> getAll(UUID currentUserId, UUID notebookId) {
+        findNotebookForUser(currentUserId, notebookId);
+
         return workflowRepository.findByNotebook_Id(notebookId)
                 .stream()
                 .map(this::mapToWorkflowShortResponse)
@@ -139,11 +140,12 @@ public class WorkflowService {
 
     @Transactional
     public WorkflowResponse update(
+            UUID currentUserId,
             UUID notebookId,
             UUID workflowId,
             UpdateWorkflowRequest request
     ) {
-        WorkflowEntity workflow = findWorkflowInNotebook(notebookId, workflowId);
+        WorkflowEntity workflow = findWorkflowInUserNotebook(currentUserId, notebookId, workflowId);
 
         if (workflow.getStatus() == WorkflowStatus.ARCHIVED) {
             throw new IllegalArgumentException("Archived workflow cannot be updated");
@@ -239,8 +241,8 @@ public class WorkflowService {
     }
 
     @Transactional(readOnly = true)
-    public WorkflowValidationResponse validate(UUID notebookId, UUID workflowId) {
-        WorkflowEntity workflow = findWorkflowInNotebook(notebookId, workflowId);
+    public WorkflowValidationResponse validate(UUID currentUserId, UUID notebookId, UUID workflowId) {
+        WorkflowEntity workflow = findWorkflowInUserNotebook(currentUserId, notebookId, workflowId);
 
         List<WorkflowBlockEntity> blocks = workflowBlockRepository.findByWorkflow_Id(workflow.getId());
         List<WorkflowConnectionEntity> connections = workflowConnectionRepository.findByWorkflow_Id(workflow.getId());
@@ -249,14 +251,14 @@ public class WorkflowService {
     }
 
     @Transactional
-    public WorkflowResponse activate(UUID notebookId, UUID workflowId) {
-        WorkflowEntity workflow = findWorkflowInNotebook(notebookId, workflowId);
+    public WorkflowResponse activate(UUID currentUserId, UUID notebookId, UUID workflowId) {
+        WorkflowEntity workflow = findWorkflowInUserNotebook(currentUserId, notebookId, workflowId);
 
         if (workflow.getStatus() == WorkflowStatus.ARCHIVED) {
             throw new IllegalArgumentException("Archived workflow cannot be activated");
         }
 
-        WorkflowValidationResponse validation = validate(notebookId, workflowId);
+        WorkflowValidationResponse validation = validate(currentUserId, notebookId, workflowId);
 
         if (!validation.valid()) {
             throw new IllegalArgumentException(
@@ -271,8 +273,8 @@ public class WorkflowService {
     }
 
     @Transactional
-    public WorkflowResponse archive(UUID notebookId, UUID workflowId) {
-        WorkflowEntity workflow = findWorkflowInNotebook(notebookId, workflowId);
+    public WorkflowResponse archive(UUID currentUserId, UUID notebookId, UUID workflowId) {
+        WorkflowEntity workflow = findWorkflowInUserNotebook(currentUserId, notebookId, workflowId);
 
         if (workflow.getStatus() == WorkflowStatus.ARCHIVED) {
             return mapToWorkflowResponse(workflow);
@@ -284,7 +286,14 @@ public class WorkflowService {
         return mapToWorkflowResponse(workflow);
     }
 
-    private WorkflowEntity findWorkflowInNotebook(UUID notebookId, UUID workflowId) {
+    private NotebookEntity findNotebookForUser(UUID currentUserId, UUID notebookId) {
+        return notebookRepository.findByIdAndOwnerUserId(notebookId, currentUserId)
+                .orElseThrow(() -> new EntityNotFoundException("Notebook not found"));
+    }
+
+    private WorkflowEntity findWorkflowInUserNotebook(UUID currentUserId, UUID notebookId, UUID workflowId) {
+        findNotebookForUser(currentUserId, notebookId);
+
         return workflowRepository
                 .findByIdAndNotebook_Id(workflowId, notebookId)
                 .orElseThrow(() -> new EntityNotFoundException("Workflow not found"));

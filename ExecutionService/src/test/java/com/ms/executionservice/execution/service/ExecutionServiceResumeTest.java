@@ -8,6 +8,7 @@ import com.ms.executionservice.execution.entity.ExecutionEntity;
 import com.ms.executionservice.execution.enumtype.ExecutionStatus;
 import com.ms.executionservice.execution.repository.ExecutionLogRepository;
 import com.ms.executionservice.execution.repository.ExecutionRepository;
+import com.ms.executionservice.notebooks.repository.NotebookRepository;
 import com.ms.executionservice.workflow.entity.WorkflowEntity;
 import com.ms.executionservice.workflow.repository.WorkflowRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,6 +29,9 @@ import static org.mockito.Mockito.*;
 class ExecutionServiceResumeTest {
 
     @Mock
+    private NotebookRepository notebookRepository;
+
+    @Mock
     private WorkflowRepository workflowRepository;
 
     @Mock
@@ -46,6 +50,7 @@ class ExecutionServiceResumeTest {
     void setUp() {
         jsonUtils = new JsonUtils(new ObjectMapper());
         executionService = new ExecutionService(
+                notebookRepository,
                 workflowRepository,
                 executionRepository,
                 executionLogRepository,
@@ -56,10 +61,15 @@ class ExecutionServiceResumeTest {
 
     @Test
     void resume_shouldThrowWhenExecutionNotFound() {
+        UUID currentUserId = UUID.randomUUID();
         UUID notebookId = UUID.randomUUID();
         UUID workflowId = UUID.randomUUID();
         UUID executionId = UUID.randomUUID();
 
+        when(notebookRepository.existsByIdAndOwnerUserId(notebookId, currentUserId))
+                .thenReturn(true);
+        when(workflowRepository.findByIdAndNotebook_Id(workflowId, notebookId))
+                .thenReturn(Optional.of(WorkflowEntity.builder().id(workflowId).build()));
         when(executionRepository.findByIdAndWorkflow_IdAndWorkflow_Notebook_Id(
                 executionId, workflowId, notebookId
         )).thenReturn(Optional.empty());
@@ -67,6 +77,7 @@ class ExecutionServiceResumeTest {
         assertThrows(
                 EntityNotFoundException.class,
                 () -> executionService.resume(
+                        currentUserId,
                         notebookId,
                         workflowId,
                         executionId,
@@ -82,6 +93,7 @@ class ExecutionServiceResumeTest {
 
     @Test
     void resume_shouldThrowWhenExecutionIsNotWaiting() {
+        UUID currentUserId = UUID.randomUUID();
         UUID notebookId = UUID.randomUUID();
         UUID workflowId = UUID.randomUUID();
         UUID executionId = UUID.randomUUID();
@@ -102,6 +114,10 @@ class ExecutionServiceResumeTest {
                 .finishedAt(null)
                 .build();
 
+        when(notebookRepository.existsByIdAndOwnerUserId(notebookId, currentUserId))
+                .thenReturn(true);
+        when(workflowRepository.findByIdAndNotebook_Id(workflowId, notebookId))
+                .thenReturn(Optional.of(workflow));
         when(executionRepository.findByIdAndWorkflow_IdAndWorkflow_Notebook_Id(
                 executionId, workflowId, notebookId
         )).thenReturn(Optional.of(execution));
@@ -109,6 +125,7 @@ class ExecutionServiceResumeTest {
         IllegalStateException ex = assertThrows(
                 IllegalStateException.class,
                 () -> executionService.resume(
+                        currentUserId,
                         notebookId,
                         workflowId,
                         executionId,
@@ -126,6 +143,7 @@ class ExecutionServiceResumeTest {
 
     @Test
     void resume_shouldPublishResumeRequestedAndReturnResponse() {
+        UUID currentUserId = UUID.randomUUID();
         UUID notebookId = UUID.randomUUID();
         UUID workflowId = UUID.randomUUID();
         UUID executionId = UUID.randomUUID();
@@ -149,6 +167,10 @@ class ExecutionServiceResumeTest {
                 .finishedAt(null)
                 .build();
 
+        when(notebookRepository.existsByIdAndOwnerUserId(notebookId, currentUserId))
+                .thenReturn(true);
+        when(workflowRepository.findByIdAndNotebook_Id(workflowId, notebookId))
+                .thenReturn(Optional.of(workflow));
         when(executionRepository.findByIdAndWorkflow_IdAndWorkflow_Notebook_Id(
                 executionId, workflowId, notebookId
         )).thenReturn(Optional.of(execution));
@@ -156,6 +178,7 @@ class ExecutionServiceResumeTest {
         Object resumePayload = Map.of("approved", true);
 
         ExecutionResponse response = executionService.resume(
+                currentUserId,
                 notebookId,
                 workflowId,
                 executionId,
@@ -188,6 +211,7 @@ class ExecutionServiceResumeTest {
 
     @Test
     void resume_shouldAllowNullResumePayload() {
+        UUID currentUserId = UUID.randomUUID();
         UUID notebookId = UUID.randomUUID();
         UUID workflowId = UUID.randomUUID();
         UUID executionId = UUID.randomUUID();
@@ -208,11 +232,16 @@ class ExecutionServiceResumeTest {
                 .finishedAt(null)
                 .build();
 
+        when(notebookRepository.existsByIdAndOwnerUserId(notebookId, currentUserId))
+                .thenReturn(true);
+        when(workflowRepository.findByIdAndNotebook_Id(workflowId, notebookId))
+                .thenReturn(Optional.of(workflow));
         when(executionRepository.findByIdAndWorkflow_IdAndWorkflow_Notebook_Id(
                 executionId, workflowId, notebookId
         )).thenReturn(Optional.of(execution));
 
         ExecutionResponse response = executionService.resume(
+                currentUserId,
                 notebookId,
                 workflowId,
                 executionId,

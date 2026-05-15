@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import NotebookSvgIcon from './NotebookSvgIcon';
+import { useDemoNotebookMode } from './useDemoNotebookMode';
 
 import type {
     NotebookExecutionLog,
@@ -90,6 +91,7 @@ function NotebookRunPanel({
                               onRetryExecution,
                               onResumeExecution,
                           }: NotebookRunPanelProps) {
+    const isDemoMode = useDemoNotebookMode();
     const [activeTab, setActiveTab] = useState<RunPanelTab>('logs');
     const [isTechnicalOutputOpen, setIsTechnicalOutputOpen] = useState(false);
 
@@ -121,6 +123,12 @@ function NotebookRunPanel({
                 </button>
             </header>
 
+            {isDemoMode && (
+                <p className="notebook-run-panel__empty">
+                    Demo-режим не сохраняет данные в backend и не запускает реальные execution.
+                </p>
+            )}
+
             <div className="notebook-run-panel__tabs">
                 <button
                     className={
@@ -148,16 +156,18 @@ function NotebookRunPanel({
             </div>
 
             <div className="notebook-run-panel__actions">
-                <button
-                    className="notebook-run-panel__button notebook-run-panel__button--run"
-                    type="button"
-                    onClick={onRunWorkflow}
-                    disabled={status === 'running' || isExecutionActionPending}
-                >
-                    {status === 'running' ? 'Выполняется...' : 'Запустить'}
-                </button>
+                {!isDemoMode && (
+                    <button
+                        className="notebook-run-panel__button notebook-run-panel__button--run"
+                        type="button"
+                        onClick={onRunWorkflow}
+                        disabled={status === 'running' || isExecutionActionPending}
+                    >
+                        {status === 'running' ? 'Выполняется...' : 'Запустить'}
+                    </button>
+                )}
 
-                {canCancel && (
+                {!isDemoMode && canCancel && (
                     <button
                         className="notebook-run-panel__button notebook-run-panel__button--cancel"
                         type="button"
@@ -168,7 +178,7 @@ function NotebookRunPanel({
                     </button>
                 )}
 
-                {canResume && (
+                {!isDemoMode && canResume && (
                     <button
                         className="notebook-run-panel__button notebook-run-panel__button--resume"
                         type="button"
@@ -179,7 +189,7 @@ function NotebookRunPanel({
                     </button>
                 )}
 
-                {canRetry && (
+                {!isDemoMode && canRetry && (
                     <button
                         className="notebook-run-panel__button notebook-run-panel__button--retry"
                         type="button"

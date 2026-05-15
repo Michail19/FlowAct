@@ -16,7 +16,10 @@ Frontend FlowAct — SPA-приложение для визуального со
 В текущей версии реализованы:
 
 - landing page;
-- home page со списком notebook;
+- home page со списком notebook текущего пользователя;
+- страница аккаунта `/my-account`;
+- регистрация, вход, logout и восстановление access token через refresh token;
+- защищённые маршруты через `ProtectedRoute`;
 - визуальный редактор workflow;
 - создание, редактирование и удаление блоков;
 - соединение блоков связями;
@@ -28,7 +31,7 @@ Frontend FlowAct — SPA-приложение для визуального со
 - запуск workflow через ExecutionService;
 - просмотр логов выполнения;
 - cancel / retry / resume для execution;
-- локальный fallback через localStorage;
+- localStorage-кэш notebook, разделённый по текущему пользователю;
 - синхронизация notebook/workflow с backend.
 
 ## Структура
@@ -36,10 +39,11 @@ Frontend FlowAct — SPA-приложение для визуального со
 ```text
 Frontend/
 ├── src/
-│   ├── auth/                 # dev-auth и будущий session/auth слой
+│   ├── auth/                 # JWT session/auth слой, AuthProvider, ProtectedRoute
+│   ├── components/auth/      # UI входа и регистрации
 │   ├── components/notebook/  # редактор notebook/workflow
 │   ├── hooks/                # React hooks
-│   ├── pages/                # LandingPage, HomePage, NotebookPage
+│   ├── pages/                # LandingPage, HomePage, NotebookPage, AccountPage
 │   ├── services/             # API-клиенты и localStorage
 │   └── styles/               # global.css, variables.css
 ├── Dockerfile
@@ -53,7 +57,8 @@ Frontend/
 
 - Node.js 22+;
 - npm;
-- backend ExecutionService, если нужна синхронизация с API.
+- UserService, если нужна регистрация/вход;
+- ExecutionService, если нужна работа с notebook/workflow/execution.
 
 ## Установка
 
@@ -69,13 +74,21 @@ npm install
 cp .env.example .env
 ```
 
-Для запуска frontend отдельно от Docker Compose обычно используется:
+Для запуска frontend отдельно через `npm run dev` обычно используется:
 
 ```env
-VITE_API_BASE_URL=http://localhost:8082/api
-VITE_DEV_AUTH_ENABLED=true
-VITE_DEV_USER_ID=11111111-1111-1111-1111-111111111111
-VITE_DEV_AUTH_TOKEN=dev-token
+VITE_API_BASE_URL=/api
+VITE_DEV_USER_API_PROXY_TARGET=http://localhost:8083
+VITE_DEV_EXECUTION_API_PROXY_TARGET=http://localhost:8082
+VITE_DEV_AUTH_ENABLED=false
+```
+
+Vite proxy отправляет:
+
+```text
+/api/v1/auth/**  -> UserService на 8083
+/api/v1/users/** -> UserService на 8083
+/api/**          -> ExecutionService на 8082
 ```
 
 Если frontend запускается внутри Docker через nginx, используется:
@@ -84,7 +97,48 @@ VITE_DEV_AUTH_TOKEN=dev-token
 VITE_API_BASE_URL=/api
 ```
 
+## Авторизация
+
+Frontend работает с настоящей JWT-сессией:
+
+1. пользователь регистрируется или входит через `/api/v1/auth/register` или `/api/v1/auth/login`;
+2. UserService возвращает `accessToken`, `refreshToken` и объект пользователя;
+3. frontend сохраняет сессию через `authStorage`/`authSession`;
+4. `apiClient` добавляет заголовок:
+
+```http
+Authorization: Bearer <accessToken>
+```
+
+5. при `401` `apiClient` один раз пытается обновить access token через `/api/v1/auth/refresh`;
+6. если refresh token недействителен, сессия очищается.
+
+Основные frontend-файлы auth-слоя:
+
+```text
+src/auth/AuthContext.ts
+src/auth/AuthProvider.tsx
+src/auth/useAuth.ts
+src/auth/ProtectedRoute.tsx
+src/auth/authStorage.ts
+src/auth/authSession.ts
+src/auth/authHeaders.ts
+src/services/authApi.ts
+src/services/apiClient.ts
+```
+
+Dev-auth через `X-User-Id` больше не используется в обычном запуске. Переменная `VITE_DEV_AUTH_ENABLED` должна оставаться `false`.
+
 ## Запуск в dev-режиме
+
+Перед запуском backend-сервисы должны быть доступны на локальных портах:
+
+```text
+UserService:      http://localhost:8083
+ExecutionService: http://localhost:8082
+```
+
+Запуск frontend:
 
 ```bash
 npm run dev
@@ -155,44 +209,30 @@ http://localhost:3000
 `nginx.conf` делает две вещи:
 
 1. отдаёт React SPA;
-2. проксирует `/api/...` в `execution-service:8082`.
+2. проксирует auth/users запросы в `user-service:8083`;
+3. проксирует остальные `/api/...` запросы в `execution-service:8082`.
 
-Также временно добавляется fallback-заголовок:
-
-```http
-X-User-Id: 00000000-0000-0000-0000-000000000001
-```
-
-Это нужно только до подключения UserService/AuthService.
-
-## Dev-auth
-
-Пока UserService не реализован, frontend использует dev-auth слой:
+Маршрутизация:
 
 ```text
-src/auth/authStorage.ts
-src/auth/authSession.ts
-src/auth/authHeaders.ts
-src/auth/devAuthStub.ts
+/api/v1/auth/**      -> user-service:8083
+/api/v1/users/**     -> user-service:8083
+/api/v1/notebooks/** -> execution-service:8082
+/api/v1/...          -> execution-service:8082
 ```
 
-Он добавляет:
-
-```http
-Authorization: Bearer dev-token
-X-User-Id: 11111111-1111-1111-1111-111111111111
-```
-
-После подключения UserService этот слой нужно заменить на настоящую авторизацию и хранение JWT/refresh token.
+Nginx прокидывает `Authorization`, но не добавляет `X-User-Id`.
 
 ## Основные страницы
 
 | URL | Назначение |
 | --- | --- |
-| `/landing` | Лендинг продукта |
-| `/home` | Список notebook |
+| `/landing` | Лендинг продукта, вход и регистрация |
+| `/home` | Список notebook текущего пользователя |
 | `/notebook/:notebookId` | Редактор workflow |
-| `/my-account` | Будущая страница аккаунта |
+| `/my-account` | Страница аккаунта и настроек профиля |
+
+Маршруты `/home`, `/notebook/:notebookId` и `/my-account` защищены через `ProtectedRoute`.
 
 ## Работа с notebook
 
@@ -201,7 +241,20 @@ Frontend использует два уровня хранения:
 1. backend API — основной источник notebook/workflow;
 2. localStorage — fallback и локальный кэш.
 
-Это позволяет открывать notebook быстрее и сохранять промежуточное состояние canvas.
+LocalStorage-кэш разделён по текущему пользователю:
+
+```text
+flowact-notebooks:<userId>
+flowact-notebook:<userId>:<notebookId>
+```
+
+Это предотвращает отображение notebook одного аккаунта в другом аккаунте при работе в одном браузере.
+
+Если после перехода с dev-auth остались старые локальные данные, можно очистить localStorage для `localhost`:
+
+```js
+localStorage.clear();
+```
 
 ## Команды package.json
 
@@ -217,29 +270,29 @@ npm run preview    # preview production-сборки
 
 ### API-запросы идут на неправильный адрес
 
-Проверьте `VITE_API_BASE_URL`.
-
-Для запуска frontend отдельно:
-
-```env
-VITE_API_BASE_URL=http://localhost:8082/api
-```
-
-Для Docker/nginx:
+Проверьте `VITE_API_BASE_URL` и dev proxy targets:
 
 ```env
 VITE_API_BASE_URL=/api
+VITE_DEV_USER_API_PROXY_TARGET=http://localhost:8083
+VITE_DEV_EXECUTION_API_PROXY_TARGET=http://localhost:8082
 ```
 
-### Backend возвращает 401/403 или notebook не видны
+После изменения env нужно перезапустить dev server.
 
-Проверьте dev-auth переменные:
+### Backend возвращает 401/403
 
-```env
-VITE_DEV_AUTH_ENABLED=true
-VITE_DEV_USER_ID=11111111-1111-1111-1111-111111111111
-VITE_DEV_AUTH_TOKEN=dev-token
-```
+Проверьте:
+
+- пользователь вошёл в аккаунт;
+- в localStorage есть access token;
+- `VITE_DEV_AUTH_ENABLED=false`;
+- UserService и ExecutionService используют один и тот же `JWT_SECRET`;
+- запрос содержит `Authorization: Bearer <accessToken>`.
+
+### Notebook не видны или видны старые notebook
+
+После перехода с dev-auth могли остаться старые записи localStorage. Очистите localStorage для `localhost` и войдите заново.
 
 ### После изменения env ничего не поменялось
 

@@ -1,0 +1,14 @@
+.account-page__avatar-url-field small {
+    color: var(--color-muted);
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.account-page__side-panel .user-avatar {
+    border-color: rgba(255, 255, 255, 0.72);
+    box-shadow: 0 20px 34px rgba(0, 0, 0, 0.22);
+}
+
+.account-page__mobile-avatar .user-avatar {
+    margin: 0 auto;
+}

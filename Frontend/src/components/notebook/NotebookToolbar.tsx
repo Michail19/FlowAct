@@ -1,9 +1,17 @@
+import { useEffect } from 'react';
+
 import { NOTEBOOK_BLOCK_LIBRARY } from './blockLibrary';
 import NotebookIconButton from './NotebookIconButton';
 import type {
     NotebookAutoLayoutMode,
     NotebookBlockType,
 } from './notebookTypes';
+import {
+    isPrimaryShortcut,
+    isShortcutKey,
+    shouldIgnoreCanvasShortcut,
+} from './keyboardShortcutUtils';
+import { useDemoNotebookMode } from './useDemoNotebookMode';
 
 import './NotebookToolbar.css';
 
@@ -40,6 +48,14 @@ const toolbarGroups: ToolbarGroup[] = [
     },
 ];
 
+const demoToolbarGroups: ToolbarGroup[] = [
+    {
+        id: 'demo-base',
+        title: 'Demo-блоки',
+        blockTypes: ['start', 'end', 'condition', 'action', 'log'],
+    },
+];
+
 const blockDefinitionByType = new Map(
     NOTEBOOK_BLOCK_LIBRARY.map((block) => [block.blockType, block]),
 );
@@ -52,10 +68,65 @@ function NotebookToolbar({
     onValidateWorkflow,
     isWorkflowRunning,
 }: NotebookToolbarProps) {
+    const isDemoMode = useDemoNotebookMode();
+    const activeToolbarGroups = isDemoMode ? demoToolbarGroups : toolbarGroups;
+
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (shouldIgnoreCanvasShortcut(event) || !isPrimaryShortcut(event)) {
+                return;
+            }
+
+            if (isDemoMode) {
+                return;
+            }
+
+            if (isShortcutKey(event, 'Enter')) {
+                if (isWorkflowRunning) {
+                    return;
+                }
+
+                event.preventDefault();
+                onRunWorkflow();
+                return;
+            }
+
+            if (event.shiftKey && isShortcutKey(event, 'a')) {
+                event.preventDefault();
+                onAutoLayout('arrange-connect');
+                return;
+            }
+
+            if (event.shiftKey && isShortcutKey(event, 'v')) {
+                event.preventDefault();
+                onValidateWorkflow();
+                return;
+            }
+
+            if (event.shiftKey && isShortcutKey(event, 'l')) {
+                event.preventDefault();
+                onOpenRunPanel();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [
+        isDemoMode,
+        isWorkflowRunning,
+        onAutoLayout,
+        onOpenRunPanel,
+        onRunWorkflow,
+        onValidateWorkflow,
+    ]);
+
     return (
         <aside className="notebook-toolbar" aria-label="Панель блоков">
             <div className="notebook-toolbar__blocks">
-                {toolbarGroups.map((group) => (
+                {activeToolbarGroups.map((group) => (
                     <div
                         className="notebook-toolbar__group"
                         key={group.id}
@@ -85,33 +156,37 @@ function NotebookToolbar({
             <div className="notebook-toolbar__actions">
                 <NotebookIconButton
                     icon="sparkles"
-                    label="Автосборка схемы"
+                    label="Автосборка схемы (Ctrl+Shift+A)"
                     variant="circle"
                     onClick={() => onAutoLayout('arrange-connect')}
                 />
 
-                <NotebookIconButton
-                    icon="schemaCheck"
-                    label="Проверить схему"
-                    variant="circle"
-                    onClick={onValidateWorkflow}
-                />
+                {!isDemoMode && (
+                    <>
+                        <NotebookIconButton
+                            icon="schemaCheck"
+                            label="Проверить схему (Ctrl+Shift+V)"
+                            variant="circle"
+                            onClick={onValidateWorkflow}
+                        />
 
-                <NotebookIconButton
-                    icon="logs"
-                    label="Показать логи выполнения"
-                    variant="circle"
-                    onClick={onOpenRunPanel}
-                />
+                        <NotebookIconButton
+                            icon="logs"
+                            label="Показать логи выполнения (Ctrl+Shift+L)"
+                            variant="circle"
+                            onClick={onOpenRunPanel}
+                        />
 
-                <NotebookIconButton
-                    icon={isWorkflowRunning ? 'loading' : 'play'}
-                    label={isWorkflowRunning ? 'Рабочий процесс выполняется' : 'Запустить рабочий процесс'}
-                    active
-                    variant="circle"
-                    onClick={onRunWorkflow}
-                    disabled={isWorkflowRunning}
-                />
+                        <NotebookIconButton
+                            icon={isWorkflowRunning ? 'loading' : 'play'}
+                            label={isWorkflowRunning ? 'Рабочий процесс выполняется' : 'Запустить рабочий процесс (Ctrl+Enter)'}
+                            active
+                            variant="circle"
+                            onClick={onRunWorkflow}
+                            disabled={isWorkflowRunning}
+                        />
+                    </>
+                )}
             </div>
         </aside>
     );
