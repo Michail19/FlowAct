@@ -4,6 +4,7 @@ import com.ms.userservice.AbstractIntegrationTest;
 import com.ms.userservice.users.entity.UserEntity;
 import com.ms.userservice.users.entity.UserRole;
 import com.ms.userservice.users.entity.UserStatus;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -20,6 +21,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@Tag("fuzzing")
 class UserServiceFuzzingIntegrationTest extends AbstractIntegrationTest {
 
     @Test
