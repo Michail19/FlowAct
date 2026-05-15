@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { type FocusEvent, useEffect, useState } from 'react';
 
 import NotebookIconButton from './NotebookIconButton';
@@ -9,6 +9,9 @@ import {
     isSaveShortcut,
     shouldIgnoreCanvasShortcut,
 } from './keyboardShortcutUtils';
+import { useDemoNotebookMode } from './useDemoNotebookMode';
+import { useAuth } from '../../auth/useAuth';
+import { clearDemoNotebooksLocally } from '../../services/notebookStorage';
 
 import './NotebookHeader.css';
 
@@ -24,6 +27,7 @@ type NotebookHeaderProps = {
     workflowStatus?: WorkflowStatus | null;
     zoomValue?: NotebookZoomValue;
     onZoomChange?: (zoomValue: NotebookZoomValue) => void;
+    isDemoMode?: boolean;
 };
 
 function formatUpdatedAt(updatedAt?: string) {
@@ -40,7 +44,11 @@ function formatUpdatedAt(updatedAt?: string) {
     })}`;
 }
 
-function getWorkflowStatusLabel(status?: WorkflowStatus | null) {
+function getWorkflowStatusLabel(status?: WorkflowStatus | null, isDemoMode = false) {
+    if (isDemoMode) {
+        return 'Demo';
+    }
+
     switch (status) {
         case 'DRAFT':
             return 'Черновик';
@@ -65,9 +73,14 @@ function NotebookHeader({
                             workflowStatus = null,
                             zoomValue = '100',
                             onZoomChange,
+                            isDemoMode = false,
                         }: NotebookHeaderProps) {
+    const navigate = useNavigate();
+    const { logout } = useAuth();
+    const isDemoNotebook = useDemoNotebookMode() || isDemoMode;
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [draftTitle, setDraftTitle] = useState(title);
+    const [isLeavingDemo, setIsLeavingDemo] = useState(false);
 
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
@@ -77,7 +90,7 @@ function NotebookHeader({
 
             event.preventDefault();
 
-            if (shouldIgnoreCanvasShortcut(event) || isSaving) {
+            if (isDemoNotebook || shouldIgnoreCanvasShortcut(event) || isSaving) {
                 return;
             }
 
@@ -89,9 +102,13 @@ function NotebookHeader({
         return () => {
             window.removeEventListener('keydown', handleKeyDown);
         };
-    }, [isSaving, onSave]);
+    }, [isDemoNotebook, isSaving, onSave]);
 
     const handleStartRename = () => {
+        if (isDemoNotebook) {
+            return;
+        }
+
         setDraftTitle(title);
         setIsEditingTitle(true);
     };
@@ -106,6 +123,21 @@ function NotebookHeader({
 
         onRename?.(normalizedTitle);
         setIsEditingTitle(false);
+    };
+
+    const handleLeaveDemo = async () => {
+        if (isLeavingDemo) {
+            return;
+        }
+
+        setIsLeavingDemo(true);
+        clearDemoNotebooksLocally();
+
+        try {
+            await logout();
+        } finally {
+            navigate('/landing', { replace: true });
+        }
     };
 
     const handleTitleEditBlur = (event: FocusEvent<HTMLDivElement>) => {
@@ -137,9 +169,21 @@ function NotebookHeader({
                 />
 
                 {isMobile ? (
-                    <Link to="/home" className="notebook-header__home-link" aria-label="На главную">
-                        <NotebookSvgIcon name="home" />
-                    </Link>
+                    isDemoNotebook ? (
+                        <button
+                            className="notebook-header__home-link"
+                            type="button"
+                            aria-label="На главный экран"
+                            onClick={handleLeaveDemo}
+                            disabled={isLeavingDemo}
+                        >
+                            <NotebookSvgIcon name="home" />
+                        </button>
+                    ) : (
+                        <Link to="/home" className="notebook-header__home-link" aria-label="На главную">
+                            <NotebookSvgIcon name="home" />
+                        </Link>
+                    )
                 ) : (
                     <label className="notebook-header__zoom">
                         <span className="notebook-header__zoom-label">Масштаб</span>
@@ -160,7 +204,7 @@ function NotebookHeader({
                     </label>
                 )}
 
-                {!isMobile && !isInterfaceHidden && (
+                {!isDemoNotebook && !isMobile && !isInterfaceHidden && (
                     <NotebookIconButton
                         icon={isSaving ? 'loading' : 'save'}
                         label={isSaving ? 'Сохранение...' : 'Сохранить notebook (Ctrl+S)'}
@@ -207,30 +251,44 @@ function NotebookHeader({
                         className="notebook-header__title"
                         type="button"
                         onClick={handleStartRename}
+                        disabled={isDemoNotebook}
                     >
                         <span className="notebook-header__title-text">{title}</span>
                         <span className="notebook-header__subtitle">
-                            {formatUpdatedAt(updatedAt)}
+                            {isDemoNotebook ? 'временный notebook, не сохраняется после перезагрузки' : formatUpdatedAt(updatedAt)}
                         </span>
                         <span
-                            className={`notebook-header__workflow-status notebook-header__workflow-status--${workflowStatus ?? 'unknown'}`}
+                            className={`notebook-header__workflow-status notebook-header__workflow-status--${isDemoNotebook ? 'demo' : workflowStatus ?? 'unknown'}`}
                         >
-                            {getWorkflowStatusLabel(workflowStatus)}
+                            {getWorkflowStatusLabel(workflowStatus, isDemoNotebook)}
                         </span>
                     </button>
                 )}
             </div>
 
             <div className="notebook-header__right">
-                {!isMobile && (
-                    <Link to="/home" className="notebook-header__home-link">
-                        ⌂
-                    </Link>
-                )}
+                {isDemoNotebook ? (
+                    <button
+                        className="notebook-header__landing-link"
+                        type="button"
+                        onClick={handleLeaveDemo}
+                        disabled={isLeavingDemo}
+                    >
+                        {isLeavingDemo ? 'Выход...' : 'На главный экран'}
+                    </button>
+                ) : (
+                    <>
+                        {!isMobile && (
+                            <Link to="/home" className="notebook-header__home-link">
+                                ⌂
+                            </Link>
+                        )}
 
-                <Link to="/my-account" className="notebook-header__profile-link" aria-label="Профиль">
-                    <NotebookSvgIcon name="user" />
-                </Link>
+                        <Link to="/my-account" className="notebook-header__profile-link" aria-label="Профиль">
+                            <NotebookSvgIcon name="user" />
+                        </Link>
+                    </>
+                )}
             </div>
         </header>
     );

@@ -9,6 +9,7 @@ import com.ms.executionservice.execution.entity.ExecutionEntity;
 import com.ms.executionservice.execution.enumtype.ExecutionStatus;
 import com.ms.executionservice.execution.repository.ExecutionLogRepository;
 import com.ms.executionservice.execution.repository.ExecutionRepository;
+import com.ms.executionservice.notebooks.repository.NotebookRepository;
 import com.ms.executionservice.workflow.entity.WorkflowEntity;
 import com.ms.executionservice.workflow.enumtype.WorkflowStatus;
 import com.ms.executionservice.workflow.repository.WorkflowRepository;
@@ -30,6 +31,9 @@ import static org.mockito.Mockito.*;
 class ExecutionServiceRunTest {
 
     @Mock
+    private NotebookRepository notebookRepository;
+
+    @Mock
     private WorkflowRepository workflowRepository;
 
     @Mock
@@ -48,6 +52,7 @@ class ExecutionServiceRunTest {
     void setUp() {
         jsonUtils = new JsonUtils(new ObjectMapper());
         executionService = new ExecutionService(
+                notebookRepository,
                 workflowRepository,
                 executionRepository,
                 executionLogRepository,
@@ -66,16 +71,41 @@ class ExecutionServiceRunTest {
                 .inputData(Map.of("text", "hello"))
                 .build();
 
+        when(notebookRepository.existsByIdAndOwnerUserId(notebookId, currentUserId))
+                .thenReturn(true);
         when(workflowRepository.findByIdAndNotebook_Id(workflowId, notebookId))
                 .thenReturn(Optional.empty());
 
         assertThrows(
                 EntityNotFoundException.class,
-                () -> executionService.run(notebookId, workflowId, request, currentUserId)
+                () -> executionService.run(currentUserId, notebookId, workflowId, request)
         );
 
+        verify(notebookRepository).existsByIdAndOwnerUserId(notebookId, currentUserId);
         verify(workflowRepository).findByIdAndNotebook_Id(workflowId, notebookId);
         verifyNoInteractions(executionRepository, executionDispatchService);
+    }
+
+    @Test
+    void run_shouldThrowWhenNotebookDoesNotBelongToCurrentUser() {
+        UUID notebookId = UUID.randomUUID();
+        UUID workflowId = UUID.randomUUID();
+        UUID currentUserId = UUID.randomUUID();
+
+        CreateExecutionRequest request = CreateExecutionRequest.builder()
+                .inputData(Map.of("text", "hello"))
+                .build();
+
+        when(notebookRepository.existsByIdAndOwnerUserId(notebookId, currentUserId))
+                .thenReturn(false);
+
+        assertThrows(
+                EntityNotFoundException.class,
+                () -> executionService.run(currentUserId, notebookId, workflowId, request)
+        );
+
+        verify(notebookRepository).existsByIdAndOwnerUserId(notebookId, currentUserId);
+        verifyNoInteractions(workflowRepository, executionRepository, executionDispatchService);
     }
 
     @Test
@@ -93,17 +123,20 @@ class ExecutionServiceRunTest {
                 .inputData(Map.of("text", "hello"))
                 .build();
 
+        when(notebookRepository.existsByIdAndOwnerUserId(notebookId, currentUserId))
+                .thenReturn(true);
         when(workflowRepository.findByIdAndNotebook_Id(workflowId, notebookId))
                 .thenReturn(Optional.of(workflow));
 
         IllegalStateException ex = assertThrows(
                 IllegalStateException.class,
-                () -> executionService.run(notebookId, workflowId, request, currentUserId)
+                () -> executionService.run(currentUserId, notebookId, workflowId, request)
         );
 
         assertTrue(ex.getMessage().contains("DRAFT"));
         assertTrue(ex.getMessage().contains("активируйте"));
 
+        verify(notebookRepository).existsByIdAndOwnerUserId(notebookId, currentUserId);
         verify(workflowRepository).findByIdAndNotebook_Id(workflowId, notebookId);
         verifyNoInteractions(executionRepository, executionDispatchService);
     }
@@ -123,6 +156,8 @@ class ExecutionServiceRunTest {
                 .inputData(Map.of("text", "hello"))
                 .build();
 
+        when(notebookRepository.existsByIdAndOwnerUserId(notebookId, currentUserId))
+                .thenReturn(true);
         when(workflowRepository.findByIdAndNotebook_Id(workflowId, notebookId))
                 .thenReturn(Optional.of(workflow));
 
@@ -130,10 +165,10 @@ class ExecutionServiceRunTest {
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         ExecutionResponse response = executionService.run(
+                currentUserId,
                 notebookId,
                 workflowId,
-                request,
-                currentUserId
+                request
         );
 
         assertNotNull(response);

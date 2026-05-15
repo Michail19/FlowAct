@@ -1,10 +1,15 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+
+import { AuthModal, type AuthMode } from '../components/auth/AuthModal';
+import { consumeAuthSessionMessage } from '../auth/authEvents';
+import { useAuth } from '../auth/useAuth';
+import { createDemoNotebookLocally } from '../services/notebookStorage';
 
 import './LandingPage.css';
 import './LandingPageTuning.css';
-
-type AuthMode = 'login' | 'registration';
+import './LandingAuthUx.css';
+import './LandingMobileUx.css';
 
 type AuthModalState = {
     mode: AuthMode;
@@ -245,138 +250,23 @@ function LandingAiModels() {
     );
 }
 
-function AuthModal({
-                       mode,
-                       onClose,
-                       onSwitchMode,
-                   }: {
-    mode: AuthMode;
-    onClose: () => void;
-    onSwitchMode: (mode: AuthMode) => void;
-}) {
-    const navigate = useNavigate();
-    const isLogin = mode === 'login';
-
-    const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        navigate('/home');
-    };
-
-    return (
-        <div className="landing-auth" role="presentation" onMouseDown={onClose}>
-            <section
-                className="landing-auth__card"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="landing-auth-title"
-                onMouseDown={(event) => event.stopPropagation()}
-            >
-                <header className="landing-auth__header">
-                    <div>
-                        <span className="landing-page__eyebrow">
-                            {isLogin ? 'Login' : 'Registration'}
-                        </span>
-                        <h2 id="landing-auth-title">
-                            {isLogin ? 'Вход в FlowAct' : 'Создание аккаунта'}
-                        </h2>
-                        <p>
-                            Перейдите в рабочее пространство, чтобы создать notebook, собрать
-                            workflow и проверить выполнение процесса.
-                        </p>
-                    </div>
-
-                    <button
-                        className="landing-auth__close"
-                        type="button"
-                        aria-label="Закрыть окно"
-                        onClick={onClose}
-                    >
-                        ×
-                    </button>
-                </header>
-
-                <div className="landing-auth__mode-switch" role="tablist" aria-label="Режим авторизации">
-                    <button
-                        type="button"
-                        className={isLogin ? 'landing-auth__mode landing-auth__mode--active' : 'landing-auth__mode'}
-                        onClick={() => onSwitchMode('login')}
-                    >
-                        Вход
-                    </button>
-                    <button
-                        type="button"
-                        className={!isLogin ? 'landing-auth__mode landing-auth__mode--active' : 'landing-auth__mode'}
-                        onClick={() => onSwitchMode('registration')}
-                    >
-                        Регистрация
-                    </button>
-                </div>
-
-                <form className="landing-auth__form" onSubmit={handleSubmit}>
-                    {!isLogin && (
-                        <>
-                            <label>
-                                <span>Email</span>
-                                <input type="email" placeholder="user@example.com" autoComplete="email" />
-                            </label>
-
-                            <label>
-                                <span>Username</span>
-                                <input placeholder="mikhail" autoComplete="username" />
-                            </label>
-
-                            <div className="landing-auth__grid">
-                                <label>
-                                    <span>Имя</span>
-                                    <input placeholder="Михаил" autoComplete="given-name" />
-                                </label>
-
-                                <label>
-                                    <span>Фамилия</span>
-                                    <input placeholder="Ершов" autoComplete="family-name" />
-                                </label>
-                            </div>
-                        </>
-                    )}
-
-                    {isLogin && (
-                        <label>
-                            <span>Email / Username</span>
-                            <input placeholder="user@example.com" autoComplete="username" />
-                        </label>
-                    )}
-
-                    <label>
-                        <span>Пароль</span>
-                        <input type="password" placeholder="••••••••" autoComplete={isLogin ? 'current-password' : 'new-password'} />
-                    </label>
-
-                    {!isLogin && (
-                        <label>
-                            <span>Повторите пароль</span>
-                            <input type="password" placeholder="••••••••" autoComplete="new-password" />
-                        </label>
-                    )}
-
-                    <button className="landing-auth__submit" type="submit">
-                        {isLogin ? 'Войти' : 'Создать аккаунт'}
-                    </button>
-                </form>
-
-                <p className="landing-auth__hint">
-                    После отправки формы откроется рабочее пространство FlowAct.
-                </p>
-            </section>
-        </div>
-    );
-}
-
 function LandingPage() {
+    const navigate = useNavigate();
     const [authModal, setAuthModal] = useState<AuthModalState>(null);
+    const [sessionMessage, setSessionMessage] = useState<string | null>(() =>
+        consumeAuthSessionMessage(),
+    );
+    const [isDemoStarting, setIsDemoStarting] = useState(false);
+    const { isAuthenticated, startDemo } = useAuth();
 
     useLandingScrollReveal();
 
     const openAuthModal = (mode: AuthMode) => {
+        if (isAuthenticated) {
+            return;
+        }
+
+        setSessionMessage(null);
         setAuthModal({ mode });
     };
 
@@ -385,8 +275,49 @@ function LandingPage() {
     };
 
     const switchAuthMode = (mode: AuthMode) => {
+        if (isAuthenticated) {
+            return;
+        }
+
         setAuthModal({ mode });
     };
+
+    const handleStartDemo = async () => {
+        if (isAuthenticated || isDemoStarting) {
+            return;
+        }
+
+        setSessionMessage(null);
+        setIsDemoStarting(true);
+
+        try {
+            await startDemo();
+            const demoNotebook = createDemoNotebookLocally();
+            navigate(`/notebook/${demoNotebook.id}`, {
+                replace: true,
+                state: { isDemo: true },
+            });
+        } catch {
+            setSessionMessage('Не удалось запустить demo-режим. Попробуйте ещё раз.');
+        } finally {
+            setIsDemoStarting(false);
+        }
+    };
+
+    const mainCta = isAuthenticated ? (
+        <Link className="landing-page__primary-button" to="/home">
+            Открыть редактор
+        </Link>
+    ) : (
+        <button
+            className="landing-page__primary-button"
+            type="button"
+            onClick={handleStartDemo}
+            disabled={isDemoStarting}
+        >
+            {isDemoStarting ? 'Запуск...' : 'Попробовать'}
+        </button>
+    );
 
     return (
         <main className="landing-page">
@@ -405,23 +336,40 @@ function LandingPage() {
                     </nav>
 
                     <div className="landing-page__actions">
-                        <button
-                            className="landing-page__ghost-button"
-                            type="button"
-                            onClick={() => openAuthModal('login')}
-                        >
-                            Войти
-                        </button>
+                        {isAuthenticated ? (
+                            <Link className="landing-page__login-button" to="/home">
+                                В workspace
+                            </Link>
+                        ) : (
+                            <>
+                                <button
+                                    className="landing-page__ghost-button"
+                                    type="button"
+                                    onClick={() => openAuthModal('login')}
+                                >
+                                    Войти
+                                </button>
 
-                        <button
-                            className="landing-page__login-button"
-                            type="button"
-                            onClick={() => openAuthModal('registration')}
-                        >
-                            Попробовать
-                        </button>
+                                <button
+                                    className="landing-page__login-button"
+                                    type="button"
+                                    onClick={() => openAuthModal('registration')}
+                                >
+                                    Зарегистрироваться
+                                </button>
+                            </>
+                        )}
                     </div>
                 </header>
+
+                {sessionMessage && !isAuthenticated && (
+                    <div className="landing-page__session-message" role="status">
+                        <span>{sessionMessage}</span>
+                        <button type="button" onClick={() => setSessionMessage(null)}>
+                            ×
+                        </button>
+                    </div>
+                )}
 
                 <section className="landing-hero" id="about">
                     <div className="landing-hero__content" data-reveal="up">
@@ -438,13 +386,23 @@ function LandingPage() {
                         </p>
 
                         <div className="landing-hero__buttons">
-                            <Link className="landing-page__primary-button" to="/home">
-                                Открыть редактор
-                            </Link>
+                            {mainCta}
 
-                            <a className="landing-page__secondary-button" href="#how-it-works">
-                                Как это работает
-                            </a>
+                            {!isAuthenticated && (
+                                <button
+                                    className="landing-page__secondary-button"
+                                    type="button"
+                                    onClick={() => openAuthModal('registration')}
+                                >
+                                    Создать аккаунт
+                                </button>
+                            )}
+
+                            {isAuthenticated && (
+                                <a className="landing-page__secondary-button" href="#how-it-works">
+                                    Как это работает
+                                </a>
+                            )}
                         </div>
 
                         <ul className="landing-hero__highlights" aria-label="Ключевые преимущества">
@@ -586,17 +544,30 @@ function LandingPage() {
                     </p>
 
                     <div className="landing-cta__actions">
-                        <Link className="landing-page__primary-button landing-page__primary-button--large" to="/home">
-                            Перейти к notebook
-                        </Link>
+                        {isAuthenticated ? (
+                            <Link className="landing-page__primary-button landing-page__primary-button--large" to="/home">
+                                Перейти к notebook
+                            </Link>
+                        ) : (
+                            <button
+                                className="landing-page__primary-button landing-page__primary-button--large"
+                                type="button"
+                                onClick={handleStartDemo}
+                                disabled={isDemoStarting}
+                            >
+                                {isDemoStarting ? 'Запуск...' : 'Попробовать demo'}
+                            </button>
+                        )}
 
-                        <button
-                            className="landing-page__secondary-button"
-                            type="button"
-                            onClick={() => openAuthModal('registration')}
-                        >
-                            Создать аккаунт
-                        </button>
+                        {!isAuthenticated && (
+                            <button
+                                className="landing-page__secondary-button"
+                                type="button"
+                                onClick={() => openAuthModal('registration')}
+                            >
+                                Создать аккаунт
+                            </button>
+                        )}
                     </div>
                 </section>
 
@@ -605,12 +576,12 @@ function LandingPage() {
                     <div className="landing-footer__links">
                         <a href="#features">Возможности</a>
                         <a href="#how-it-works">Как работает</a>
-                        <Link to="/home">Notebook</Link>
+                        <Link to={isAuthenticated ? '/home' : '/landing'}>Notebook</Link>
                     </div>
                 </footer>
             </section>
 
-            {authModal && (
+            {authModal && !isAuthenticated && (
                 <AuthModal
                     mode={authModal.mode}
                     onClose={closeAuthModal}

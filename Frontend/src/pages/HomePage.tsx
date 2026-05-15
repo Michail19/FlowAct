@@ -15,8 +15,11 @@ import { fromBackendWorkflowResponse } from '../components/notebook/backendWorkf
 import type { NotebookPayloadDto } from '../components/notebook/notebookBackendTypes';
 import type { WorkflowResponse } from '../services/workflowApiTypes';
 import NotebookSvgIcon from '../components/notebook/NotebookSvgIcon';
+import { UserAvatar } from '../components/user/UserAvatar';
+import { useAuth } from '../auth/useAuth';
 
 import './HomePage.css';
+import './HomeAuthUx.css';
 
 function formatNotebookDate(date: string) {
     return new Date(date).toLocaleString('ru-RU', {
@@ -178,6 +181,7 @@ function NotebookPreview({ notebookId }: { notebookId: string }) {
 
 function HomePage() {
     const navigate = useNavigate();
+    const { user, logout } = useAuth();
 
     const deletedLocalNotebookIdsRef = useRef<Set<string>>(new Set());
     const deletedServerNotebookIdsRef = useRef<Set<string>>(new Set());
@@ -188,6 +192,10 @@ function HomePage() {
     const [search, setSearch] = useState('');
     const [notebookToDelete, setNotebookToDelete] = useState<NotebookListItem | null>(null);
     const [isSyncing, setIsSyncing] = useState(false);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+    const userLabel = user?.displayName || user?.email || 'Пользователь';
+    const isAdmin = user?.role === 'ADMIN';
 
     const getVisibleLocalNotebooks = useCallback(() => {
         return listNotebooksLocally().filter(
@@ -306,6 +314,17 @@ function HomePage() {
         navigate(`/notebook/${notebook.id}`);
     };
 
+    const handleLogout = async () => {
+        setIsLoggingOut(true);
+
+        try {
+            await logout();
+            navigate('/landing');
+        } finally {
+            setIsLoggingOut(false);
+        }
+    };
+
     const handleAskDeleteNotebook = (notebook: NotebookListItem) => {
         setNotebookToDelete(notebook);
     };
@@ -353,14 +372,40 @@ function HomePage() {
                         FlowAct
                     </Link>
 
-                    <Link
-                        className="home-page__profile"
-                        to="/my-account"
-                        aria-label="Профиль"
-                        title="Профиль"
-                    >
-                        <NotebookSvgIcon name="user" size={18} />
-                    </Link>
+                    <div className="home-page__user-menu">
+                        {isAdmin && (
+                            <Link className="home-page__admin-link" to="/admin">
+                                Admin panel
+                            </Link>
+                        )}
+
+                        <Link
+                            className="home-page__user-info"
+                            to="/my-account"
+                            aria-label="Открыть профиль"
+                            title={user?.email ?? 'Профиль'}
+                        >
+                            <UserAvatar
+                                displayName={user?.displayName}
+                                email={user?.email}
+                                avatarUrl={user?.avatarUrl}
+                                size="sm"
+                            />
+                            <span className="home-page__user-text">
+                                <strong>{userLabel}</strong>
+                                <small>{user?.email}</small>
+                            </span>
+                        </Link>
+
+                        <button
+                            className="home-page__logout-button"
+                            type="button"
+                            onClick={handleLogout}
+                            disabled={isLoggingOut}
+                        >
+                            {isLoggingOut ? 'Выход...' : 'Выйти'}
+                        </button>
+                    </div>
                 </header>
 
                 <section className="home-page__content">

@@ -8,6 +8,7 @@ import com.ms.executionservice.execution.entity.ExecutionEntity;
 import com.ms.executionservice.execution.enumtype.ExecutionStatus;
 import com.ms.executionservice.execution.repository.ExecutionLogRepository;
 import com.ms.executionservice.execution.repository.ExecutionRepository;
+import com.ms.executionservice.notebooks.repository.NotebookRepository;
 import com.ms.executionservice.workflow.entity.WorkflowEntity;
 import com.ms.executionservice.workflow.repository.WorkflowRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,6 +26,9 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ExecutionServiceRetryTest {
+
+    @Mock
+    private NotebookRepository notebookRepository;
 
     @Mock
     private WorkflowRepository workflowRepository;
@@ -45,6 +49,7 @@ class ExecutionServiceRetryTest {
     void setUp() {
         jsonUtils = new JsonUtils(new ObjectMapper());
         executionService = new ExecutionService(
+                notebookRepository,
                 workflowRepository,
                 executionRepository,
                 executionLogRepository,
@@ -55,17 +60,22 @@ class ExecutionServiceRetryTest {
 
     @Test
     void retry_shouldThrowWhenExecutionNotFound() {
+        UUID currentUserId = UUID.randomUUID();
         UUID notebookId = UUID.randomUUID();
         UUID workflowId = UUID.randomUUID();
         UUID executionId = UUID.randomUUID();
 
+        when(notebookRepository.existsByIdAndOwnerUserId(notebookId, currentUserId))
+                .thenReturn(true);
+        when(workflowRepository.findByIdAndNotebook_Id(workflowId, notebookId))
+                .thenReturn(Optional.of(WorkflowEntity.builder().id(workflowId).build()));
         when(executionRepository.findByIdAndWorkflow_IdAndWorkflow_Notebook_Id(
                 executionId, workflowId, notebookId
         )).thenReturn(Optional.empty());
 
         assertThrows(
                 EntityNotFoundException.class,
-                () -> executionService.retry(notebookId, workflowId, executionId)
+                () -> executionService.retry(currentUserId, notebookId, workflowId, executionId)
         );
 
         verifyNoInteractions(executionDispatchService);
@@ -73,6 +83,7 @@ class ExecutionServiceRetryTest {
 
     @Test
     void retry_shouldThrowWhenExecutionStatusIsNotRetryable() {
+        UUID currentUserId = UUID.randomUUID();
         UUID notebookId = UUID.randomUUID();
         UUID workflowId = UUID.randomUUID();
         UUID executionId = UUID.randomUUID();
@@ -91,13 +102,17 @@ class ExecutionServiceRetryTest {
                 .errorMessage(null)
                 .build();
 
+        when(notebookRepository.existsByIdAndOwnerUserId(notebookId, currentUserId))
+                .thenReturn(true);
+        when(workflowRepository.findByIdAndNotebook_Id(workflowId, notebookId))
+                .thenReturn(Optional.of(workflow));
         when(executionRepository.findByIdAndWorkflow_IdAndWorkflow_Notebook_Id(
                 executionId, workflowId, notebookId
         )).thenReturn(Optional.of(oldExecution));
 
         IllegalStateException ex = assertThrows(
                 IllegalStateException.class,
-                () -> executionService.retry(notebookId, workflowId, executionId)
+                () -> executionService.retry(currentUserId, notebookId, workflowId, executionId)
         );
 
         assertTrue(ex.getMessage().contains("only after SUCCESS, FAILED or CANCELLED"));
@@ -108,6 +123,7 @@ class ExecutionServiceRetryTest {
 
     @Test
     void retry_shouldCreateNewPendingExecutionWhenOldExecutionIsSuccess() {
+        UUID currentUserId = UUID.randomUUID();
         UUID notebookId = UUID.randomUUID();
         UUID workflowId = UUID.randomUUID();
         UUID oldExecutionId = UUID.randomUUID();
@@ -127,6 +143,10 @@ class ExecutionServiceRetryTest {
                 .errorMessage(null)
                 .build();
 
+        when(notebookRepository.existsByIdAndOwnerUserId(notebookId, currentUserId))
+                .thenReturn(true);
+        when(workflowRepository.findByIdAndNotebook_Id(workflowId, notebookId))
+                .thenReturn(Optional.of(workflow));
         when(executionRepository.findByIdAndWorkflow_IdAndWorkflow_Notebook_Id(
                 oldExecutionId, workflowId, notebookId
         )).thenReturn(Optional.of(oldExecution));
@@ -135,6 +155,7 @@ class ExecutionServiceRetryTest {
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         ExecutionResponse response = executionService.retry(
+                currentUserId,
                 notebookId,
                 workflowId,
                 oldExecutionId
@@ -144,7 +165,7 @@ class ExecutionServiceRetryTest {
         assertNotNull(response.id());
         assertNotEquals(oldExecutionId, response.id());
         assertEquals(workflowId, response.workflowId());
-        assertEquals(startedByUserId, response.startedByUserId());
+        assertEquals(currentUserId, response.startedByUserId());
         assertEquals(ExecutionStatus.PENDING, response.status());
         assertEquals("{\"text\":\"hello\"}", jsonUtils.toJson(response.inputData()));
         assertTrue(response.outputData().isEmpty());
@@ -155,12 +176,13 @@ class ExecutionServiceRetryTest {
                 response.id(),
                 workflowId,
                 notebookId,
-                startedByUserId
+                currentUserId
         );
     }
 
     @Test
     void retry_shouldCreateNewPendingExecutionPublishRetryEventAndReturnResponse() {
+        UUID currentUserId = UUID.randomUUID();
         UUID notebookId = UUID.randomUUID();
         UUID workflowId = UUID.randomUUID();
         UUID oldExecutionId = UUID.randomUUID();
@@ -180,6 +202,10 @@ class ExecutionServiceRetryTest {
                 .errorMessage("boom")
                 .build();
 
+        when(notebookRepository.existsByIdAndOwnerUserId(notebookId, currentUserId))
+                .thenReturn(true);
+        when(workflowRepository.findByIdAndNotebook_Id(workflowId, notebookId))
+                .thenReturn(Optional.of(workflow));
         when(executionRepository.findByIdAndWorkflow_IdAndWorkflow_Notebook_Id(
                 oldExecutionId, workflowId, notebookId
         )).thenReturn(Optional.of(oldExecution));
@@ -188,6 +214,7 @@ class ExecutionServiceRetryTest {
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         ExecutionResponse response = executionService.retry(
+                currentUserId,
                 notebookId,
                 workflowId,
                 oldExecutionId
@@ -197,7 +224,7 @@ class ExecutionServiceRetryTest {
         assertNotNull(response.id());
         assertNotEquals(oldExecutionId, response.id());
         assertEquals(workflowId, response.workflowId());
-        assertEquals(startedByUserId, response.startedByUserId());
+        assertEquals(currentUserId, response.startedByUserId());
         assertEquals(ExecutionStatus.PENDING, response.status());
         assertEquals("{\"text\":\"hello\"}", jsonUtils.toJson(response.inputData()));
         assertTrue(response.outputData().isEmpty());
@@ -208,7 +235,7 @@ class ExecutionServiceRetryTest {
 
         ExecutionEntity newExecution = entityCaptor.getValue();
         assertEquals(workflowId, newExecution.getWorkflow().getId());
-        assertEquals(startedByUserId, newExecution.getStartedByUserId());
+        assertEquals(currentUserId, newExecution.getStartedByUserId());
         assertEquals(ExecutionStatus.PENDING, newExecution.getStatus());
         assertEquals("{\"text\":\"hello\"}", newExecution.getInputData());
         assertNull(newExecution.getOutputData());
@@ -219,7 +246,7 @@ class ExecutionServiceRetryTest {
                 response.id(),
                 workflowId,
                 notebookId,
-                startedByUserId
+                currentUserId
         );
     }
 }

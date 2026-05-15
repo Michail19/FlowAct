@@ -6,7 +6,10 @@ export type StoredAuthUser = {
     id: string;
     email?: string | null;
     displayName?: string | null;
+    avatarUrl?: string | null;
     role?: string | null;
+    accountType?: string | null;
+    demoExpiresAt?: string | null;
 };
 
 function getLocalStorage(): Storage | null {
@@ -33,7 +36,10 @@ function safeParseAuthUser(rawUser: string | null): StoredAuthUser | null {
             id: parsedUser.id,
             email: parsedUser.email ?? null,
             displayName: parsedUser.displayName ?? null,
+            avatarUrl: parsedUser.avatarUrl ?? null,
             role: parsedUser.role ?? null,
+            accountType: parsedUser.accountType ?? null,
+            demoExpiresAt: parsedUser.demoExpiresAt ?? null,
         };
     } catch {
         getLocalStorage()?.removeItem(AUTH_USER_STORAGE_KEY);

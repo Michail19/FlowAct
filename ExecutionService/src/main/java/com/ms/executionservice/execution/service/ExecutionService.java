@@ -10,6 +10,7 @@ import com.ms.executionservice.execution.entity.ExecutionLogEntity;
 import com.ms.executionservice.execution.enumtype.ExecutionStatus;
 import com.ms.executionservice.execution.repository.ExecutionLogRepository;
 import com.ms.executionservice.execution.repository.ExecutionRepository;
+import com.ms.executionservice.notebooks.repository.NotebookRepository;
 import com.ms.executionservice.workflow.entity.WorkflowEntity;
 import com.ms.executionservice.workflow.enumtype.WorkflowStatus;
 import com.ms.executionservice.workflow.repository.WorkflowRepository;
@@ -22,6 +23,7 @@ import java.util.UUID;
 @Service
 public class ExecutionService {
 
+    private final NotebookRepository notebookRepository;
     private final WorkflowRepository workflowRepository;
     private final ExecutionRepository executionRepository;
     private final ExecutionLogRepository executionLogRepository;
@@ -29,12 +31,14 @@ public class ExecutionService {
     private final ExecutionDispatchService executionDispatchService;
 
     public ExecutionService(
+            NotebookRepository notebookRepository,
             WorkflowRepository workflowRepository,
             ExecutionRepository executionRepository,
             ExecutionLogRepository executionLogRepository,
             JsonUtils jsonUtils,
             ExecutionDispatchService executionDispatchService
     ) {
+        this.notebookRepository = notebookRepository;
         this.workflowRepository = workflowRepository;
         this.executionRepository = executionRepository;
         this.executionLogRepository = executionLogRepository;
@@ -44,13 +48,12 @@ public class ExecutionService {
 
     @Transactional
     public ExecutionResponse run(
+            UUID currentUserId,
             UUID notebookId,
             UUID workflowId,
-            CreateExecutionRequest request,
-            UUID currentUserId
+            CreateExecutionRequest request
     ) {
-        WorkflowEntity workflow = workflowRepository.findByIdAndNotebook_Id(workflowId, notebookId)
-                .orElseThrow(() -> new EntityNotFoundException("Workflow not found"));
+        WorkflowEntity workflow = findWorkflowInUserNotebook(currentUserId, notebookId, workflowId);
 
         if (workflow.getStatus() == WorkflowStatus.ARCHIVED) {
             throw new IllegalStateException(
@@ -90,26 +93,34 @@ public class ExecutionService {
 
     @Transactional(readOnly = true)
     public ExecutionResponse getById(
+            UUID currentUserId,
             UUID notebookId,
             UUID workflowId,
             UUID executionId
     ) {
-        ExecutionEntity execution = executionRepository
-                .findByIdAndWorkflow_IdAndWorkflow_Notebook_Id(executionId, workflowId, notebookId)
-                .orElseThrow(() -> new EntityNotFoundException("Execution not found"));
+        ExecutionEntity execution = findExecutionInUserWorkflow(
+                currentUserId,
+                notebookId,
+                workflowId,
+                executionId
+        );
 
         return toResponse(execution);
     }
 
     @Transactional(readOnly = true)
     public List<ExecutionLogResponse> getLogs(
+            UUID currentUserId,
             UUID notebookId,
             UUID workflowId,
             UUID executionId
     ) {
-        ExecutionEntity execution = executionRepository
-                .findByIdAndWorkflow_IdAndWorkflow_Notebook_Id(executionId, workflowId, notebookId)
-                .orElseThrow(() -> new EntityNotFoundException("Execution not found"));
+        ExecutionEntity execution = findExecutionInUserWorkflow(
+                currentUserId,
+                notebookId,
+                workflowId,
+                executionId
+        );
 
         return executionLogRepository.findByExecution_IdOrderByCreatedAtAsc(execution.getId())
                 .stream()
@@ -119,11 +130,11 @@ public class ExecutionService {
 
     @Transactional(readOnly = true)
     public List<ExecutionResponse> getExecutionsByWorkflow(
+            UUID currentUserId,
             UUID notebookId,
             UUID workflowId
     ) {
-        workflowRepository.findByIdAndNotebook_Id(workflowId, notebookId)
-                .orElseThrow(() -> new EntityNotFoundException("Workflow not found"));
+        findWorkflowInUserNotebook(currentUserId, notebookId, workflowId);
 
         return executionRepository.findByWorkflow_IdOrderByCreatedAtDesc(workflowId)
                 .stream()
@@ -133,13 +144,17 @@ public class ExecutionService {
 
     @Transactional
     public ExecutionResponse retry(
+            UUID currentUserId,
             UUID notebookId,
             UUID workflowId,
             UUID executionId
     ) {
-        ExecutionEntity oldExecution = executionRepository
-                .findByIdAndWorkflow_IdAndWorkflow_Notebook_Id(executionId, workflowId, notebookId)
-                .orElseThrow(() -> new EntityNotFoundException("Execution not found"));
+        ExecutionEntity oldExecution = findExecutionInUserWorkflow(
+                currentUserId,
+                notebookId,
+                workflowId,
+                executionId
+        );
 
         if (oldExecution.getStatus() != ExecutionStatus.SUCCESS
                 && oldExecution.getStatus() != ExecutionStatus.FAILED
@@ -152,7 +167,7 @@ public class ExecutionService {
         ExecutionEntity newExecution = ExecutionEntity.builder()
                 .id(UUID.randomUUID())
                 .workflow(oldExecution.getWorkflow())
-                .startedByUserId(oldExecution.getStartedByUserId())
+                .startedByUserId(currentUserId)
                 .status(ExecutionStatus.PENDING)
                 .inputData(oldExecution.getInputData())
                 .outputData(null)
@@ -168,7 +183,7 @@ public class ExecutionService {
                 newExecution.getId(),
                 oldExecution.getWorkflow().getId(),
                 notebookId,
-                oldExecution.getStartedByUserId()
+                currentUserId
         );
 
         return toResponse(newExecution);
@@ -176,14 +191,18 @@ public class ExecutionService {
 
     @Transactional
     public ExecutionResponse resume(
+            UUID currentUserId,
             UUID notebookId,
             UUID workflowId,
             UUID executionId,
             Object resumePayload
     ) {
-        ExecutionEntity execution = executionRepository
-                .findByIdAndWorkflow_IdAndWorkflow_Notebook_Id(executionId, workflowId, notebookId)
-                .orElseThrow(() -> new EntityNotFoundException("Execution not found"));
+        ExecutionEntity execution = findExecutionInUserWorkflow(
+                currentUserId,
+                notebookId,
+                workflowId,
+                executionId
+        );
 
         if (execution.getStatus() != ExecutionStatus.WAITING) {
             throw new IllegalStateException("Execution is not in WAITING state");
@@ -201,13 +220,17 @@ public class ExecutionService {
 
     @Transactional
     public ExecutionResponse cancel(
+            UUID currentUserId,
             UUID notebookId,
             UUID workflowId,
             UUID executionId
     ) {
-        ExecutionEntity execution = executionRepository
-                .findByIdAndWorkflow_IdAndWorkflow_Notebook_Id(executionId, workflowId, notebookId)
-                .orElseThrow(() -> new EntityNotFoundException("Execution not found"));
+        ExecutionEntity execution = findExecutionInUserWorkflow(
+                currentUserId,
+                notebookId,
+                workflowId,
+                executionId
+        );
 
         if (execution.getStatus() == ExecutionStatus.SUCCESS
                 || execution.getStatus() == ExecutionStatus.FAILED
@@ -245,6 +268,32 @@ public class ExecutionService {
         }
 
         throw new IllegalStateException("Execution cannot be cancelled");
+    }
+
+    private WorkflowEntity findWorkflowInUserNotebook(
+            UUID currentUserId,
+            UUID notebookId,
+            UUID workflowId
+    ) {
+        if (!notebookRepository.existsByIdAndOwnerUserId(notebookId, currentUserId)) {
+            throw new EntityNotFoundException("Notebook not found");
+        }
+
+        return workflowRepository.findByIdAndNotebook_Id(workflowId, notebookId)
+                .orElseThrow(() -> new EntityNotFoundException("Workflow not found"));
+    }
+
+    private ExecutionEntity findExecutionInUserWorkflow(
+            UUID currentUserId,
+            UUID notebookId,
+            UUID workflowId,
+            UUID executionId
+    ) {
+        findWorkflowInUserNotebook(currentUserId, notebookId, workflowId);
+
+        return executionRepository
+                .findByIdAndWorkflow_IdAndWorkflow_Notebook_Id(executionId, workflowId, notebookId)
+                .orElseThrow(() -> new EntityNotFoundException("Execution not found"));
     }
 
     private ExecutionResponse toResponse(ExecutionEntity entity) {

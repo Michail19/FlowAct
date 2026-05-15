@@ -1,4 +1,5 @@
 import NotebookSvgIcon from './NotebookSvgIcon';
+import { useDemoNotebookMode } from './useDemoNotebookMode';
 
 import './NotebookMobileActions.css';
 
@@ -15,6 +16,22 @@ function NotebookMobileActions({
                                    onValidateWorkflow,
                                    isWorkflowRunning,
                                }: NotebookMobileActionsProps) {
+    const isDemoMode = useDemoNotebookMode();
+
+    if (isDemoMode) {
+        return (
+            <div className="notebook-mobile-actions">
+                <button
+                    className="notebook-mobile-actions__result"
+                    type="button"
+                    onClick={onOpenRunPanel}
+                >
+                    Demo info
+                </button>
+            </div>
+        );
+    }
+
     return (
         <div className="notebook-mobile-actions">
             <button
