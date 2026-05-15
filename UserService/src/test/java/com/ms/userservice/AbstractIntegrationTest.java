@@ -89,7 +89,7 @@ public abstract class AbstractIntegrationTest {
 
     protected AuthResponse register(String email, String password, String displayName) {
         Map<String, Object> request = new LinkedHashMap<>();
-        request.put("email", email);
+        request.put("email", email == null ? null : email.trim());
         request.put("password", password);
         request.put("displayName", displayName);
 
