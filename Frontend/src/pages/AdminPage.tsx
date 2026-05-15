@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../auth/useAuth';
@@ -81,28 +81,39 @@ function AdminPage() {
     const [message, setMessage] = useState<string | null>(null);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-    const loadAdminData = useCallback(async () => {
-        setIsLoading(true);
-        setErrorMessage(null);
-
-        try {
-            const [nextStats, nextUsers] = await Promise.all([
-                adminApi.getStats(),
-                adminApi.getUsers(),
-            ]);
-
-            setStats(nextStats);
-            setUsers(nextUsers);
-        } catch (error) {
-            setErrorMessage(getErrorMessage(error));
-        } finally {
-            setIsLoading(false);
-        }
-    }, []);
-
     useEffect(() => {
+        let isCancelled = false;
+
+        async function loadAdminData() {
+            try {
+                const [nextStats, nextUsers] = await Promise.all([
+                    adminApi.getStats(),
+                    adminApi.getUsers(),
+                ]);
+
+                if (isCancelled) {
+                    return;
+                }
+
+                setStats(nextStats);
+                setUsers(nextUsers);
+            } catch (error) {
+                if (!isCancelled) {
+                    setErrorMessage(getErrorMessage(error));
+                }
+            } finally {
+                if (!isCancelled) {
+                    setIsLoading(false);
+                }
+            }
+        }
+
         void loadAdminData();
-    }, [loadAdminData]);
+
+        return () => {
+            isCancelled = true;
+        };
+    }, []);
 
     const filteredUsers = useMemo(() => {
         const normalizedSearch = search.trim().toLowerCase();
