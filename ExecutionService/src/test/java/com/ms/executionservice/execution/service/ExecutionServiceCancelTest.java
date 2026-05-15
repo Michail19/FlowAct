@@ -8,6 +8,7 @@ import com.ms.executionservice.execution.entity.ExecutionEntity;
 import com.ms.executionservice.execution.enumtype.ExecutionStatus;
 import com.ms.executionservice.execution.repository.ExecutionLogRepository;
 import com.ms.executionservice.execution.repository.ExecutionRepository;
+import com.ms.executionservice.notebooks.repository.NotebookRepository;
 import com.ms.executionservice.workflow.entity.WorkflowEntity;
 import com.ms.executionservice.workflow.repository.WorkflowRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,6 +29,9 @@ import static org.mockito.Mockito.*;
 class ExecutionServiceCancelTest {
 
     @Mock
+    private NotebookRepository notebookRepository;
+
+    @Mock
     private WorkflowRepository workflowRepository;
 
     @Mock
@@ -46,6 +50,7 @@ class ExecutionServiceCancelTest {
     void setUp() {
         jsonUtils = new JsonUtils(new ObjectMapper());
         executionService = new ExecutionService(
+                notebookRepository,
                 workflowRepository,
                 executionRepository,
                 executionLogRepository,
@@ -56,17 +61,22 @@ class ExecutionServiceCancelTest {
 
     @Test
     void cancel_shouldThrowWhenExecutionNotFound() {
+        UUID currentUserId = UUID.randomUUID();
         UUID notebookId = UUID.randomUUID();
         UUID workflowId = UUID.randomUUID();
         UUID executionId = UUID.randomUUID();
 
+        when(notebookRepository.existsByIdAndOwnerUserId(notebookId, currentUserId))
+                .thenReturn(true);
+        when(workflowRepository.findByIdAndNotebook_Id(workflowId, notebookId))
+                .thenReturn(Optional.of(WorkflowEntity.builder().id(workflowId).build()));
         when(executionRepository.findByIdAndWorkflow_IdAndWorkflow_Notebook_Id(
                 executionId, workflowId, notebookId
         )).thenReturn(Optional.empty());
 
         assertThrows(
                 EntityNotFoundException.class,
-                () -> executionService.cancel(notebookId, workflowId, executionId)
+                () -> executionService.cancel(currentUserId, notebookId, workflowId, executionId)
         );
 
         verifyNoInteractions(executionDispatchService);
@@ -74,6 +84,7 @@ class ExecutionServiceCancelTest {
 
     @Test
     void cancel_shouldReturnAsIsWhenExecutionAlreadyFinished() {
+        UUID currentUserId = UUID.randomUUID();
         UUID notebookId = UUID.randomUUID();
         UUID workflowId = UUID.randomUUID();
         UUID executionId = UUID.randomUUID();
@@ -90,11 +101,16 @@ class ExecutionServiceCancelTest {
                 .finishedAt(OffsetDateTime.now())
                 .build();
 
+        when(notebookRepository.existsByIdAndOwnerUserId(notebookId, currentUserId))
+                .thenReturn(true);
+        when(workflowRepository.findByIdAndNotebook_Id(workflowId, notebookId))
+                .thenReturn(Optional.of(workflow));
         when(executionRepository.findByIdAndWorkflow_IdAndWorkflow_Notebook_Id(
                 executionId, workflowId, notebookId
         )).thenReturn(Optional.of(execution));
 
         ExecutionResponse response = executionService.cancel(
+                currentUserId,
                 notebookId,
                 workflowId,
                 executionId
@@ -111,6 +127,7 @@ class ExecutionServiceCancelTest {
 
     @Test
     void cancel_shouldCancelImmediatelyWhenPending() {
+        UUID currentUserId = UUID.randomUUID();
         UUID notebookId = UUID.randomUUID();
         UUID workflowId = UUID.randomUUID();
         UUID executionId = UUID.randomUUID();
@@ -126,6 +143,10 @@ class ExecutionServiceCancelTest {
                 .status(ExecutionStatus.PENDING)
                 .build();
 
+        when(notebookRepository.existsByIdAndOwnerUserId(notebookId, currentUserId))
+                .thenReturn(true);
+        when(workflowRepository.findByIdAndNotebook_Id(workflowId, notebookId))
+                .thenReturn(Optional.of(workflow));
         when(executionRepository.findByIdAndWorkflow_IdAndWorkflow_Notebook_Id(
                 executionId, workflowId, notebookId
         )).thenReturn(Optional.of(execution));
@@ -134,6 +155,7 @@ class ExecutionServiceCancelTest {
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         ExecutionResponse response = executionService.cancel(
+                currentUserId,
                 notebookId,
                 workflowId,
                 executionId
@@ -155,6 +177,7 @@ class ExecutionServiceCancelTest {
 
     @Test
     void cancel_shouldSetCancellingAndPublishEventWhenRunning() {
+        UUID currentUserId = UUID.randomUUID();
         UUID notebookId = UUID.randomUUID();
         UUID workflowId = UUID.randomUUID();
         UUID executionId = UUID.randomUUID();
@@ -171,6 +194,10 @@ class ExecutionServiceCancelTest {
                 .startedAt(OffsetDateTime.now().minusMinutes(1))
                 .build();
 
+        when(notebookRepository.existsByIdAndOwnerUserId(notebookId, currentUserId))
+                .thenReturn(true);
+        when(workflowRepository.findByIdAndNotebook_Id(workflowId, notebookId))
+                .thenReturn(Optional.of(workflow));
         when(executionRepository.findByIdAndWorkflow_IdAndWorkflow_Notebook_Id(
                 executionId, workflowId, notebookId
         )).thenReturn(Optional.of(execution));
@@ -179,6 +206,7 @@ class ExecutionServiceCancelTest {
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         ExecutionResponse response = executionService.cancel(
+                currentUserId,
                 notebookId,
                 workflowId,
                 executionId
@@ -202,6 +230,7 @@ class ExecutionServiceCancelTest {
 
     @Test
     void cancel_shouldReturnAsIsWhenAlreadyCancelling() {
+        UUID currentUserId = UUID.randomUUID();
         UUID notebookId = UUID.randomUUID();
         UUID workflowId = UUID.randomUUID();
         UUID executionId = UUID.randomUUID();
@@ -217,11 +246,16 @@ class ExecutionServiceCancelTest {
                 .status(ExecutionStatus.CANCELLING)
                 .build();
 
+        when(notebookRepository.existsByIdAndOwnerUserId(notebookId, currentUserId))
+                .thenReturn(true);
+        when(workflowRepository.findByIdAndNotebook_Id(workflowId, notebookId))
+                .thenReturn(Optional.of(workflow));
         when(executionRepository.findByIdAndWorkflow_IdAndWorkflow_Notebook_Id(
                 executionId, workflowId, notebookId
         )).thenReturn(Optional.of(execution));
 
         ExecutionResponse response = executionService.cancel(
+                currentUserId,
                 notebookId,
                 workflowId,
                 executionId
