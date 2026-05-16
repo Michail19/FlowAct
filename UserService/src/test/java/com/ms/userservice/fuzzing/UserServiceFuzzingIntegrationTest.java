@@ -238,7 +238,18 @@ class UserServiceFuzzingIntegrationTest extends AbstractIntegrationTest {
     }
 
     private String sanitizeHeaderValue(String value) {
-        return value.replace("\r", "").replace("\n", "").replace(String.valueOf((char) 0), "");
+        StringBuilder sanitized = new StringBuilder(value.length());
+
+        for (int index = 0; index < value.length(); index++) {
+            char character = value.charAt(index);
+
+            if (character >= 0x20 && character <= 0x7E) {
+                sanitized.append(character);
+            }
+        }
+
+        String result = sanitized.toString().trim();
+        return result.isEmpty() ? "invalid-header-value" : result;
     }
 
     private String fuzzString(int length) {
