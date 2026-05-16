@@ -94,6 +94,11 @@ public class UserService {
         if (value == null || value.isBlank()) {
             return null;
         }
+
+        if (value.indexOf(0) >= 0) {
+            throw new IllegalArgumentException("Text fields must not contain null bytes");
+        }
+
         return value.trim();
     }
 
