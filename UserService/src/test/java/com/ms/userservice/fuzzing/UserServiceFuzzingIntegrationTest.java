@@ -108,6 +108,7 @@ class UserServiceFuzzingIntegrationTest extends AbstractIntegrationTest {
     @Test
     void malformedAuthorizationHeadersNeverReturnServerError() {
         List<String> authorizationHeaders = List.of(
+                "",
                 "Bearer",
                 "Bearer ",
                 "Bearer not-a-jwt",
@@ -120,7 +121,7 @@ class UserServiceFuzzingIntegrationTest extends AbstractIntegrationTest {
 
         for (String authorizationHeader : authorizationHeaders) {
             HttpHeaders headers = new HttpHeaders();
-            headers.set(HttpHeaders.AUTHORIZATION, sanitizeHeaderValue(authorizationHeader));
+            headers.set(HttpHeaders.AUTHORIZATION, authorizationHeader);
 
             ResponseEntity<String> response = restTemplate.exchange(
                     "/api/v1/users/me",
@@ -235,10 +236,6 @@ class UserServiceFuzzingIntegrationTest extends AbstractIntegrationTest {
         assertThat(statusCode.is5xxServerError())
                 .as("Unexpected 5xx response: status=%s body=%s", statusCode, response.getBody())
                 .isFalse();
-    }
-
-    private String sanitizeHeaderValue(String value) {
-        return value.replace("\r", "").replace("\n", "").replace("\u0000", "");
     }
 
     private String fuzzString(int length) {
