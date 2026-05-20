@@ -1,4 +1,4 @@
-from recommendations.classifier import RuleBasedBlockClassifier
+from recommendations.classifier import BlockClassifier
 from recommendations.feature_extractor import WorkflowFeatureExtractor
 from recommendations.response_builder import RecommendationResponseBuilder
 
@@ -6,7 +6,7 @@ from recommendations.response_builder import RecommendationResponseBuilder
 class NextBlockRecommendationService:
     def __init__(self):
         self.feature_extractor = WorkflowFeatureExtractor()
-        self.classifier = RuleBasedBlockClassifier()
+        self.classifier = BlockClassifier()
         self.response_builder = RecommendationResponseBuilder()
 
     def recommend(self, workflow: dict, target_block_id: str | None, limit: int = 3) -> list[dict]:

@@ -13,12 +13,17 @@ class HealthCheckView(APIView):
     authentication_classes = []
     permission_classes = []
 
+    service = NextBlockRecommendationService()
+
     def get(self, request):
         return Response(
             {
                 "status": "UP",
                 "service": "ml-service",
                 "version": "0.1.0",
+                "classifier": {
+                    "trainedModelAvailable": self.service.classifier.is_trained_model_available(),
+                },
             }
         )
 

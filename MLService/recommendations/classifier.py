@@ -1,9 +1,21 @@
+from pathlib import Path
+
+import joblib
+import pandas as pd
+
+
+BASE_DIR = Path(__file__).resolve().parents[1]
+
+DEFAULT_MODEL_PATH = BASE_DIR / "artifacts" / "block_classifier.joblib"
+DEFAULT_LABEL_ENCODER_PATH = BASE_DIR / "artifacts" / "label_encoder.joblib"
+
+
 class RuleBasedBlockClassifier:
     """
-    Временный классификатор.
+    Резервный классификатор.
 
-    Позже этот класс заменим или расширим загрузкой обученной модели:
-    artifacts/block_classifier.joblib.
+    Используется, если обученная модель ещё не создана
+    или не смогла загрузиться из artifacts/.
     """
 
     def predict(self, features: dict) -> tuple[str, int]:
@@ -49,3 +61,83 @@ class RuleBasedBlockClassifier:
             return "end", 70
 
         return "action", 60
+
+
+class TrainedBlockClassifier:
+    """
+    Классификатор на основе обученной модели scikit-learn.
+    """
+
+    def __init__(
+        self,
+        model_path: Path = DEFAULT_MODEL_PATH,
+        label_encoder_path: Path = DEFAULT_LABEL_ENCODER_PATH,
+    ):
+        self.model_path = model_path
+        self.label_encoder_path = label_encoder_path
+
+        self.model = joblib.load(model_path)
+        self.label_encoder = joblib.load(label_encoder_path)
+
+    def predict(self, features: dict) -> tuple[str, int]:
+        feature_frame = pd.DataFrame([features])
+
+        encoded_prediction = self.model.predict(feature_frame)[0]
+        block_type = self.label_encoder.inverse_transform([encoded_prediction])[0]
+
+        confidence = self._calculate_confidence(feature_frame, encoded_prediction)
+
+        return block_type, confidence
+
+    def _calculate_confidence(self, feature_frame: pd.DataFrame, encoded_prediction: int) -> int:
+        if not hasattr(self.model, "predict_proba"):
+            return 70
+
+        probabilities = self.model.predict_proba(feature_frame)[0]
+
+        class_list = list(self.model.classes_)
+
+        if encoded_prediction not in class_list:
+            return 70
+
+        class_index = class_list.index(encoded_prediction)
+        probability = probabilities[class_index]
+
+        return int(round(float(probability) * 100))
+
+
+class BlockClassifier:
+    """
+    Основной классификатор MLService.
+
+    Пытается использовать обученную модель.
+    Если модель ещё не создана, использует rule-based fallback.
+    """
+
+    def __init__(self):
+        self.fallback_classifier = RuleBasedBlockClassifier()
+        self.trained_classifier = self._load_trained_classifier()
+
+    def predict(self, features: dict) -> tuple[str, int]:
+        if self.trained_classifier:
+            try:
+                return self.trained_classifier.predict(features)
+            except Exception:
+                return self.fallback_classifier.predict(features)
+
+        return self.fallback_classifier.predict(features)
+
+    def is_trained_model_available(self) -> bool:
+        return self.trained_classifier is not None
+
+    def _load_trained_classifier(self) -> TrainedBlockClassifier | None:
+        if not DEFAULT_MODEL_PATH.exists():
+            return None
+
+        if not DEFAULT_LABEL_ENCODER_PATH.exists():
+            return None
+
+        try:
+            return TrainedBlockClassifier()
+        except Exception:
+            return None
