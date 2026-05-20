@@ -64,7 +64,11 @@ def build_pipeline(features: pd.DataFrame) -> Pipeline:
     categorical_columns = [
         column
         for column in features.columns
-        if features[column].dtype == "object"
+        if (
+            pd.api.types.is_object_dtype(features[column])
+            or pd.api.types.is_string_dtype(features[column])
+            or isinstance(features[column].dtype, pd.CategoricalDtype)
+        )
     ]
 
     numeric_columns = [
