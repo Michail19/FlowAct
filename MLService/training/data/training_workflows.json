@@ -1,0 +1,556 @@
+{
+  "cases": [
+    {
+      "caseId": "empty_workflow",
+      "workflow": {
+        "blocks": [],
+        "connections": []
+      },
+      "targetBlockId": null,
+      "recommendedBlockType": "start"
+    },
+    {
+      "caseId": "start_without_next_block",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "start-1",
+            "type": "start",
+            "title": "Старт",
+            "position": {
+              "x": 100,
+              "y": 100
+            },
+            "config": {}
+          }
+        ],
+        "connections": []
+      },
+      "targetBlockId": "start-1",
+      "recommendedBlockType": "ai"
+    },
+    {
+      "caseId": "start_to_ai_without_next_block",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "start-1",
+            "type": "start",
+            "title": "Старт",
+            "position": {
+              "x": 100,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "ai-1",
+            "type": "ai",
+            "title": "AI-функция",
+            "position": {
+              "x": 350,
+              "y": 100
+            },
+            "config": {}
+          }
+        ],
+        "connections": [
+          {
+            "id": "conn-1",
+            "sourceBlockId": "start-1",
+            "targetBlockId": "ai-1"
+          }
+        ]
+      },
+      "targetBlockId": "ai-1",
+      "recommendedBlockType": "log"
+    },
+    {
+      "caseId": "start_to_http_without_next_block",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "start-1",
+            "type": "start",
+            "title": "Старт",
+            "position": {
+              "x": 100,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "http-1",
+            "type": "http",
+            "title": "HTTP-запрос",
+            "position": {
+              "x": 350,
+              "y": 100
+            },
+            "config": {}
+          }
+        ],
+        "connections": [
+          {
+            "id": "conn-1",
+            "sourceBlockId": "start-1",
+            "targetBlockId": "http-1"
+          }
+        ]
+      },
+      "targetBlockId": "http-1",
+      "recommendedBlockType": "condition"
+    },
+    {
+      "caseId": "http_to_condition_without_merge",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "start-1",
+            "type": "start",
+            "title": "Старт",
+            "position": {
+              "x": 100,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "http-1",
+            "type": "http",
+            "title": "HTTP-запрос",
+            "position": {
+              "x": 350,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "condition-1",
+            "type": "condition",
+            "title": "Условие",
+            "position": {
+              "x": 600,
+              "y": 100
+            },
+            "config": {}
+          }
+        ],
+        "connections": [
+          {
+            "id": "conn-1",
+            "sourceBlockId": "start-1",
+            "targetBlockId": "http-1"
+          },
+          {
+            "id": "conn-2",
+            "sourceBlockId": "http-1",
+            "targetBlockId": "condition-1"
+          }
+        ]
+      },
+      "targetBlockId": "condition-1",
+      "recommendedBlockType": "merge"
+    },
+    {
+      "caseId": "condition_with_email_branch",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "start-1",
+            "type": "start",
+            "title": "Старт",
+            "position": {
+              "x": 100,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "http-1",
+            "type": "http",
+            "title": "HTTP-запрос",
+            "position": {
+              "x": 350,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "condition-1",
+            "type": "condition",
+            "title": "Условие",
+            "position": {
+              "x": 600,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "email-1",
+            "type": "email",
+            "title": "Email",
+            "position": {
+              "x": 850,
+              "y": 30
+            },
+            "config": {}
+          }
+        ],
+        "connections": [
+          {
+            "id": "conn-1",
+            "sourceBlockId": "start-1",
+            "targetBlockId": "http-1"
+          },
+          {
+            "id": "conn-2",
+            "sourceBlockId": "http-1",
+            "targetBlockId": "condition-1"
+          },
+          {
+            "id": "conn-3",
+            "sourceBlockId": "condition-1",
+            "targetBlockId": "email-1",
+            "sourceHandle": "yes",
+            "label": "Да"
+          }
+        ]
+      },
+      "targetBlockId": "email-1",
+      "recommendedBlockType": "end"
+    },
+    {
+      "caseId": "database_without_log",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "start-1",
+            "type": "start",
+            "title": "Старт",
+            "position": {
+              "x": 100,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "database-1",
+            "type": "database",
+            "title": "База данных",
+            "position": {
+              "x": 350,
+              "y": 100
+            },
+            "config": {}
+          }
+        ],
+        "connections": [
+          {
+            "id": "conn-1",
+            "sourceBlockId": "start-1",
+            "targetBlockId": "database-1"
+          }
+        ]
+      },
+      "targetBlockId": "database-1",
+      "recommendedBlockType": "log"
+    },
+    {
+      "caseId": "action_without_log",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "start-1",
+            "type": "start",
+            "title": "Старт",
+            "position": {
+              "x": 100,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "action-1",
+            "type": "action",
+            "title": "Действие",
+            "position": {
+              "x": 350,
+              "y": 100
+            },
+            "config": {}
+          }
+        ],
+        "connections": [
+          {
+            "id": "conn-1",
+            "sourceBlockId": "start-1",
+            "targetBlockId": "action-1"
+          }
+        ]
+      },
+      "targetBlockId": "action-1",
+      "recommendedBlockType": "log"
+    },
+    {
+      "caseId": "loop_without_log",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "start-1",
+            "type": "start",
+            "title": "Старт",
+            "position": {
+              "x": 100,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "loop-1",
+            "type": "loop",
+            "title": "Цикл",
+            "position": {
+              "x": 350,
+              "y": 100
+            },
+            "config": {}
+          }
+        ],
+        "connections": [
+          {
+            "id": "conn-1",
+            "sourceBlockId": "start-1",
+            "targetBlockId": "loop-1"
+          }
+        ]
+      },
+      "targetBlockId": "loop-1",
+      "recommendedBlockType": "log"
+    },
+    {
+      "caseId": "merge_without_log",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "start-1",
+            "type": "start",
+            "title": "Старт",
+            "position": {
+              "x": 100,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "condition-1",
+            "type": "condition",
+            "title": "Условие",
+            "position": {
+              "x": 350,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "merge-1",
+            "type": "merge",
+            "title": "Объединение",
+            "position": {
+              "x": 600,
+              "y": 100
+            },
+            "config": {}
+          }
+        ],
+        "connections": [
+          {
+            "id": "conn-1",
+            "sourceBlockId": "start-1",
+            "targetBlockId": "condition-1"
+          },
+          {
+            "id": "conn-2",
+            "sourceBlockId": "condition-1",
+            "targetBlockId": "merge-1"
+          }
+        ]
+      },
+      "targetBlockId": "merge-1",
+      "recommendedBlockType": "log"
+    },
+    {
+      "caseId": "log_without_end",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "start-1",
+            "type": "start",
+            "title": "Старт",
+            "position": {
+              "x": 100,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "ai-1",
+            "type": "ai",
+            "title": "AI-функция",
+            "position": {
+              "x": 350,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "log-1",
+            "type": "log",
+            "title": "Логирование",
+            "position": {
+              "x": 600,
+              "y": 100
+            },
+            "config": {}
+          }
+        ],
+        "connections": [
+          {
+            "id": "conn-1",
+            "sourceBlockId": "start-1",
+            "targetBlockId": "ai-1"
+          },
+          {
+            "id": "conn-2",
+            "sourceBlockId": "ai-1",
+            "targetBlockId": "log-1"
+          }
+        ]
+      },
+      "targetBlockId": "log-1",
+      "recommendedBlockType": "end"
+    },
+    {
+      "caseId": "email_without_end",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "start-1",
+            "type": "start",
+            "title": "Старт",
+            "position": {
+              "x": 100,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "email-1",
+            "type": "email",
+            "title": "Email",
+            "position": {
+              "x": 350,
+              "y": 100
+            },
+            "config": {}
+          }
+        ],
+        "connections": [
+          {
+            "id": "conn-1",
+            "sourceBlockId": "start-1",
+            "targetBlockId": "email-1"
+          }
+        ]
+      },
+      "targetBlockId": "email-1",
+      "recommendedBlockType": "end"
+    },
+    {
+      "caseId": "workflow_without_start",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "ai-1",
+            "type": "ai",
+            "title": "AI-функция",
+            "position": {
+              "x": 350,
+              "y": 100
+            },
+            "config": {}
+          }
+        ],
+        "connections": []
+      },
+      "targetBlockId": "ai-1",
+      "recommendedBlockType": "start"
+    },
+    {
+      "caseId": "http_condition_log_without_end",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "start-1",
+            "type": "start",
+            "title": "Старт",
+            "position": {
+              "x": 100,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "http-1",
+            "type": "http",
+            "title": "HTTP-запрос",
+            "position": {
+              "x": 350,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "condition-1",
+            "type": "condition",
+            "title": "Условие",
+            "position": {
+              "x": 600,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "log-1",
+            "type": "log",
+            "title": "Логирование",
+            "position": {
+              "x": 850,
+              "y": 100
+            },
+            "config": {}
+          }
+        ],
+        "connections": [
+          {
+            "id": "conn-1",
+            "sourceBlockId": "start-1",
+            "targetBlockId": "http-1"
+          },
+          {
+            "id": "conn-2",
+            "sourceBlockId": "http-1",
+            "targetBlockId": "condition-1"
+          },
+          {
+            "id": "conn-3",
+            "sourceBlockId": "condition-1",
+            "targetBlockId": "log-1"
+          }
+        ]
+      },
+      "targetBlockId": "log-1",
+      "recommendedBlockType": "end"
+    }
+  ]
+}
