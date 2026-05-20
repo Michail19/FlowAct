@@ -66,7 +66,7 @@ MIDDLEWARE = [
 ]
 
 
-ROOT_URLCONF = "ml_service.urls"
+ROOT_URLCONF = "MLService.urls"
 
 TEMPLATES = [
     {
@@ -83,7 +83,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = "ml_service.wsgi.application"
+WSGI_APPLICATION = "MLSservice.wsgi.application"
 
 
 # Database
