@@ -54,6 +54,7 @@ import {
     validateNotebookPayload,
     type WorkflowValidationIssue,
 } from './workflowValidation';
+import { mlRecommendationApi } from '../../services/mlRecommendationApi';
 import { executionApi } from '../../services/executionApi';
 import {
     toNotebookExecutionLog,
@@ -329,6 +330,7 @@ function mapExecutionLogsToNotebookLogs(params: {
 
 const RESTORE_EXECUTION_POLL_INTERVAL_MS = 1000;
 const RESTORE_EXECUTION_MAX_POLLS = 120;
+const ML_RECOMMENDATION_DEBOUNCE_MS = 600;
 
 function isRestoredExecutionFinished(status: WorkflowExecutionStatus) {
     return status === 'success' || status === 'error' || status === 'cancelled';
@@ -552,6 +554,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
     const [dismissedSuggestionIds, setDismissedSuggestionIds] = useState<string[]>([]);
     const [manualRecommendation, setManualRecommendation] =
         useState<NotebookRecommendation | null>(null);
+    const [mlRecommendations, setMlRecommendations] = useState<NotebookRecommendation[]>([]);
     const [notebookPayload, setNotebookPayload] = useState<NotebookPayloadDto | null>(null);
     const [loadedNotebookPayload, setLoadedNotebookPayload] =
         useState<NotebookPayloadDto | null>(initialNotebookPayload);
@@ -591,13 +594,21 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
         );
     const [, setValidationIssues] = useState<WorkflowValidationIssue[]>([]);
 
-    const recommendations = useMemo(
+    const localRecommendations = useMemo(
         () =>
             getLocalNotebookRecommendations(
                 notebookPayload ?? loadedNotebookPayload,
             ),
         [loadedNotebookPayload, notebookPayload],
     );
+
+    const recommendations = useMemo(() => {
+        if (mlRecommendations.length > 0) {
+            return mlRecommendations;
+        }
+
+        return localRecommendations;
+    }, [localRecommendations, mlRecommendations]);
 
     const visibleSuggestion = useMemo(() => {
         const candidates = manualRecommendation
@@ -611,6 +622,61 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
             ) ?? null
         );
     }, [dismissedSuggestionIds, manualRecommendation, recommendations]);
+
+    useEffect(() => {
+        const currentPayload = notebookPayload ?? loadedNotebookPayload;
+
+        if (!currentPayload) {
+            setMlRecommendations([]);
+            return;
+        }
+
+        let isCancelled = false;
+        const abortController = new AbortController();
+
+        const timeoutId = window.setTimeout(() => {
+            void (async () => {
+                try {
+                    const recommendationsFromMl =
+                        await mlRecommendationApi.getNextBlockRecommendations({
+                            payload: currentPayload,
+                            limit: 3,
+                            signal: abortController.signal,
+                        });
+
+                    if (isCancelled) {
+                        return;
+                    }
+
+                    setMlRecommendations(recommendationsFromMl);
+                } catch (error) {
+                    if (isCancelled) {
+                        return;
+                    }
+
+                    if (
+                        error instanceof DOMException &&
+                        error.name === 'AbortError'
+                    ) {
+                        return;
+                    }
+
+                    console.warn(
+                        'ML recommendations are unavailable, local recommendations will be used:',
+                        error,
+                    );
+
+                    setMlRecommendations([]);
+                }
+            })();
+        }, ML_RECOMMENDATION_DEBOUNCE_MS);
+
+        return () => {
+            isCancelled = true;
+            abortController.abort();
+            window.clearTimeout(timeoutId);
+        };
+    }, [loadedNotebookPayload, notebookPayload]);
 
     useEffect(() => {
         const sourcePayload = loadedNotebookPayload ?? initialNotebookPayload;
