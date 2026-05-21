@@ -3,7 +3,8 @@ from unittest.mock import patch
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from recommendations.classifier import BlockClassifier
+from recommendations.classifier import BlockClassifier, RuleBasedBlockClassifier
+from recommendations.views import NextBlockRecommendationView
 
 
 class RecommendationApiTests(APITestCase):
@@ -92,8 +93,11 @@ class RecommendationApiTests(APITestCase):
             "limit": 3,
         }
 
-        with patch.object(BlockClassifier, "_load_ensemble_classifier", return_value=None), \
-             patch.object(BlockClassifier, "_load_legacy_classifier", return_value=None):
+        with patch.object(
+                NextBlockRecommendationView.service,
+                "classifier",
+                RuleBasedBlockClassifier(),
+        ):
             response = self.client.post(
                 self.recommendation_url,
                 payload,
@@ -107,6 +111,9 @@ class RecommendationApiTests(APITestCase):
         self.assertEqual(recommendation["blockType"], "log")
         self.assertEqual(recommendation["targetBlockId"], "ai-1")
         self.assertEqual(recommendation["targetBlockTitle"], "AI-функция")
+        self.assertEqual(recommendation["source"], "ai")
+        self.assertIn("confidence", recommendation)
+        self.assertIn("reason", recommendation)
 
     def test_recommendation_endpoint_returns_400_for_invalid_connection(self):
         payload = {
