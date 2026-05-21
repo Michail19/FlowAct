@@ -20,9 +20,11 @@ class HealthCheckView(APIView):
             {
                 "status": "UP",
                 "service": "ml-service",
-                "version": "0.1.0",
+                "version": "0.2.0",
                 "classifier": {
                     "trainedModelAvailable": self.service.classifier.is_trained_model_available(),
+                    "runtimeMode": self.service.classifier.get_runtime_mode(),
+                    "models": self.service.classifier.get_model_names(),
                 },
             }
         )
