@@ -10,6 +10,7 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BASE_DIR))
 
 from recommendations.feature_extractor import WorkflowFeatureExtractor  # noqa: E402
+from recommendations.text_extractor import WorkflowTextExtractor  # noqa: E402
 
 
 DEFAULT_INPUT_PATH = BASE_DIR / "training" / "data" / "training_workflows.json"
@@ -17,6 +18,7 @@ DEFAULT_OUTPUT_PATH = BASE_DIR / "training" / "data" / "training_dataset.csv"
 
 TARGET_COLUMN = "recommended_block_type"
 CASE_ID_COLUMN = "case_id"
+WORKFLOW_TEXT_COLUMN = "workflow_text"
 
 
 BLOCK_TITLES = {
@@ -328,6 +330,7 @@ def generate_synthetic_cases(synthetic_repeats: int, seed: int) -> list[dict]:
 
 def build_dataset_rows(cases: list[dict]) -> list[dict]:
     feature_extractor = WorkflowFeatureExtractor()
+    text_extractor = WorkflowTextExtractor()
     rows = []
 
     for index, case in enumerate(cases, start=1):
@@ -343,9 +346,15 @@ def build_dataset_rows(cases: list[dict]) -> list[dict]:
             target_block_id=target_block_id,
         )
 
+        workflow_text = text_extractor.extract(
+            workflow=workflow,
+            target_block_id=target_block_id,
+        )
+
         row = {
             CASE_ID_COLUMN: case_id,
             **features,
+            WORKFLOW_TEXT_COLUMN: workflow_text,
             TARGET_COLUMN: recommended_block_type,
         }
 
