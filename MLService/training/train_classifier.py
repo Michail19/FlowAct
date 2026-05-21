@@ -39,6 +39,43 @@ MODEL_FILE_NAMES = {
     "text_tfidf_logreg": "text_tfidf_logreg.joblib",
 }
 
+MODEL_ALGORITHMS = {
+    "random_forest": "RandomForestClassifier",
+    "extra_trees": "ExtraTreesClassifier",
+    "mlp": "MLPClassifier",
+    "text_tfidf_logreg": "TfidfVectorizer + LogisticRegression",
+}
+
+
+MODEL_DESCRIPTIONS = {
+    "random_forest": (
+        "Ансамблевая модель случайного леса, обученная на структурных признаках workflow."
+    ),
+    "extra_trees": (
+        "Ансамблевая модель экстремально случайных деревьев, обученная на структурных признаках workflow."
+    ),
+    "mlp": (
+        "Полносвязная нейронная сеть, обученная на структурных признаках workflow."
+    ),
+    "text_tfidf_logreg": (
+        "Текстовая модель, использующая TF-IDF-векторизацию текстовых полей workflow "
+        "и LogisticRegression для классификации следующего блока."
+    ),
+}
+
+
+MODEL_WEIGHTS = {
+    "random_forest": 1.0,
+    "extra_trees": 1.0,
+    "mlp": 0.8,
+    "text_tfidf_logreg": 0.7,
+}
+
+
+ENSEMBLE_NAME = "ensemble_soft_voting"
+ENSEMBLE_STRATEGY = "weighted_soft_voting"
+
+
 STRUCTURAL_MODEL_NAMES = {
     "random_forest",
     "extra_trees",
@@ -389,17 +426,50 @@ def save_artifacts(
 ) -> None:
     artifacts_dir.mkdir(parents=True, exist_ok=True)
 
-    model_meta: dict[str, Any] = {
-        "version": "2.0.0",
-        "trainedAt": datetime.now(timezone.utc).isoformat(),
-        "datasetRows": int(len(dataset)),
-        "targetColumn": TARGET_COLUMN,
-        "classes": list(label_encoder.classes_),
-        "models": {},
-    }
-
     label_encoder_path = artifacts_dir / LABEL_ENCODER_FILE_NAME
     joblib.dump(label_encoder, label_encoder_path)
+
+    model_meta: dict[str, Any] = {
+        "version": "2.0.0",
+        "service": "FlowAct MLService",
+        "task": "next_block_recommendation",
+        "problemType": "multiclass_classification",
+        "trainedAt": datetime.now(timezone.utc).isoformat(),
+        "dataset": {
+            "path": str(DEFAULT_DATASET_PATH.relative_to(BASE_DIR)),
+            "rows": int(len(dataset)),
+            "targetColumn": TARGET_COLUMN,
+            "caseIdColumn": CASE_ID_COLUMN,
+            "workflowTextColumn": WORKFLOW_TEXT_COLUMN,
+        },
+        "classes": list(label_encoder.classes_),
+        "labelEncoder": {
+            "artifact": str(label_encoder_path.relative_to(BASE_DIR)),
+            "type": "LabelEncoder",
+        },
+        "featureGroups": {
+            "structural": {
+                "description": "Табличные признаки, извлечённые из структуры workflow.",
+                "columns": list(structural_features.columns),
+            },
+            "text": {
+                "description": "Текстовое представление workflow, собранное из title, description и config блоков.",
+                "columns": [WORKFLOW_TEXT_COLUMN],
+            },
+        },
+        "ensemble": {
+            "name": ENSEMBLE_NAME,
+            "strategy": ENSEMBLE_STRATEGY,
+            "description": (
+                "Итоговая рекомендация формируется через взвешенное soft voting: "
+                "каждая модель возвращает вероятности классов, после чего вероятности "
+                "суммируются с учётом веса модели."
+            ),
+            "models": [],
+            "weights": {},
+        },
+        "models": {},
+    }
 
     for model_name, model in trained_models.items():
         model_file_name = MODEL_FILE_NAMES[model_name]
@@ -407,9 +477,15 @@ def save_artifacts(
 
         joblib.dump(model, model_path)
 
+        model_type = get_model_type(model_name)
+        model_weight = MODEL_WEIGHTS.get(model_name, 1.0)
+
         model_meta["models"][model_name] = {
-            "type": get_model_type(model_name),
+            "algorithm": MODEL_ALGORITHMS.get(model_name, model_name),
+            "type": model_type,
+            "description": MODEL_DESCRIPTIONS.get(model_name, ""),
             "artifact": str(model_path.relative_to(BASE_DIR)),
+            "weight": model_weight,
             "featureColumns": get_model_feature_description(
                 model_name=model_name,
                 structural_features=structural_features,
@@ -417,14 +493,20 @@ def save_artifacts(
             "metrics": metrics_by_model[model_name],
         }
 
-    # Keep legacy artifact for current runtime classifier compatibility.
+        model_meta["ensemble"]["models"].append(model_name)
+        model_meta["ensemble"]["weights"][model_name] = model_weight
+
+    # Legacy artifact нужен для совместимости со старым runtime-классификатором.
+    # Он хранит копию random_forest, чтобы старый block_classifier.joblib продолжал существовать.
     if "random_forest" in trained_models:
         legacy_model_path = artifacts_dir / LEGACY_MODEL_FILE_NAME
         joblib.dump(trained_models["random_forest"], legacy_model_path)
 
-        model_meta["legacyArtifact"] = str(legacy_model_path.relative_to(BASE_DIR))
-
-    model_meta["labelEncoder"] = str(label_encoder_path.relative_to(BASE_DIR))
+        model_meta["legacyArtifact"] = {
+            "artifact": str(legacy_model_path.relative_to(BASE_DIR)),
+            "sourceModel": "random_forest",
+            "reason": "Backward compatibility with legacy BlockClassifier.",
+        }
 
     meta_path = artifacts_dir / MODEL_META_FILE_NAME
 
