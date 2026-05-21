@@ -1,1 +1,1274 @@
-{"cases":[{"caseId":"empty_workflow","workflow":{"blocks":[],"connections":[]},"targetBlockId":null,"recommendedBlockType":"start"},{"caseId":"start_without_next_block","workflow":{"blocks":[{"id":"start-1","type":"start","title":"Старт","position":{"x":100,"y":100},"config":{}}],"connections":[]},"targetBlockId":"start-1","recommendedBlockType":"ai"},{"caseId":"workflow_without_start","workflow":{"blocks":[{"id":"ai-1","type":"ai","title":"AI-функция","position":{"x":350,"y":100},"config":{"ai":{"prompt":"Классифицируй входной текст"}}}],"connections":[]},"targetBlockId":"ai-1","recommendedBlockType":"start"},{"caseId":"start_to_ai_without_next_block","workflow":{"blocks":[{"id":"start-1","type":"start","title":"Старт","position":{"x":100,"y":100},"config":{}},{"id":"ai-1","type":"ai","title":"AI-функция","position":{"x":350,"y":100},"config":{"ai":{"prompt":"Проанализируй текст и сформируй краткое резюме"}}}],"connections":[{"id":"conn-1","sourceBlockId":"start-1","targetBlockId":"ai-1"}]},"targetBlockId":"ai-1","recommendedBlockType":"log"},{"caseId":"start_to_http_without_next_block","workflow":{"blocks":[{"id":"start-1","type":"start","title":"Старт","position":{"x":100,"y":100},"config":{}},{"id":"http-1","type":"http","title":"HTTP-запрос","position":{"x":350,"y":100},"config":{"http":{"method":"GET","url":"https://api.example.com/status"}}}],"connections":[{"id":"conn-1","sourceBlockId":"start-1","targetBlockId":"http-1"}]},"targetBlockId":"http-1","recommendedBlockType":"condition"},{"caseId":"http_to_condition_without_merge","workflow":{"blocks":[{"id":"start-1","type":"start","title":"Старт","position":{"x":100,"y":100},"config":{}},{"id":"http-1","type":"http","title":"HTTP-запрос","position":{"x":350,"y":100},"config":{"http":{"url":"https://api.example.com/status"}}},{"id":"condition-1","type":"condition","title":"Условие","position":{"x":600,"y":100},"config":{"condition":{"leftValue":"input.status","operator":"equals","rightValue":"200"}}}],"connections":[{"id":"conn-1","sourceBlockId":"start-1","targetBlockId":"http-1"},{"id":"conn-2","sourceBlockId":"http-1","targetBlockId":"condition-1"}]},"targetBlockId":"condition-1","recommendedBlockType":"merge"},{"caseId":"database_without_log","workflow":{"blocks":[{"id":"start-1","type":"start","title":"Старт","position":{"x":100,"y":100},"config":{}},{"id":"database-1","type":"database","title":"База данных","position":{"x":350,"y":100},"config":{"database":{"operation":"select","query":"select * from executions limit 10"}}}],"connections":[{"id":"conn-1","sourceBlockId":"start-1","targetBlockId":"database-1"}]},"targetBlockId":"database-1","recommendedBlockType":"log"},{"caseId":"action_without_log","workflow":{"blocks":[{"id":"start-1","type":"start","title":"Старт","position":{"x":100,"y":100},"config":{}},{"id":"action-1","type":"action","title":"Действие","position":{"x":350,"y":100},"config":{"action":{"actionType":"transform","parameters":"normalize json payload"}}}],"connections":[{"id":"conn-1","sourceBlockId":"start-1","targetBlockId":"action-1"}]},"targetBlockId":"action-1","recommendedBlockType":"log"},{"caseId":"loop_without_log","workflow":{"blocks":[{"id":"start-1","type":"start","title":"Старт","position":{"x":100,"y":100},"config":{}},{"id":"loop-1","type":"loop","title":"Цикл","position":{"x":350,"y":100},"config":{"loop":{"collectionPath":"input.items","itemName":"item","mode":"map"}}}],"connections":[{"id":"conn-1","sourceBlockId":"start-1","targetBlockId":"loop-1"}]},"targetBlockId":"loop-1","recommendedBlockType":"log"},{"caseId":"merge_without_log","workflow":{"blocks":[{"id":"start-1","type":"start","title":"Старт","position":{"x":100,"y":100},"config":{}},{"id":"condition-1","type":"condition","title":"Условие","position":{"x":350,"y":100},"config":{"condition":{"leftValue":"input.ready","operator":"equals","rightValue":"true"}}},{"id":"merge-1","type":"merge","title":"Объединение","position":{"x":600,"y":100},"config":{"merge":{"mode":"combine"}}}],"connections":[{"id":"conn-1","sourceBlockId":"start-1","targetBlockId":"condition-1"},{"id":"conn-2","sourceBlockId":"condition-1","targetBlockId":"merge-1"}]},"targetBlockId":"merge-1","recommendedBlockType":"log"},{"caseId":"log_without_end","workflow":{"blocks":[{"id":"start-1","type":"start","title":"Старт","position":{"x":100,"y":100},"config":{}},{"id":"ai-1","type":"ai","title":"AI-функция","position":{"x":350,"y":100},"config":{"ai":{"prompt":"Сделай краткое описание"}}},{"id":"log-1","type":"log","title":"Логирование","position":{"x":600,"y":100},"config":{"log":{"messageTemplate":"AI result: {{input}}"}}}],"connections":[{"id":"conn-1","sourceBlockId":"start-1","targetBlockId":"ai-1"},{"id":"conn-2","sourceBlockId":"ai-1","targetBlockId":"log-1"}]},"targetBlockId":"log-1","recommendedBlockType":"end"},{"caseId":"email_without_end","workflow":{"blocks":[{"id":"start-1","type":"start","title":"Старт","position":{"x":100,"y":100},"config":{}},{"id":"email-1","type":"email","title":"Email","position":{"x":350,"y":100},"config":{"email":{"subject":"FlowAct notification","body":"Result: {{input}}"}}}],"connections":[{"id":"conn-1","sourceBlockId":"start-1","targetBlockId":"email-1"}]},"targetBlockId":"email-1","recommendedBlockType":"end"},{"caseId":"http_condition_log_without_end","workflow":{"blocks":[{"id":"start-1","type":"start","title":"Старт","position":{"x":100,"y":100},"config":{}},{"id":"http-1","type":"http","title":"HTTP-запрос","position":{"x":350,"y":100},"config":{"http":{"url":"https://api.example.com/items"}}},{"id":"condition-1","type":"condition","title":"Условие","position":{"x":600,"y":100},"config":{"condition":{"leftValue":"input.ok","operator":"equals","rightValue":"true"}}},{"id":"log-1","type":"log","title":"Логирование","position":{"x":850,"y":100},"config":{"log":{"messageTemplate":"HTTP result: {{input}}"}}}],"connections":[{"id":"conn-1","sourceBlockId":"start-1","targetBlockId":"http-1"},{"id":"conn-2","sourceBlockId":"http-1","targetBlockId":"condition-1"},{"id":"conn-3","sourceBlockId":"condition-1","targetBlockId":"log-1"}]},"targetBlockId":"log-1","recommendedBlockType":"end"},{"caseId":"http_post_order_should_condition","workflow":{"blocks":[{"id":"start-1","type":"start","title":"Старт","position":{"x":100,"y":100},"config":{}},{"id":"http-1","type":"http","title":"HTTP-запрос","position":{"x":350,"y":100},"config":{"http":{"method":"POST","url":"https://api.example.com/orders","body":"{\"status\":\"new\"}"}}}],"connections":[{"id":"conn-1","sourceBlockId":"start-1","targetBlockId":"http-1"}]},"targetBlockId":"http-1","recommendedBlockType":"condition"},{"caseId":"condition_one_branch_needs_second_branch_log","workflow":{"blocks":[{"id":"start-1","type":"start","title":"Старт","position":{"x":100,"y":100},"config":{}},{"id":"http-1","type":"http","title":"HTTP-запрос","position":{"x":350,"y":100},"config":{"http":{"url":"https://api.example.com/payment/status"}}},{"id":"condition-1","type":"condition","title":"Условие","position":{"x":600,"y":100},"config":{"condition":{"leftValue":"input.body.status","operator":"equals","rightValue":"paid"}}},{"id":"email-1","type":"email","title":"Email","position":{"x":850,"y":30},"config":{"email":{"subject":"Payment success","body":"Payment confirmed"}}}],"connections":[{"id":"conn-1","sourceBlockId":"start-1","targetBlockId":"http-1"},{"id":"conn-2","sourceBlockId":"http-1","targetBlockId":"condition-1"},{"id":"conn-3","sourceBlockId":"condition-1","targetBlockId":"email-1","sourceHandle":"yes","label":"Да"}]},"targetBlockId":"condition-1","recommendedBlockType":"log"},{"caseId":"condition_two_branches_need_merge","workflow":{"blocks":[{"id":"start-1","type":"start","title":"Старт","position":{"x":100,"y":100},"config":{}},{"id":"ai-1","type":"ai","title":"AI-функция","position":{"x":350,"y":100},"config":{"ai":{"prompt":"Проанализируй заявку и реши, нужна ли эскалация"}}},{"id":"condition-1","type":"condition","title":"Условие","position":{"x":600,"y":100},"config":{"condition":{"leftValue":"input.escalate","operator":"equals","rightValue":"true"}}},{"id":"email-1","type":"email","title":"Email","position":{"x":850,"y":20},"config":{}},{"id":"log-1","type":"log","title":"Логирование","position":{"x":850,"y":190},"config":{}}],"connections":[{"id":"conn-1","sourceBlockId":"start-1","targetBlockId":"ai-1"},{"id":"conn-2","sourceBlockId":"ai-1","targetBlockId":"condition-1"},{"id":"conn-3","sourceBlockId":"condition-1","targetBlockId":"email-1","sourceHandle":"yes","label":"Да"},{"id":"conn-4","sourceBlockId":"condition-1","targetBlockId":"log-1","sourceHandle":"no","label":"Нет"}]},"targetBlockId":"condition-1","recommendedBlockType":"merge"},{"caseId":"merge_after_two_branches_needs_log","workflow":{"blocks":[{"id":"start-1","type":"start","title":"Старт","position":{"x":100,"y":100},"config":{}},{"id":"condition-1","type":"condition","title":"Условие","position":{"x":350,"y":100},"config":{}},{"id":"email-1","type":"email","title":"Email","position":{"x":600,"y":30},"config":{}},{"id":"log-1","type":"log","title":"Логирование","position":{"x":600,"y":190},"config":{}},{"id":"merge-1","type":"merge","title":"Объединение","position":{"x":850,"y":100},"config":{"merge":{"mode":"combine"}}}],"connections":[{"id":"conn-1","sourceBlockId":"start-1","targetBlockId":"condition-1"},{"id":"conn-2","sourceBlockId":"condition-1","targetBlockId":"email-1","sourceHandle":"yes","label":"Да"},{"id":"conn-3","sourceBlockId":"condition-1","targetBlockId":"log-1","sourceHandle":"no","label":"Нет"},{"id":"conn-4","sourceBlockId":"email-1","targetBlockId":"merge-1"},{"id":"conn-5","sourceBlockId":"log-1","targetBlockId":"merge-1"}]},"targetBlockId":"merge-1","recommendedBlockType":"log"},{"caseId":"loop_over_items_should_transform_item","workflow":{"blocks":[{"id":"start-1","type":"start","title":"Старт","position":{"x":100,"y":100},"config":{}},{"id":"loop-1","type":"loop","title":"Цикл","position":{"x":350,"y":100},"config":{"loop":{"collectionPath":"input.items","itemName":"order","mode":"map"}}}],"connections":[{"id":"conn-1","sourceBlockId":"start-1","targetBlockId":"loop-1"}]},"targetBlockId":"loop-1","recommendedBlockType":"action"},{"caseId":"action_transform_after_loop_should_log","workflow":{"blocks":[{"id":"start-1","type":"start","title":"Старт","position":{"x":100,"y":100},"config":{}},{"id":"loop-1","type":"loop","title":"Цикл","position":{"x":350,"y":100},"config":{"loop":{"collectionPath":"input.items","itemName":"order"}}},{"id":"action-1","type":"action","title":"Действие","position":{"x":600,"y":100},"config":{"action":{"actionType":"transform","parameters":"extract order id and total"}}}],"connections":[{"id":"conn-1","sourceBlockId":"start-1","targetBlockId":"loop-1"},{"id":"conn-2","sourceBlockId":"loop-1","targetBlockId":"action-1"}]},"targetBlockId":"action-1","recommendedBlockType":"log"},{"caseId":"ai_prompt_mentions_email_should_suggest_email_after_condition","workflow":{"blocks":[{"id":"start-1","type":"start","title":"Старт","position":{"x":100,"y":100},"config":{}},{"id":"ai-1","type":"ai","title":"AI-функция","position":{"x":350,"y":100},"config":{"ai":{"prompt":"Сформируй текст письма для пользователя"}}},{"id":"condition-1","type":"condition","title":"Условие","position":{"x":600,"y":100},"config":{"condition":{"leftValue":"input.ready","operator":"equals","rightValue":"true"}}}],"connections":[{"id":"conn-1","sourceBlockId":"start-1","targetBlockId":"ai-1"},{"id":"conn-2","sourceBlockId":"ai-1","targetBlockId":"condition-1"}]},"targetBlockId":"condition-1","recommendedBlockType":"email"},{"caseId":"database_query_select_users_should_email_after_condition","workflow":{"blocks":[{"id":"start-1","type":"start","title":"Старт","position":{"x":100,"y":100},"config":{}},{"id":"database-1","type":"database","title":"База данных","position":{"x":350,"y":100},"config":{"database":{"operation":"select","query":"select email from users where active = true"}}},{"id":"condition-1","type":"condition","title":"Условие","position":{"x":600,"y":100},"config":{"condition":{"leftValue":"input.rows.length","operator":"greater_than","rightValue":"0"}}}],"connections":[{"id":"conn-1","sourceBlockId":"start-1","targetBlockId":"database-1"},{"id":"conn-2","sourceBlockId":"database-1","targetBlockId":"condition-1"}]},"targetBlockId":"condition-1","recommendedBlockType":"email"},{"caseId":"database_loop_log_after_reading_items","workflow":{"blocks":[{"id":"start-1","type":"start","title":"Старт","position":{"x":100,"y":100},"config":{}},{"id":"database-1","type":"database","title":"База данных","position":{"x":350,"y":100},"config":{"database":{"operation":"select","query":"select * from orders"}}},{"id":"loop-1","type":"loop","title":"Цикл","position":{"x":600,"y":100},"config":{"loop":{"collectionPath":"input.rows","itemName":"row"}}}],"connections":[{"id":"conn-1","sourceBlockId":"start-1","targetBlockId":"database-1"},{"id":"conn-2","sourceBlockId":"database-1","targetBlockId":"loop-1"}]},"targetBlockId":"loop-1","recommendedBlockType":"log"},{"caseId":"existing_start_and_end_but_unconnected_ai_should_log","workflow":{"blocks":[{"id":"start-1","type":"start","title":"Старт","position":{"x":100,"y":100},"config":{}},{"id":"end-1","type":"end","title":"Конец","position":{"x":850,"y":100},"config":{}},{"id":"ai-1","type":"ai","title":"AI-функция","position":{"x":350,"y":250},"config":{"ai":{"prompt":"Сделай краткое описание"}}}],"connections":[{"id":"conn-1","sourceBlockId":"start-1","targetBlockId":"end-1"}]},"targetBlockId":"ai-1","recommendedBlockType":"log"},{"caseId":"workflow_has_start_no_end_after_database_chain","workflow":{"blocks":[{"id":"start-1","type":"start","title":"Старт","position":{"x":100,"y":100},"config":{}},{"id":"database-1","type":"database","title":"База данных","position":{"x":350,"y":100},"config":{"database":{"query":"select * from reports"}}},{"id":"log-1","type":"log","title":"Логирование","position":{"x":600,"y":100},"config":{"log":{"messageTemplate":"Report result: {{input}"}}}],"connections":[{"id":"conn-1","sourceBlockId":"start-1","targetBlockId":"database-1"},{"id":"conn-2","sourceBlockId":"database-1","targetBlockId":"log-1"}]},"targetBlockId":"log-1","recommendedBlockType":"end"}]}
+{
+  "cases": [
+    {
+      "caseId": "empty_workflow",
+      "workflow": {
+        "blocks": [],
+        "connections": []
+      },
+      "targetBlockId": null,
+      "recommendedBlockType": "start"
+    },
+    {
+      "caseId": "start_without_next_block",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "start-1",
+            "type": "start",
+            "title": "Старт",
+            "position": {
+              "x": 100,
+              "y": 100
+            },
+            "config": {}
+          }
+        ],
+        "connections": []
+      },
+      "targetBlockId": "start-1",
+      "recommendedBlockType": "ai"
+    },
+    {
+      "caseId": "workflow_without_start",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "ai-1",
+            "type": "ai",
+            "title": "AI-функция",
+            "position": {
+              "x": 350,
+              "y": 100
+            },
+            "config": {
+              "ai": {
+                "prompt": "Классифицируй входной текст"
+              }
+            }
+          }
+        ],
+        "connections": []
+      },
+      "targetBlockId": "ai-1",
+      "recommendedBlockType": "start"
+    },
+    {
+      "caseId": "start_to_ai_without_next_block",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "start-1",
+            "type": "start",
+            "title": "Старт",
+            "position": {
+              "x": 100,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "ai-1",
+            "type": "ai",
+            "title": "AI-функция",
+            "position": {
+              "x": 350,
+              "y": 100
+            },
+            "config": {
+              "ai": {
+                "prompt": "Проанализируй текст и сформируй краткое резюме"
+              }
+            }
+          }
+        ],
+        "connections": [
+          {
+            "id": "conn-1",
+            "sourceBlockId": "start-1",
+            "targetBlockId": "ai-1"
+          }
+        ]
+      },
+      "targetBlockId": "ai-1",
+      "recommendedBlockType": "log"
+    },
+    {
+      "caseId": "start_to_http_without_next_block",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "start-1",
+            "type": "start",
+            "title": "Старт",
+            "position": {
+              "x": 100,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "http-1",
+            "type": "http",
+            "title": "HTTP-запрос",
+            "position": {
+              "x": 350,
+              "y": 100
+            },
+            "config": {
+              "http": {
+                "method": "GET",
+                "url": "https://api.example.com/status"
+              }
+            }
+          }
+        ],
+        "connections": [
+          {
+            "id": "conn-1",
+            "sourceBlockId": "start-1",
+            "targetBlockId": "http-1"
+          }
+        ]
+      },
+      "targetBlockId": "http-1",
+      "recommendedBlockType": "condition"
+    },
+    {
+      "caseId": "http_to_condition_without_merge",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "start-1",
+            "type": "start",
+            "title": "Старт",
+            "position": {
+              "x": 100,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "http-1",
+            "type": "http",
+            "title": "HTTP-запрос",
+            "position": {
+              "x": 350,
+              "y": 100
+            },
+            "config": {
+              "http": {
+                "url": "https://api.example.com/status"
+              }
+            }
+          },
+          {
+            "id": "condition-1",
+            "type": "condition",
+            "title": "Условие",
+            "position": {
+              "x": 600,
+              "y": 100
+            },
+            "config": {
+              "condition": {
+                "leftValue": "input.status",
+                "operator": "equals",
+                "rightValue": "200"
+              }
+            }
+          }
+        ],
+        "connections": [
+          {
+            "id": "conn-1",
+            "sourceBlockId": "start-1",
+            "targetBlockId": "http-1"
+          },
+          {
+            "id": "conn-2",
+            "sourceBlockId": "http-1",
+            "targetBlockId": "condition-1"
+          }
+        ]
+      },
+      "targetBlockId": "condition-1",
+      "recommendedBlockType": "merge"
+    },
+    {
+      "caseId": "database_without_log",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "start-1",
+            "type": "start",
+            "title": "Старт",
+            "position": {
+              "x": 100,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "database-1",
+            "type": "database",
+            "title": "База данных",
+            "position": {
+              "x": 350,
+              "y": 100
+            },
+            "config": {
+              "database": {
+                "operation": "select",
+                "query": "select * from executions limit 10"
+              }
+            }
+          }
+        ],
+        "connections": [
+          {
+            "id": "conn-1",
+            "sourceBlockId": "start-1",
+            "targetBlockId": "database-1"
+          }
+        ]
+      },
+      "targetBlockId": "database-1",
+      "recommendedBlockType": "log"
+    },
+    {
+      "caseId": "action_without_log",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "start-1",
+            "type": "start",
+            "title": "Старт",
+            "position": {
+              "x": 100,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "action-1",
+            "type": "action",
+            "title": "Действие",
+            "position": {
+              "x": 350,
+              "y": 100
+            },
+            "config": {
+              "action": {
+                "actionType": "transform",
+                "parameters": "normalize json payload"
+              }
+            }
+          }
+        ],
+        "connections": [
+          {
+            "id": "conn-1",
+            "sourceBlockId": "start-1",
+            "targetBlockId": "action-1"
+          }
+        ]
+      },
+      "targetBlockId": "action-1",
+      "recommendedBlockType": "log"
+    },
+    {
+      "caseId": "loop_without_log",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "start-1",
+            "type": "start",
+            "title": "Старт",
+            "position": {
+              "x": 100,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "loop-1",
+            "type": "loop",
+            "title": "Цикл",
+            "position": {
+              "x": 350,
+              "y": 100
+            },
+            "config": {
+              "loop": {
+                "collectionPath": "input.items",
+                "itemName": "item",
+                "mode": "map"
+              }
+            }
+          }
+        ],
+        "connections": [
+          {
+            "id": "conn-1",
+            "sourceBlockId": "start-1",
+            "targetBlockId": "loop-1"
+          }
+        ]
+      },
+      "targetBlockId": "loop-1",
+      "recommendedBlockType": "log"
+    },
+    {
+      "caseId": "merge_without_log",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "start-1",
+            "type": "start",
+            "title": "Старт",
+            "position": {
+              "x": 100,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "condition-1",
+            "type": "condition",
+            "title": "Условие",
+            "position": {
+              "x": 350,
+              "y": 100
+            },
+            "config": {
+              "condition": {
+                "leftValue": "input.ready",
+                "operator": "equals",
+                "rightValue": "true"
+              }
+            }
+          },
+          {
+            "id": "merge-1",
+            "type": "merge",
+            "title": "Объединение",
+            "position": {
+              "x": 600,
+              "y": 100
+            },
+            "config": {
+              "merge": {
+                "mode": "combine"
+              }
+            }
+          }
+        ],
+        "connections": [
+          {
+            "id": "conn-1",
+            "sourceBlockId": "start-1",
+            "targetBlockId": "condition-1"
+          },
+          {
+            "id": "conn-2",
+            "sourceBlockId": "condition-1",
+            "targetBlockId": "merge-1"
+          }
+        ]
+      },
+      "targetBlockId": "merge-1",
+      "recommendedBlockType": "log"
+    },
+    {
+      "caseId": "log_without_end",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "start-1",
+            "type": "start",
+            "title": "Старт",
+            "position": {
+              "x": 100,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "ai-1",
+            "type": "ai",
+            "title": "AI-функция",
+            "position": {
+              "x": 350,
+              "y": 100
+            },
+            "config": {
+              "ai": {
+                "prompt": "Сделай краткое описание"
+              }
+            }
+          },
+          {
+            "id": "log-1",
+            "type": "log",
+            "title": "Логирование",
+            "position": {
+              "x": 600,
+              "y": 100
+            },
+            "config": {
+              "log": {
+                "messageTemplate": "AI result: {{input}}"
+              }
+            }
+          }
+        ],
+        "connections": [
+          {
+            "id": "conn-1",
+            "sourceBlockId": "start-1",
+            "targetBlockId": "ai-1"
+          },
+          {
+            "id": "conn-2",
+            "sourceBlockId": "ai-1",
+            "targetBlockId": "log-1"
+          }
+        ]
+      },
+      "targetBlockId": "log-1",
+      "recommendedBlockType": "end"
+    },
+    {
+      "caseId": "email_without_end",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "start-1",
+            "type": "start",
+            "title": "Старт",
+            "position": {
+              "x": 100,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "email-1",
+            "type": "email",
+            "title": "Email",
+            "position": {
+              "x": 350,
+              "y": 100
+            },
+            "config": {
+              "email": {
+                "subject": "FlowAct notification",
+                "body": "Result: {{input}}"
+              }
+            }
+          }
+        ],
+        "connections": [
+          {
+            "id": "conn-1",
+            "sourceBlockId": "start-1",
+            "targetBlockId": "email-1"
+          }
+        ]
+      },
+      "targetBlockId": "email-1",
+      "recommendedBlockType": "end"
+    },
+    {
+      "caseId": "http_condition_log_without_end",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "start-1",
+            "type": "start",
+            "title": "Старт",
+            "position": {
+              "x": 100,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "http-1",
+            "type": "http",
+            "title": "HTTP-запрос",
+            "position": {
+              "x": 350,
+              "y": 100
+            },
+            "config": {
+              "http": {
+                "url": "https://api.example.com/items"
+              }
+            }
+          },
+          {
+            "id": "condition-1",
+            "type": "condition",
+            "title": "Условие",
+            "position": {
+              "x": 600,
+              "y": 100
+            },
+            "config": {
+              "condition": {
+                "leftValue": "input.ok",
+                "operator": "equals",
+                "rightValue": "true"
+              }
+            }
+          },
+          {
+            "id": "log-1",
+            "type": "log",
+            "title": "Логирование",
+            "position": {
+              "x": 850,
+              "y": 100
+            },
+            "config": {
+              "log": {
+                "messageTemplate": "HTTP result: {{input}}"
+              }
+            }
+          }
+        ],
+        "connections": [
+          {
+            "id": "conn-1",
+            "sourceBlockId": "start-1",
+            "targetBlockId": "http-1"
+          },
+          {
+            "id": "conn-2",
+            "sourceBlockId": "http-1",
+            "targetBlockId": "condition-1"
+          },
+          {
+            "id": "conn-3",
+            "sourceBlockId": "condition-1",
+            "targetBlockId": "log-1"
+          }
+        ]
+      },
+      "targetBlockId": "log-1",
+      "recommendedBlockType": "end"
+    },
+    {
+      "caseId": "http_post_order_should_condition",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "start-1",
+            "type": "start",
+            "title": "Старт",
+            "position": {
+              "x": 100,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "http-1",
+            "type": "http",
+            "title": "HTTP-запрос",
+            "position": {
+              "x": 350,
+              "y": 100
+            },
+            "config": {
+              "http": {
+                "method": "POST",
+                "url": "https://api.example.com/orders",
+                "body": "{\"status\":\"new\"}"
+              }
+            }
+          }
+        ],
+        "connections": [
+          {
+            "id": "conn-1",
+            "sourceBlockId": "start-1",
+            "targetBlockId": "http-1"
+          }
+        ]
+      },
+      "targetBlockId": "http-1",
+      "recommendedBlockType": "condition"
+    },
+    {
+      "caseId": "condition_one_branch_needs_second_branch_log",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "start-1",
+            "type": "start",
+            "title": "Старт",
+            "position": {
+              "x": 100,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "http-1",
+            "type": "http",
+            "title": "HTTP-запрос",
+            "position": {
+              "x": 350,
+              "y": 100
+            },
+            "config": {
+              "http": {
+                "url": "https://api.example.com/payment/status"
+              }
+            }
+          },
+          {
+            "id": "condition-1",
+            "type": "condition",
+            "title": "Условие",
+            "position": {
+              "x": 600,
+              "y": 100
+            },
+            "config": {
+              "condition": {
+                "leftValue": "input.body.status",
+                "operator": "equals",
+                "rightValue": "paid"
+              }
+            }
+          },
+          {
+            "id": "email-1",
+            "type": "email",
+            "title": "Email",
+            "position": {
+              "x": 850,
+              "y": 30
+            },
+            "config": {
+              "email": {
+                "subject": "Payment success",
+                "body": "Payment confirmed"
+              }
+            }
+          }
+        ],
+        "connections": [
+          {
+            "id": "conn-1",
+            "sourceBlockId": "start-1",
+            "targetBlockId": "http-1"
+          },
+          {
+            "id": "conn-2",
+            "sourceBlockId": "http-1",
+            "targetBlockId": "condition-1"
+          },
+          {
+            "id": "conn-3",
+            "sourceBlockId": "condition-1",
+            "targetBlockId": "email-1",
+            "sourceHandle": "yes",
+            "label": "Да"
+          }
+        ]
+      },
+      "targetBlockId": "condition-1",
+      "recommendedBlockType": "log"
+    },
+    {
+      "caseId": "condition_two_branches_need_merge",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "start-1",
+            "type": "start",
+            "title": "Старт",
+            "position": {
+              "x": 100,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "ai-1",
+            "type": "ai",
+            "title": "AI-функция",
+            "position": {
+              "x": 350,
+              "y": 100
+            },
+            "config": {
+              "ai": {
+                "prompt": "Проанализируй заявку и реши, нужна ли эскалация"
+              }
+            }
+          },
+          {
+            "id": "condition-1",
+            "type": "condition",
+            "title": "Условие",
+            "position": {
+              "x": 600,
+              "y": 100
+            },
+            "config": {
+              "condition": {
+                "leftValue": "input.escalate",
+                "operator": "equals",
+                "rightValue": "true"
+              }
+            }
+          },
+          {
+            "id": "email-1",
+            "type": "email",
+            "title": "Email",
+            "position": {
+              "x": 850,
+              "y": 20
+            },
+            "config": {}
+          },
+          {
+            "id": "log-1",
+            "type": "log",
+            "title": "Логирование",
+            "position": {
+              "x": 850,
+              "y": 190
+            },
+            "config": {}
+          }
+        ],
+        "connections": [
+          {
+            "id": "conn-1",
+            "sourceBlockId": "start-1",
+            "targetBlockId": "ai-1"
+          },
+          {
+            "id": "conn-2",
+            "sourceBlockId": "ai-1",
+            "targetBlockId": "condition-1"
+          },
+          {
+            "id": "conn-3",
+            "sourceBlockId": "condition-1",
+            "targetBlockId": "email-1",
+            "sourceHandle": "yes",
+            "label": "Да"
+          },
+          {
+            "id": "conn-4",
+            "sourceBlockId": "condition-1",
+            "targetBlockId": "log-1",
+            "sourceHandle": "no",
+            "label": "Нет"
+          }
+        ]
+      },
+      "targetBlockId": "condition-1",
+      "recommendedBlockType": "merge"
+    },
+    {
+      "caseId": "merge_after_two_branches_needs_log",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "start-1",
+            "type": "start",
+            "title": "Старт",
+            "position": {
+              "x": 100,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "condition-1",
+            "type": "condition",
+            "title": "Условие",
+            "position": {
+              "x": 350,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "email-1",
+            "type": "email",
+            "title": "Email",
+            "position": {
+              "x": 600,
+              "y": 30
+            },
+            "config": {}
+          },
+          {
+            "id": "log-1",
+            "type": "log",
+            "title": "Логирование",
+            "position": {
+              "x": 600,
+              "y": 190
+            },
+            "config": {}
+          },
+          {
+            "id": "merge-1",
+            "type": "merge",
+            "title": "Объединение",
+            "position": {
+              "x": 850,
+              "y": 100
+            },
+            "config": {
+              "merge": {
+                "mode": "combine"
+              }
+            }
+          }
+        ],
+        "connections": [
+          {
+            "id": "conn-1",
+            "sourceBlockId": "start-1",
+            "targetBlockId": "condition-1"
+          },
+          {
+            "id": "conn-2",
+            "sourceBlockId": "condition-1",
+            "targetBlockId": "email-1",
+            "sourceHandle": "yes",
+            "label": "Да"
+          },
+          {
+            "id": "conn-3",
+            "sourceBlockId": "condition-1",
+            "targetBlockId": "log-1",
+            "sourceHandle": "no",
+            "label": "Нет"
+          },
+          {
+            "id": "conn-4",
+            "sourceBlockId": "email-1",
+            "targetBlockId": "merge-1"
+          },
+          {
+            "id": "conn-5",
+            "sourceBlockId": "log-1",
+            "targetBlockId": "merge-1"
+          }
+        ]
+      },
+      "targetBlockId": "merge-1",
+      "recommendedBlockType": "log"
+    },
+    {
+      "caseId": "loop_over_items_should_transform_item",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "start-1",
+            "type": "start",
+            "title": "Старт",
+            "position": {
+              "x": 100,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "loop-1",
+            "type": "loop",
+            "title": "Цикл",
+            "position": {
+              "x": 350,
+              "y": 100
+            },
+            "config": {
+              "loop": {
+                "collectionPath": "input.items",
+                "itemName": "order",
+                "mode": "map"
+              }
+            }
+          }
+        ],
+        "connections": [
+          {
+            "id": "conn-1",
+            "sourceBlockId": "start-1",
+            "targetBlockId": "loop-1"
+          }
+        ]
+      },
+      "targetBlockId": "loop-1",
+      "recommendedBlockType": "action"
+    },
+    {
+      "caseId": "action_transform_after_loop_should_log",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "start-1",
+            "type": "start",
+            "title": "Старт",
+            "position": {
+              "x": 100,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "loop-1",
+            "type": "loop",
+            "title": "Цикл",
+            "position": {
+              "x": 350,
+              "y": 100
+            },
+            "config": {
+              "loop": {
+                "collectionPath": "input.items",
+                "itemName": "order"
+              }
+            }
+          },
+          {
+            "id": "action-1",
+            "type": "action",
+            "title": "Действие",
+            "position": {
+              "x": 600,
+              "y": 100
+            },
+            "config": {
+              "action": {
+                "actionType": "transform",
+                "parameters": "extract order id and total"
+              }
+            }
+          }
+        ],
+        "connections": [
+          {
+            "id": "conn-1",
+            "sourceBlockId": "start-1",
+            "targetBlockId": "loop-1"
+          },
+          {
+            "id": "conn-2",
+            "sourceBlockId": "loop-1",
+            "targetBlockId": "action-1"
+          }
+        ]
+      },
+      "targetBlockId": "action-1",
+      "recommendedBlockType": "log"
+    },
+    {
+      "caseId": "ai_prompt_mentions_email_should_suggest_email_after_condition",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "start-1",
+            "type": "start",
+            "title": "Старт",
+            "position": {
+              "x": 100,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "ai-1",
+            "type": "ai",
+            "title": "AI-функция",
+            "position": {
+              "x": 350,
+              "y": 100
+            },
+            "config": {
+              "ai": {
+                "prompt": "Сформируй текст письма для пользователя"
+              }
+            }
+          },
+          {
+            "id": "condition-1",
+            "type": "condition",
+            "title": "Условие",
+            "position": {
+              "x": 600,
+              "y": 100
+            },
+            "config": {
+              "condition": {
+                "leftValue": "input.ready",
+                "operator": "equals",
+                "rightValue": "true"
+              }
+            }
+          }
+        ],
+        "connections": [
+          {
+            "id": "conn-1",
+            "sourceBlockId": "start-1",
+            "targetBlockId": "ai-1"
+          },
+          {
+            "id": "conn-2",
+            "sourceBlockId": "ai-1",
+            "targetBlockId": "condition-1"
+          }
+        ]
+      },
+      "targetBlockId": "condition-1",
+      "recommendedBlockType": "email"
+    },
+    {
+      "caseId": "database_query_select_users_should_email_after_condition",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "start-1",
+            "type": "start",
+            "title": "Старт",
+            "position": {
+              "x": 100,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "database-1",
+            "type": "database",
+            "title": "База данных",
+            "position": {
+              "x": 350,
+              "y": 100
+            },
+            "config": {
+              "database": {
+                "operation": "select",
+                "query": "select email from users where active = true"
+              }
+            }
+          },
+          {
+            "id": "condition-1",
+            "type": "condition",
+            "title": "Условие",
+            "position": {
+              "x": 600,
+              "y": 100
+            },
+            "config": {
+              "condition": {
+                "leftValue": "input.rows.length",
+                "operator": "greater_than",
+                "rightValue": "0"
+              }
+            }
+          }
+        ],
+        "connections": [
+          {
+            "id": "conn-1",
+            "sourceBlockId": "start-1",
+            "targetBlockId": "database-1"
+          },
+          {
+            "id": "conn-2",
+            "sourceBlockId": "database-1",
+            "targetBlockId": "condition-1"
+          }
+        ]
+      },
+      "targetBlockId": "condition-1",
+      "recommendedBlockType": "email"
+    },
+    {
+      "caseId": "database_loop_log_after_reading_items",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "start-1",
+            "type": "start",
+            "title": "Старт",
+            "position": {
+              "x": 100,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "database-1",
+            "type": "database",
+            "title": "База данных",
+            "position": {
+              "x": 350,
+              "y": 100
+            },
+            "config": {
+              "database": {
+                "operation": "select",
+                "query": "select * from orders"
+              }
+            }
+          },
+          {
+            "id": "loop-1",
+            "type": "loop",
+            "title": "Цикл",
+            "position": {
+              "x": 600,
+              "y": 100
+            },
+            "config": {
+              "loop": {
+                "collectionPath": "input.rows",
+                "itemName": "row"
+              }
+            }
+          }
+        ],
+        "connections": [
+          {
+            "id": "conn-1",
+            "sourceBlockId": "start-1",
+            "targetBlockId": "database-1"
+          },
+          {
+            "id": "conn-2",
+            "sourceBlockId": "database-1",
+            "targetBlockId": "loop-1"
+          }
+        ]
+      },
+      "targetBlockId": "loop-1",
+      "recommendedBlockType": "log"
+    },
+    {
+      "caseId": "existing_start_and_end_but_unconnected_ai_should_log",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "start-1",
+            "type": "start",
+            "title": "Старт",
+            "position": {
+              "x": 100,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "end-1",
+            "type": "end",
+            "title": "Конец",
+            "position": {
+              "x": 850,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "ai-1",
+            "type": "ai",
+            "title": "AI-функция",
+            "position": {
+              "x": 350,
+              "y": 250
+            },
+            "config": {
+              "ai": {
+                "prompt": "Сделай краткое описание"
+              }
+            }
+          }
+        ],
+        "connections": [
+          {
+            "id": "conn-1",
+            "sourceBlockId": "start-1",
+            "targetBlockId": "end-1"
+          }
+        ]
+      },
+      "targetBlockId": "ai-1",
+      "recommendedBlockType": "log"
+    },
+    {
+      "caseId": "workflow_has_start_no_end_after_database_chain",
+      "workflow": {
+        "blocks": [
+          {
+            "id": "start-1",
+            "type": "start",
+            "title": "Старт",
+            "position": {
+              "x": 100,
+              "y": 100
+            },
+            "config": {}
+          },
+          {
+            "id": "database-1",
+            "type": "database",
+            "title": "База данных",
+            "position": {
+              "x": 350,
+              "y": 100
+            },
+            "config": {
+              "database": {
+                "query": "select * from reports"
+              }
+            }
+          },
+          {
+            "id": "log-1",
+            "type": "log",
+            "title": "Логирование",
+            "position": {
+              "x": 600,
+              "y": 100
+            },
+            "config": {
+              "log": {
+                "messageTemplate": "Report result: {{input}"
+              }
+            }
+          }
+        ],
+        "connections": [
+          {
+            "id": "conn-1",
+            "sourceBlockId": "start-1",
+            "targetBlockId": "database-1"
+          },
+          {
+            "id": "conn-2",
+            "sourceBlockId": "database-1",
+            "targetBlockId": "log-1"
+          }
+        ]
+      },
+      "targetBlockId": "log-1",
+      "recommendedBlockType": "end"
+    }
+  ]
+}
