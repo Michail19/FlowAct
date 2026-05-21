@@ -1,0 +1,100 @@
+# =========================
+# Python
+# =========================
+
+__pycache__/
+*.py[cod]
+*$py.class
+
+*.so
+.Python
+.python-version
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Package/build files
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# =========================
+# Django
+# =========================
+
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+media/
+staticfiles/
+static/
+
+# =========================
+# Environment variables
+# =========================
+
+.env
+.env.*
+!.env.example
+
+# =========================
+# IDE / editors
+# =========================
+
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# =========================
+# Tests / coverage
+# =========================
+
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# =========================
+# Jupyter / notebooks
+# =========================
+
+.ipynb_checkpoints/
+
+# =========================
+# ML / training artifacts
+# =========================
+
+# Generated datasets
+training/data/*.csv
+training/data/*.parquet
+training/data/*.pkl
+
+# Keep manually prepared source examples if needed
+!training/data/training_workflows.json
+
+# Trained model artifacts
+artifacts/*.joblib
+artifacts/*.pkl
+artifacts/*.pickle
+artifacts/*.onnx
+
+# Model metadata can be regenerated, but you may commit it later if needed
+artifacts/model_meta.json
+
+# =========================
+# OS files
+# =========================
+
+Thumbs.db
+desktop.ini
