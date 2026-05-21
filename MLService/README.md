@@ -2,8 +2,6 @@
 
 MLService — микросервис проекта FlowAct для формирования ML-рекомендаций в визуальном редакторе рабочих процессов.
 
-На текущем этапе сервис используется frontend-частью напрямую: редактор отправляет текущее состояние workflow, MLService извлекает признаки, выполняет классификацию и возвращает рекомендуемый следующий блок. WorkerService пока не зависит от MLService и не использует его при выполнении workflow.
-
 ## Стек
 
 - Python 3.11
@@ -228,36 +226,6 @@ POST /api/v1/recommendations/next-block/
     }
   ]
 }
-```
-
-## Docker
-
-Сборка образа:
-
-```bash
-docker build -t flowact-ml-service .
-```
-
-Запуск отдельного контейнера:
-
-```bash
-docker run --rm -p 8000:8000 flowact-ml-service
-```
-
-## Docker Compose
-
-В составе проекта сервис запускается вместе с отдельной PostgreSQL БД `ml-db`.
-
-Из корня проекта:
-
-```bash
-docker compose up --build ml-db ml-service
-```
-
-После запуска healthcheck доступен по пути:
-
-```text
-/api/v1/health/
 ```
 
 ## Интеграция с frontend
