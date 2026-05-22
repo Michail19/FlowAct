@@ -21,7 +21,6 @@ import com.ms.workerservice.execution.repository.ExecutionRepository;
 import com.ms.workerservice.workflow.entity.WorkflowBlockEntity;
 import com.ms.workerservice.workflow.entity.WorkflowConnectionEntity;
 import com.ms.workerservice.workflow.entity.WorkflowEntity;
-import com.ms.workerservice.workflow.enumtype.BlockType;
 import com.ms.workerservice.workflow.repository.WorkflowBlockRepository;
 import com.ms.workerservice.workflow.repository.WorkflowConnectionRepository;
 import com.ms.workerservice.workflow.repository.WorkflowRepository;
@@ -29,7 +28,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
-import java.util.*;
+import java.util.List;
+import java.util.UUID;
 
 @Service
 public class ExecutionWorkerService {
@@ -99,7 +99,6 @@ public class ExecutionWorkerService {
         List<WorkflowBlockEntity> blocks = workflowBlockRepository.findByWorkflow_Id(workflow.getId());
         List<WorkflowConnectionEntity> connections = workflowConnectionRepository.findByWorkflow_Id(workflow.getId());
 
-        // Здесь позже будет нормальная валидация графа
         if (blocks.isEmpty()) {
             execution.setStatus(ExecutionStatus.FAILED);
             execution.setErrorMessage("Workflow contains no blocks");
@@ -236,7 +235,7 @@ public class ExecutionWorkerService {
         ExecutionGraph graph = executionGraphBuilder.build(blocks, connections);
         executionGraphValidator.validate(graph);
 
-        WorkflowBlockEntity waitingBlock = graph.getBlock(java.util.UUID.fromString(waitState.waitingBlockId()));
+        WorkflowBlockEntity waitingBlock = graph.getBlock(UUID.fromString(waitState.waitingBlockId()));
         if (waitingBlock == null) {
             throw new IllegalStateException("Waiting block not found: " + waitState.waitingBlockId());
         }
@@ -292,12 +291,13 @@ public class ExecutionWorkerService {
             WorkflowEntity workflow,
             ExecutionGraph graph,
             WorkflowBlockEntity startBlock,
-            java.util.UUID resumedFromWaitBlockId,
+            UUID resumedFromWaitBlockId,
             Object resumePayload
     ) {
         ExecutionContext context = new ExecutionContext(
                 execution.getId(),
-                workflow.getId()
+                workflow.getId(),
+                resolveExecutionInput(execution)
         );
 
         if (resumedFromWaitBlockId != null) {
@@ -338,14 +338,14 @@ public class ExecutionWorkerService {
 
                 markLogSuccess(logEntity, result.getOutput());
 
-                if (result.getAction() == com.ms.workerservice.execution.engine.NodeAction.WAIT) {
+                if (result.getAction() == NodeAction.WAIT) {
                     execution.setStatus(ExecutionStatus.WAITING);
                     execution.setOutputData(jsonHelper.toJson(result.getOutput()));
                     executionRepository.save(execution);
                     return null;
                 }
 
-                if (result.getAction() == com.ms.workerservice.execution.engine.NodeAction.COMPLETE) {
+                if (result.getAction() == NodeAction.COMPLETE) {
                     return result;
                 }
 
@@ -362,6 +362,10 @@ public class ExecutionWorkerService {
         }
 
         return null;
+    }
+
+    private Object resolveExecutionInput(ExecutionEntity execution) {
+        return jsonHelper.toObject(execution.getInputData());
     }
 
     private ExecutionLogEntity createRunningLog(
