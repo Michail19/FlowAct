@@ -80,18 +80,28 @@
     }
 
     .landing-hero {
-        gap: 26px;
-        padding: 56px 22px 28px;
+        display: grid;
+        min-height: auto;
+        grid-template-columns: 1fr;
+        align-items: start;
+        gap: 18px;
+        padding: 38px 22px 30px;
         text-align: center;
     }
 
+    .landing-hero__content {
+        display: contents;
+    }
+
     .landing-page__eyebrow {
+        order: 1;
         justify-content: center;
         width: 100%;
         font-size: 11px;
     }
 
     .landing-hero__content h1 {
+        order: 2;
         max-width: 330px;
         margin: 0 auto;
         font-size: 26px;
@@ -100,17 +110,30 @@
     }
 
     .landing-hero__content p {
+        order: 3;
         max-width: 320px;
-        margin: 18px auto 0;
+        margin: 0 auto;
         font-size: 14px;
-        line-height: 1.22;
+        line-height: 1.38;
+    }
+
+    .landing-hero__preview {
+        order: 4;
+        display: block;
+        width: 100%;
+        max-width: 320px;
+        min-height: auto;
+        margin: 6px auto 0;
     }
 
     .landing-hero__buttons {
+        order: 5;
         display: grid;
+        width: 100%;
         max-width: 290px;
         grid-template-columns: 1fr;
-        margin: 22px auto 0;
+        gap: 12px;
+        margin: 2px auto 0;
     }
 
     .landing-page__primary-button,
@@ -120,14 +143,8 @@
         font-size: 15px;
     }
 
-    .landing-hero__preview {
-        width: 100%;
-        max-width: 320px;
-        margin: 0 auto;
-    }
-
     .landing-editor-preview {
-        border-radius: 0;
+        border-radius: 14px;
     }
 
     .landing-editor-preview__header {
@@ -177,8 +194,10 @@
     }
 
     .landing-hero__highlights {
+        order: 6;
+        width: 100%;
         max-width: 320px;
-        margin: 14px auto 0;
+        margin: 2px auto 0;
         text-align: left;
     }
 
