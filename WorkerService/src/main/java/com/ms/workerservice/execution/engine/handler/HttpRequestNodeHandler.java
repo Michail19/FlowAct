@@ -7,17 +7,21 @@ import com.ms.workerservice.execution.engine.ResolvedInput;
 import com.ms.workerservice.execution.engine.TemplateRenderer;
 import com.ms.workerservice.workflow.entity.WorkflowBlockEntity;
 import com.ms.workerservice.workflow.enumtype.BlockType;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
 
+import java.net.InetAddress;
 import java.net.URI;
+import java.net.UnknownHostException;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 
 @Component
@@ -26,6 +30,7 @@ public class HttpRequestNodeHandler implements NodeHandler {
     private final JsonHelper jsonHelper;
     private final RestClient restClient;
     private final TemplateRenderer templateRenderer;
+    private final boolean allowPrivateNetworkRequests;
 
     private static final int DEFAULT_TIMEOUT_MS = 10_000;
     private static final int MIN_TIMEOUT_MS = 1_000;
@@ -44,11 +49,13 @@ public class HttpRequestNodeHandler implements NodeHandler {
     public HttpRequestNodeHandler(
             JsonHelper jsonHelper,
             RestClient restClient,
-            TemplateRenderer templateRenderer
+            TemplateRenderer templateRenderer,
+            @Value("${flowact.http-block.allow-private-network:false}") boolean allowPrivateNetworkRequests
     ) {
         this.jsonHelper = jsonHelper;
         this.restClient = restClient;
         this.templateRenderer = templateRenderer;
+        this.allowPrivateNetworkRequests = allowPrivateNetworkRequests;
     }
 
     @Override
@@ -66,10 +73,11 @@ public class HttpRequestNodeHandler implements NodeHandler {
 
         String rawUrl = getRequiredString(config, "url");
         String url = templateRenderer.render(rawUrl, input, context);
+        validateUrlSafety(url);
 
         String methodRaw = String.valueOf(config.getOrDefault("method", "GET"))
                 .trim()
-                .toUpperCase();
+                .toUpperCase(Locale.ROOT);
 
         HttpMethod method = HttpMethod.valueOf(methodRaw);
 
@@ -151,6 +159,60 @@ public class HttpRequestNodeHandler implements NodeHandler {
         } catch (Exception ex) {
             throw new IllegalStateException("HTTP request failed: " + ex.getMessage(), ex);
         }
+    }
+
+    private void validateUrlSafety(String url) {
+        URI uri = toUri(url);
+        String scheme = uri.getScheme();
+        String host = uri.getHost();
+
+        if (scheme == null
+                || !("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme))) {
+            throw new IllegalStateException("HTTP_REQUEST supports only http and https URLs: " + url);
+        }
+
+        if (host == null || host.isBlank()) {
+            throw new IllegalStateException("HTTP_REQUEST URL must contain host: " + url);
+        }
+
+        if (allowPrivateNetworkRequests) {
+            return;
+        }
+
+        if (isLocalHostName(host)) {
+            throw new IllegalStateException(
+                    "HTTP_REQUEST to localhost/private network is disabled: " + host
+            );
+        }
+
+        try {
+            for (InetAddress address : InetAddress.getAllByName(host)) {
+                if (isPrivateAddress(address)) {
+                    throw new IllegalStateException(
+                            "HTTP_REQUEST to localhost/private network is disabled: " + host
+                    );
+                }
+            }
+        } catch (UnknownHostException ex) {
+            throw new IllegalStateException("HTTP_REQUEST host cannot be resolved: " + host, ex);
+        }
+    }
+
+    private boolean isLocalHostName(String host) {
+        String normalizedHost = host.trim().toLowerCase(Locale.ROOT);
+        return "localhost".equals(normalizedHost)
+                || normalizedHost.endsWith(".localhost")
+                || normalizedHost.endsWith(".local")
+                || "0.0.0.0".equals(normalizedHost)
+                || "127.0.0.1".equals(normalizedHost)
+                || "::1".equals(normalizedHost);
+    }
+
+    private boolean isPrivateAddress(InetAddress address) {
+        return address.isAnyLocalAddress()
+                || address.isLoopbackAddress()
+                || address.isLinkLocalAddress()
+                || address.isSiteLocalAddress();
     }
 
     private String buildHttpErrorMessage(
@@ -278,7 +340,7 @@ public class HttpRequestNodeHandler implements NodeHandler {
         Object rawValue = config.getOrDefault("responseMode", "auto");
 
         try {
-            return ResponseMode.valueOf(String.valueOf(rawValue).trim().toUpperCase());
+            return ResponseMode.valueOf(String.valueOf(rawValue).trim().toUpperCase(Locale.ROOT));
         } catch (Exception ex) {
             return ResponseMode.AUTO;
         }
