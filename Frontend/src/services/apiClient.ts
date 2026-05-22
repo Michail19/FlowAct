@@ -38,7 +38,7 @@ function getApiBaseUrl() {
 }
 
 function shouldClearAuthSession(status: number) {
-    return status === 401 || status === 403;
+    return status === 401;
 }
 
 function shouldRefreshAuthSession(path: string, status: number, auth: boolean) {
