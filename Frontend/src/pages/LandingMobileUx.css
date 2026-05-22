@@ -242,8 +242,9 @@
         right: auto;
         bottom: 14px;
         left: 50%;
-        width: min(264px, calc(100% - 54px));
-        transform: translateX(-50%) scale(0.86);
+        width: min(264px, calc(100% - 40px));
+        max-width: calc(100% - 40px);
+        transform: translateX(-50%);
         transform-origin: center bottom;
     }
 
@@ -327,7 +328,8 @@
     }
 
     .landing-editor-preview__suggestion {
-        width: min(250px, calc(100% - 44px));
-        transform: translateX(-50%) scale(0.82);
+        width: min(250px, calc(100% - 32px));
+        max-width: calc(100% - 32px);
+        transform: translateX(-50%);
     }
 }
