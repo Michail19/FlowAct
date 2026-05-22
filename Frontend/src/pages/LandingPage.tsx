@@ -205,7 +205,7 @@ function LandingEditorPreview() {
 
                     <svg className="landing-editor-preview__lines" viewBox="0 0 560 260" aria-hidden="true">
                         {/* Старт -> IF */}
-                        <path d="M95 92 C112 92 124 92 140 92" />
+                        <path d="M95 92 C112 92 124 92 150 92" />
 
                         {/* IF -> AI, ветка Да */}
                         <path d="M190 92 C226 92 238 42 290 42" />
@@ -214,10 +214,10 @@ function LandingEditorPreview() {
                         <path d="M190 92 C226 92 238 142 292 142" />
 
                         {/* AI -> Конец */}
-                        <path d="M365 42 C420 42 424 82 482 92" />
+                        <path d="M365 42 C420 42 424 104 482 92" />
 
                         {/* Лог -> Конец */}
-                        <path d="M365 142 C420 142 424 102 482 92" />
+                        <path d="M365 142 C420 142 424 80 482 92" />
                     </svg>
                 </div>
             </div>
