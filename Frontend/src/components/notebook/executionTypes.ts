@@ -132,5 +132,5 @@ export function mapApiExecutionLogStatus(
 export type WorkflowExecutionTarget = {
     serverNotebookId: string;
     workflowId: string;
-    executionId?: string;
+    executionId: string;
 };
