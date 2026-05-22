@@ -1,6 +1,7 @@
 import type { NotebookPayloadDto } from '../components/notebook/notebookBackendTypes';
 import { getStoredAuthUser } from '../auth/authStorage';
 import { enqueueNotebookSync } from './notebookSyncQueue';
+import { hasPendingBackendId } from './pendingBackendIds';
 
 const NOTEBOOK_LIST_KEY = 'flowact-notebooks';
 const NOTEBOOK_KEY_PREFIX = 'flowact-notebook:';
@@ -158,10 +159,14 @@ export function saveNotebookLocally(
 
     localStorage.setItem(getNotebookListStorageKey(), JSON.stringify(nextList, null, 2));
 
-    if (options.enqueueSync) {
+    if (
+        options.enqueueSync ||
+        hasPendingBackendId(normalizedPayload.serverNotebookId) ||
+        hasPendingBackendId(normalizedPayload.workflowId)
+    ) {
         enqueueNotebookSync(
             normalizedPayload,
-            options.syncReason ?? 'local-save',
+            options.syncReason ?? 'pending-backend-sync',
         );
     }
 
