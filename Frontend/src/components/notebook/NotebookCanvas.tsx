@@ -25,7 +25,6 @@ import type {
     AiBlockConfig,
     NotebookAutoLayoutRequest,
     NotebookBlockRequest,
-    NotebookBlockStatus,
     NotebookHistoryRequest,
     NotebookHistoryState,
     NotebookNode,
@@ -508,23 +507,29 @@ function NotebookCanvas({
 
     useEffect(() => {
         if (!viewportRequest || !reactFlowInstance) {
-            return;
+            return undefined;
         }
 
-        if (viewportRequest.mode === 'fit') {
-            void reactFlowInstance.fitView({ padding: 0.18 });
+        const animationFrameId = window.requestAnimationFrame(() => {
+            if (viewportRequest.mode === 'fit') {
+                void reactFlowInstance.fitView({ padding: 0.18 });
+                onViewportRequestHandled?.(viewportRequest.requestId);
+                return;
+            }
+
+            const nextViewport = {
+                ...reactFlowInstance.getViewport(),
+                zoom: viewportRequest.zoom,
+            };
+
+            void reactFlowInstance.setViewport(nextViewport);
+            setViewport(nextViewport);
             onViewportRequestHandled?.(viewportRequest.requestId);
-            return;
-        }
+        });
 
-        const nextViewport = {
-            ...reactFlowInstance.getViewport(),
-            zoom: viewportRequest.zoom,
+        return () => {
+            window.cancelAnimationFrame(animationFrameId);
         };
-
-        void reactFlowInstance.setViewport(nextViewport);
-        setViewport(nextViewport);
-        onViewportRequestHandled?.(viewportRequest.requestId);
     }, [onViewportRequestHandled, reactFlowInstance, viewportRequest]);
 
     useEffect(() => {
