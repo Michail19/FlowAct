@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
 import LandingPage from './pages/LandingPage';
@@ -7,11 +8,23 @@ import AccountPage from './pages/AccountPage';
 import AdminPage from './pages/AdminPage';
 import { AuthProvider } from './auth/AuthProvider';
 import { ProtectedRoute } from './auth/ProtectedRoute';
+import {
+    startNotebookPendingSyncWorker,
+    stopNotebookPendingSyncWorker,
+} from './services/notebookPendingSyncService';
 
 import './styles/variables.css';
 import './styles/global.css';
 
 function App() {
+    useEffect(() => {
+        startNotebookPendingSyncWorker();
+
+        return () => {
+            stopNotebookPendingSyncWorker();
+        };
+    }, []);
+
     return (
         <BrowserRouter>
             <AuthProvider>
