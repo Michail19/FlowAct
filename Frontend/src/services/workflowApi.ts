@@ -1,6 +1,7 @@
 import { apiClient } from './apiClient';
 import { createPendingWorkflowId, isPendingNotebookId, isPendingWorkflowId } from './pendingBackendIds';
 import { isRetryableNotebookSyncError } from './notebookSyncQueue';
+import { createPersistenceError } from './persistenceError';
 import type {
     BackendWorkflowUpsertRequest,
     WorkflowRequest,
@@ -66,7 +67,7 @@ export const workflowApi = {
                 return createLocalWorkflowResponse(notebookId, payload);
             }
 
-            throw error;
+            throw createPersistenceError('workflow', error);
         }
     },
 
@@ -93,7 +94,7 @@ export const workflowApi = {
                 );
             }
 
-            throw error;
+            throw createPersistenceError('workflow', error);
         }
     },
 
@@ -107,16 +108,24 @@ export const workflowApi = {
         return apiClient.get<WorkflowShortResponse[]>(getWorkflowEndpoint(notebookId));
     },
 
-    validateWorkflow(notebookId: string, workflowId: string) {
-        return apiClient.post<WorkflowValidationResponse>(
-            `${getWorkflowEndpoint(notebookId)}/${workflowId}/validate`,
-        );
+    async validateWorkflow(notebookId: string, workflowId: string) {
+        try {
+            return await apiClient.post<WorkflowValidationResponse>(
+                `${getWorkflowEndpoint(notebookId)}/${workflowId}/validate`,
+            );
+        } catch (error) {
+            throw createPersistenceError('validation', error);
+        }
     },
 
-    activateWorkflow(notebookId: string, workflowId: string) {
-        return apiClient.post<WorkflowResponse>(
-            `${getWorkflowEndpoint(notebookId)}/${workflowId}/activate`,
-        );
+    async activateWorkflow(notebookId: string, workflowId: string) {
+        try {
+            return await apiClient.post<WorkflowResponse>(
+                `${getWorkflowEndpoint(notebookId)}/${workflowId}/activate`,
+            );
+        } catch (error) {
+            throw createPersistenceError('activation', error);
+        }
     },
 
     archiveWorkflow(notebookId: string, workflowId: string) {
