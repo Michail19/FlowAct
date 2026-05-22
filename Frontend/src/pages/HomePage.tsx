@@ -17,6 +17,8 @@ import type { WorkflowResponse } from '../services/workflowApiTypes';
 import NotebookSvgIcon from '../components/notebook/NotebookSvgIcon';
 import { UserAvatar } from '../components/user/UserAvatar';
 import { useAuth } from '../auth/useAuth';
+import { getAuthSession } from '../auth/authSession';
+import { devLogger } from '../utils/devLogger';
 
 import './HomePage.css';
 import './HomeAuthUx.css';
@@ -204,6 +206,14 @@ function HomePage() {
     }, []);
 
     const syncNotebooksFromBackend = useCallback(async () => {
+        const session = getAuthSession();
+
+        if (!session.isAuthenticated || !session.accessToken) {
+            setNotebooks(getVisibleLocalNotebooks());
+            devLogger.warn('Home backend sync skipped: auth session is missing.');
+            return;
+        }
+
         setIsSyncing(true);
 
         try {
@@ -240,7 +250,7 @@ function HomePage() {
                             );
                         }
                     } catch (error) {
-                        console.warn(
+                        devLogger.warn(
                             `Failed to load workflows for notebook ${backendNotebook.id}`,
                             error,
                         );
@@ -269,9 +279,9 @@ function HomePage() {
 
             setNotebooks(getVisibleLocalNotebooks());
 
-            console.log('Home notebooks synced from backend:', visibleBackendNotebooks.length);
+            devLogger.log('Home notebooks synced from backend:', visibleBackendNotebooks.length);
         } catch (error) {
-            console.warn('Home backend sync failed, local notebooks are used:', error);
+            devLogger.warn('Home backend sync failed, local notebooks are used:', error);
             setNotebooks(getVisibleLocalNotebooks());
         } finally {
             setIsSyncing(false);
@@ -279,6 +289,13 @@ function HomePage() {
     }, [getVisibleLocalNotebooks]);
 
     useEffect(() => {
+        const session = getAuthSession();
+
+        if (!session.isAuthenticated || !session.accessToken) {
+            setNotebooks(getVisibleLocalNotebooks());
+            return undefined;
+        }
+
         let isCancelled = false;
 
         const animationFrameId = window.requestAnimationFrame(() => {
@@ -293,7 +310,7 @@ function HomePage() {
             isCancelled = true;
             window.cancelAnimationFrame(animationFrameId);
         };
-    }, [syncNotebooksFromBackend]);
+    }, [getVisibleLocalNotebooks, syncNotebooksFromBackend, user?.id]);
 
     const normalizedSearch = search.trim().toLowerCase();
     const isSearching = normalizedSearch.length > 0;
@@ -347,11 +364,13 @@ function HomePage() {
         setNotebookToDelete(null);
 
         try {
-            if (payload?.serverNotebookId) {
+            const session = getAuthSession();
+
+            if (payload?.serverNotebookId && session.isAuthenticated && session.accessToken) {
                 await notebookApi.deleteNotebook(payload.serverNotebookId);
             }
         } catch (error) {
-            console.warn(
+            devLogger.warn(
                 `Failed to delete backend notebook ${payload?.serverNotebookId}`,
                 error,
             );
