@@ -239,15 +239,11 @@
     }
 
     .landing-editor-preview__suggestion {
-        position: absolute !important;
-        right: auto !important;
-        bottom: 14px !important;
-        left: 50% !important;
+        position: static !important;
         width: min(264px, calc(100% - 40px)) !important;
         max-width: calc(100% - 40px) !important;
-        margin: 0 !important;
-        transform: translateX(-50%) !important;
-        transform-origin: center bottom;
+        margin: 12px auto 16px !important;
+        transform: none !important;
     }
 
     .landing-hero__highlights {
@@ -332,6 +328,6 @@
     .landing-editor-preview__suggestion {
         width: min(250px, calc(100% - 32px)) !important;
         max-width: calc(100% - 32px) !important;
-        transform: translateX(-50%) !important;
+        transform: none !important;
     }
 }
