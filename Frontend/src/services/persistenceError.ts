@@ -16,6 +16,7 @@ export class PersistenceError extends Error {
     kind: PersistenceErrorKind;
     status?: number;
     payload?: unknown;
+    cause?: unknown;
 
     constructor(params: {
         stage: PersistenceSaveStage;
@@ -31,10 +32,7 @@ export class PersistenceError extends Error {
         this.kind = params.kind;
         this.status = params.status;
         this.payload = params.payload;
-
-        if (params.cause) {
-            this.cause = params.cause;
-        }
+        this.cause = params.cause;
     }
 }
 
