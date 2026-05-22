@@ -4,6 +4,7 @@ import com.ms.workerservice.common.util.JsonHelper;
 import com.ms.workerservice.execution.engine.ExecutionContext;
 import com.ms.workerservice.execution.engine.NodeResult;
 import com.ms.workerservice.execution.engine.ResolvedInput;
+import com.ms.workerservice.execution.engine.TemplateRenderer;
 import com.ms.workerservice.workflow.entity.WorkflowBlockEntity;
 import com.ms.workerservice.workflow.enumtype.BlockType;
 import org.springframework.beans.factory.annotation.Value;
@@ -67,6 +68,7 @@ public class DatabaseNodeHandler implements NodeHandler {
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
     private final JsonHelper jsonHelper;
+    private final TemplateRenderer templateRenderer;
     private final boolean writeEnabled;
     private final boolean allowDangerousSql;
     private final int maxSelectRows;
@@ -74,12 +76,14 @@ public class DatabaseNodeHandler implements NodeHandler {
     public DatabaseNodeHandler(
             NamedParameterJdbcTemplate jdbcTemplate,
             JsonHelper jsonHelper,
+            TemplateRenderer templateRenderer,
             @Value("${flowact.database-block.write-enabled:false}") boolean writeEnabled,
             @Value("${flowact.database-block.allow-dangerous-sql:false}") boolean allowDangerousSql,
             @Value("${flowact.database-block.max-select-rows:100}") int maxSelectRows
     ) {
         this.jdbcTemplate = jdbcTemplate;
         this.jsonHelper = jsonHelper;
+        this.templateRenderer = templateRenderer;
         this.writeEnabled = writeEnabled;
         this.allowDangerousSql = allowDangerousSql;
         this.maxSelectRows = Math.max(1, maxSelectRows);
@@ -98,16 +102,18 @@ public class DatabaseNodeHandler implements NodeHandler {
     ) {
         Map<String, Object> config = jsonHelper.toMap(block.getConfig());
 
-        String operation = getString(config, "operation", "select")
+        String operation = templateRenderer.render(getString(config, "operation", "select"), input, context)
                 .trim()
                 .toLowerCase(Locale.ROOT);
-        String tableName = getString(config, "tableName", "").trim();
-        String query = getString(config, "query", "").trim();
+        String tableName = templateRenderer.render(getString(config, "tableName", ""), input, context).trim();
+        String query = templateRenderer.render(getString(config, "query", ""), input, context).trim();
 
         validateOperation(operation);
         validateTableNameIfProvided(tableName);
 
-        Map<String, Object> params = toParameterMap(config.get("payload"));
+        Map<String, Object> params = toParameterMap(
+                templateRenderer.renderValue(config.get("payload"), input, context)
+        );
 
         if (query.isBlank()) {
             query = buildQueryFromTableName(operation, tableName);
