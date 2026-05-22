@@ -219,7 +219,7 @@
     }
 
     .landing-editor-preview__node--start {
-        top: 58px !important;
+        top: 38px !important;
         left: 5% !important;
     }
 
@@ -344,27 +344,27 @@
 
 @media (max-width: 720px) {
     .landing-editor-preview__node--start {
-        top: 75px !important;
+        top: 90px !important;
         left: 5% !important;
     }
 
     .landing-editor-preview__node--condition {
-        top: 75px !important;
+        top: 90px !important;
         left: 24% !important;
     }
 
     .landing-editor-preview__node--log {
-        top: 26px !important;
-        left: 54% !important;
+        top: 66px !important;
+        left: 48% !important;
     }
 
     .landing-editor-preview__node--ai {
-        top: 123px !important;
-        left: 54% !important;
+        top: 115px !important;
+        left: 48% !important;
     }
 
     .landing-editor-preview__node--end {
-        top: 75px !important;
+        top: 90px !important;
         right: auto !important;
         left: calc(100% - 82px) !important;
     }
