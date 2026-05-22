@@ -157,36 +157,6 @@ body.landing-page-body #root {
     line-height: 1.66;
 }
 
-.landing-editor-preview__node--condition {
-    top: 72px;
-    left: 220px;
-}
-
-.landing-editor-preview__node--ai {
-    top: 118px;
-    left: 372px;
-}
-
-.landing-editor-preview__node--log {
-    top: 28px;
-    left: 408px;
-}
-
-.landing-editor-preview__node--end {
-    top: 118px;
-    right: 18px;
-}
-
-.landing-editor-preview__branch--yes {
-    top: 84px;
-    left: 346px;
-}
-
-.landing-editor-preview__branch--no {
-    top: 132px;
-    left: 342px;
-}
-
 .landing-ai {
     gap: 52px;
     margin-top: 124px;

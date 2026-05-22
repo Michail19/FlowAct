@@ -403,35 +403,35 @@
 }
 
 .landing-editor-preview__node--start {
-    top: 72px;
-    left: 52px;
+    top: 108px;
+    left: 12px;
     border-radius: 999px;
     background: #22c55e;
     color: #ffffff;
 }
 
-.landing-editor-preview__node--ai {
-    top: 72px;
-    left: 220px;
-    background: #22d3ee;
-}
-
 .landing-editor-preview__node--condition {
-    top: 118px;
-    left: 378px;
+    top: 108px;
+    left: 140px;
     min-width: 48px;
     background: #facc15;
 }
 
+.landing-editor-preview__node--ai {
+    top: 62px;
+    left: 275px;
+    background: #22d3ee;
+}
+
 .landing-editor-preview__node--log {
-    top: 28px;
-    left: 386px;
+    top: 158px;
+    left: 275px;
     background: #94a3b8;
 }
 
 .landing-editor-preview__node--end {
-    top: 118px;
-    right: 26px;
+    top: 112px;
+    right: 25px;
     border-radius: 999px;
     background: #ef4444;
     color: #ffffff;
@@ -449,13 +449,13 @@
 }
 
 .landing-editor-preview__branch--yes {
-    top: 84px;
-    left: 346px;
+    top: 88px;
+    left: 225px;
 }
 
 .landing-editor-preview__branch--no {
-    top: 132px;
-    left: 342px;
+    top: 154px;
+    left: 225px;
 }
 
 .landing-editor-preview__suggestion {
