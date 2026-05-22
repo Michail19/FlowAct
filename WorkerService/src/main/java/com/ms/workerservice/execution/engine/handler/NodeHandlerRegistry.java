@@ -11,20 +11,26 @@ import java.util.Map;
 public class NodeHandlerRegistry {
 
     private final Map<BlockType, NodeHandler> handlers = new EnumMap<>(BlockType.class);
-    private final DefaultPassThroughNodeHandler defaultPassThroughNodeHandler;
 
-    public NodeHandlerRegistry(
-            List<NodeHandler> discoveredHandlers,
-            DefaultPassThroughNodeHandler defaultPassThroughNodeHandler
-    ) {
-        this.defaultPassThroughNodeHandler = defaultPassThroughNodeHandler;
-
+    public NodeHandlerRegistry(List<NodeHandler> discoveredHandlers) {
         for (NodeHandler handler : discoveredHandlers) {
-            handlers.put(handler.getSupportedType(), handler);
+            NodeHandler previousHandler = handlers.put(handler.getSupportedType(), handler);
+
+            if (previousHandler != null) {
+                throw new IllegalStateException(
+                        "Duplicate node handler for block type: " + handler.getSupportedType()
+                );
+            }
         }
     }
 
     public NodeHandler getHandler(BlockType blockType) {
-        return handlers.getOrDefault(blockType, defaultPassThroughNodeHandler);
+        NodeHandler handler = handlers.get(blockType);
+
+        if (handler == null) {
+            throw new IllegalStateException("Unsupported block type: " + blockType);
+        }
+
+        return handler;
     }
 }
