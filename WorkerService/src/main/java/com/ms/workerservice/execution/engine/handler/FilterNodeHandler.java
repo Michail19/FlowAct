@@ -4,6 +4,7 @@ import com.ms.workerservice.common.util.JsonHelper;
 import com.ms.workerservice.execution.engine.ExecutionContext;
 import com.ms.workerservice.execution.engine.NodeResult;
 import com.ms.workerservice.execution.engine.ResolvedInput;
+import com.ms.workerservice.execution.engine.TemplateRenderer;
 import com.ms.workerservice.workflow.entity.WorkflowBlockEntity;
 import com.ms.workerservice.workflow.enumtype.BlockType;
 import org.springframework.stereotype.Component;
@@ -20,9 +21,11 @@ import java.util.Objects;
 public class FilterNodeHandler implements NodeHandler {
 
     private final JsonHelper jsonHelper;
+    private final TemplateRenderer templateRenderer;
 
-    public FilterNodeHandler(JsonHelper jsonHelper) {
+    public FilterNodeHandler(JsonHelper jsonHelper, TemplateRenderer templateRenderer) {
         this.jsonHelper = jsonHelper;
+        this.templateRenderer = templateRenderer;
     }
 
     @Override
@@ -38,10 +41,18 @@ public class FilterNodeHandler implements NodeHandler {
     ) {
         Map<String, Object> config = jsonHelper.toMap(block.getConfig());
 
-        String collectionPath = getString(config, "collectionPath", "input.items");
-        String field = getString(config, "field", null);
-        String operator = getString(config, "operator", "equals").trim().toLowerCase();
-        Object expected = config.get("value");
+        String collectionPath = templateRenderer.render(
+                getString(config, "collectionPath", "input.items"),
+                input,
+                context
+        );
+        String field = renderNullable(getString(config, "field", null), input, context);
+        String operator = templateRenderer.render(
+                getString(config, "operator", "equals"),
+                input,
+                context
+        ).trim().toLowerCase();
+        Object expected = templateRenderer.renderValue(config.get("value"), input, context);
 
         Object collectionValue = resolvePath(input, collectionPath);
         List<Object> items = toList(collectionValue);
@@ -88,24 +99,16 @@ public class FilterNodeHandler implements NodeHandler {
 
         String normalizedPath = path.trim();
 
-        if ("input".equals(normalizedPath) || "value".equals(normalizedPath)) {
+        if ("input".equals(normalizedPath) || "executionInput".equals(normalizedPath)) {
+            return input.get("input");
+        }
+
+        if ("value".equals(normalizedPath)) {
             return input.getValue();
         }
 
-        if (normalizedPath.startsWith("input.")) {
-            return readNestedValue(input.getValue(), normalizedPath.substring("input.".length()));
-        }
-
-        if (normalizedPath.startsWith("value.")) {
-            return readNestedValue(input.getValue(), normalizedPath.substring("value.".length()));
-        }
-
-        if (normalizedPath.startsWith("variables.")) {
-            return readNestedValue(input.getVariables(), normalizedPath.substring("variables.".length()));
-        }
-
-        if (normalizedPath.startsWith("inputs.")) {
-            return readNestedValue(input.getInputs(), normalizedPath.substring("inputs.".length()));
+        if ("output".equals(normalizedPath) || "last".equals(normalizedPath)) {
+            return input.get("last");
         }
 
         return readNestedValue(input.getValues(), normalizedPath);
@@ -181,6 +184,13 @@ public class FilterNodeHandler implements NodeHandler {
         }
 
         return String.valueOf(value);
+    }
+
+    private String renderNullable(String value, ResolvedInput input, ExecutionContext context) {
+        if (value == null) {
+            return null;
+        }
+        return templateRenderer.render(value, input, context);
     }
 
     private String stringify(Object value) {
