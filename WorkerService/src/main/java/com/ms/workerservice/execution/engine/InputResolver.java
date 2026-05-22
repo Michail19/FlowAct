@@ -3,6 +3,7 @@ package com.ms.workerservice.execution.engine;
 import com.ms.workerservice.execution.graph.ExecutionGraph;
 import com.ms.workerservice.workflow.entity.WorkflowBlockEntity;
 import com.ms.workerservice.workflow.entity.WorkflowConnectionEntity;
+import com.ms.workerservice.workflow.enumtype.BlockType;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
@@ -33,15 +34,38 @@ public class InputResolver {
             }
         }
 
+        Object mainInput = resolveMainInput(block, context, inputs);
+
+        resolvedValues.put("input", context.getExecutionInput());
+        resolvedValues.put("executionInput", context.getExecutionInput());
+        resolvedValues.put("value", mainInput);
+        resolvedValues.put("condition", mainInput);
         resolvedValues.put("inputs", inputs);
+        resolvedValues.put("output", context.getLastSuccessfulOutput());
+        resolvedValues.put("last", context.getLastSuccessfulOutput());
+        resolvedValues.put("outputs", context.getBlockOutputsByStringId());
         resolvedValues.put("variables", context.getVariables());
 
-        if (inputs.size() == 1) {
-            Object singleValue = inputs.values().iterator().next();
-            resolvedValues.put("value", singleValue);
-            resolvedValues.put("condition", singleValue);
+        return new ResolvedInput(resolvedValues);
+    }
+
+    private Object resolveMainInput(
+            WorkflowBlockEntity block,
+            ExecutionContext context,
+            Map<String, Object> inputs
+    ) {
+        if (block.getType() == BlockType.START) {
+            return context.getExecutionInput();
         }
 
-        return new ResolvedInput(resolvedValues);
+        if (inputs.size() == 1) {
+            return inputs.values().iterator().next();
+        }
+
+        if (!inputs.isEmpty()) {
+            return inputs;
+        }
+
+        return context.getExecutionInput();
     }
 }
