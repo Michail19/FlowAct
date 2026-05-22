@@ -10,7 +10,6 @@ import type {
     NotebookConnectionDto,
     NotebookPayloadDto,
 } from './notebookBackendTypes';
-import { scheduleNotebookDraftAutosave } from '../../services/notebookDraftAutosave';
 
 function getNodeTypeByBlockType(blockType: NotebookBlockData['blockType']) {
     return blockType === 'ai' ? 'aiBlock' : 'customBlock';
@@ -96,7 +95,7 @@ export function toNotebookPayload(params: {
         label: typeof edge.label === 'string' ? edge.label : undefined,
     }));
 
-    const payload: NotebookPayloadDto = {
+    return {
         id: params.notebookId,
         title: params.title,
         version: 1,
@@ -105,10 +104,6 @@ export function toNotebookPayload(params: {
         viewport: params.viewport,
         updatedAt: new Date().toISOString(),
     };
-
-    scheduleNotebookDraftAutosave(payload);
-
-    return payload;
 }
 
 function getConditionSourceHandleFromLabel(label?: string): string | undefined {
