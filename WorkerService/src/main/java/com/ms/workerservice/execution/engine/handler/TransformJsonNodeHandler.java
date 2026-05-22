@@ -4,6 +4,7 @@ import com.ms.workerservice.common.util.JsonHelper;
 import com.ms.workerservice.execution.engine.ExecutionContext;
 import com.ms.workerservice.execution.engine.NodeResult;
 import com.ms.workerservice.execution.engine.ResolvedInput;
+import com.ms.workerservice.execution.engine.TemplateRenderer;
 import com.ms.workerservice.workflow.entity.WorkflowBlockEntity;
 import com.ms.workerservice.workflow.enumtype.BlockType;
 import org.springframework.stereotype.Component;
@@ -16,9 +17,11 @@ import java.util.Map;
 public class TransformJsonNodeHandler implements NodeHandler {
 
     private final JsonHelper jsonHelper;
+    private final TemplateRenderer templateRenderer;
 
-    public TransformJsonNodeHandler(JsonHelper jsonHelper) {
+    public TransformJsonNodeHandler(JsonHelper jsonHelper, TemplateRenderer templateRenderer) {
         this.jsonHelper = jsonHelper;
+        this.templateRenderer = templateRenderer;
     }
 
     @Override
@@ -35,11 +38,11 @@ public class TransformJsonNodeHandler implements NodeHandler {
         Map<String, Object> config = jsonHelper.toMap(block.getConfig());
 
         if (hasLegacyTransformConfig(config)) {
-            return NodeResult.of(applyLegacyTransform(config, input));
+            return NodeResult.of(applyLegacyTransform(config, input, context));
         }
 
-        String actionType = getString(config, "actionType", "transform");
-        String parameters = getString(config, "parameters", "").trim();
+        String actionType = templateRenderer.render(getString(config, "actionType", "transform"), input, context);
+        String parameters = templateRenderer.render(getString(config, "parameters", ""), input, context).trim();
 
         if (parameters.isBlank()) {
             return NodeResult.of(getMapLikeInput(input));
@@ -70,11 +73,12 @@ public class TransformJsonNodeHandler implements NodeHandler {
     @SuppressWarnings("unchecked")
     private Map<String, Object> applyLegacyTransform(
             Map<String, Object> config,
-            ResolvedInput input
+            ResolvedInput input,
+            ExecutionContext context
     ) {
         Map<String, Object> output = getMapLikeInput(input);
 
-        Object removeValue = config.get("remove");
+        Object removeValue = templateRenderer.renderValue(config.get("remove"), input, context);
 
         if (removeValue instanceof List<?> removeList) {
             for (Object field : removeList) {
@@ -84,7 +88,7 @@ public class TransformJsonNodeHandler implements NodeHandler {
             }
         }
 
-        Object replaceValue = config.get("replace");
+        Object replaceValue = templateRenderer.renderValue(config.get("replace"), input, context);
 
         if (replaceValue instanceof Map<?, ?> replaceMap) {
             for (Map.Entry<?, ?> entry : replaceMap.entrySet()) {
@@ -92,7 +96,7 @@ public class TransformJsonNodeHandler implements NodeHandler {
             }
         }
 
-        Object addValue = config.get("add");
+        Object addValue = templateRenderer.renderValue(config.get("add"), input, context);
 
         if (addValue instanceof Map<?, ?> addMap) {
             for (Map.Entry<?, ?> entry : addMap.entrySet()) {
