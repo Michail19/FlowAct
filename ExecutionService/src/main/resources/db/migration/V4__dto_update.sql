@@ -1,2 +1,2 @@
 ALTER TABLE workflows
-    ADD COLUMN metadata TEXT;
+    ADD COLUMN IF NOT EXISTS metadata TEXT;
