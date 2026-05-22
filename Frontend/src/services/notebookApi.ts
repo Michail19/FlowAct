@@ -1,6 +1,7 @@
 import { apiClient } from './apiClient';
 import { createPendingNotebookId, isPendingNotebookId } from './pendingBackendIds';
 import { isRetryableNotebookSyncError } from './notebookSyncQueue';
+import { createPersistenceError } from './persistenceError';
 
 const NOTEBOOKS_ENDPOINT = '/v1/notebooks';
 
@@ -53,7 +54,7 @@ export const notebookApi = {
                 return createLocalNotebookResponse(request);
             }
 
-            throw error;
+            throw createPersistenceError('notebook', error);
         }
     },
 
@@ -72,7 +73,7 @@ export const notebookApi = {
                 return createLocalNotebookResponse(request, createPendingNotebookId(notebookId));
             }
 
-            throw error;
+            throw createPersistenceError('notebook', error);
         }
     },
 
