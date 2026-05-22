@@ -1,4 +1,6 @@
 import { apiClient } from './apiClient';
+import { createPendingWorkflowId, isPendingNotebookId, isPendingWorkflowId } from './pendingBackendIds';
+import { isRetryableNotebookSyncError } from './notebookSyncQueue';
 import type {
     BackendWorkflowUpsertRequest,
     WorkflowRequest,
@@ -24,23 +26,75 @@ function toWorkflowRequest(payload: BackendWorkflowUpsertRequest): WorkflowReque
     };
 }
 
+function createLocalWorkflowResponse(
+    notebookId: string,
+    payload: BackendWorkflowUpsertRequest,
+    workflowId = createPendingWorkflowId(payload.id),
+): WorkflowResponse {
+    const now = new Date().toISOString();
+
+    return {
+        id: workflowId,
+        notebookId,
+        name: payload.name,
+        description:
+            typeof payload.metadata?.description === 'string'
+                ? payload.metadata.description
+                : null,
+        metadata: payload.metadata,
+        status: 'DRAFT',
+        blocks: payload.blocks,
+        connections: payload.connections,
+        createdAt: now,
+        updatedAt: now,
+    };
+}
+
 export const workflowApi = {
-    createWorkflow(notebookId: string, payload: BackendWorkflowUpsertRequest) {
-        return apiClient.post<WorkflowResponse>(
-            getWorkflowEndpoint(notebookId),
-            toWorkflowRequest(payload),
-        );
+    async createWorkflow(notebookId: string, payload: BackendWorkflowUpsertRequest) {
+        if (isPendingNotebookId(notebookId)) {
+            return createLocalWorkflowResponse(notebookId, payload);
+        }
+
+        try {
+            return await apiClient.post<WorkflowResponse>(
+                getWorkflowEndpoint(notebookId),
+                toWorkflowRequest(payload),
+            );
+        } catch (error) {
+            if (isRetryableNotebookSyncError(error)) {
+                return createLocalWorkflowResponse(notebookId, payload);
+            }
+
+            throw error;
+        }
     },
 
-    updateWorkflow(
+    async updateWorkflow(
         notebookId: string,
         workflowId: string,
         payload: BackendWorkflowUpsertRequest,
     ) {
-        return apiClient.put<WorkflowResponse>(
-            `${getWorkflowEndpoint(notebookId)}/${workflowId}`,
-            toWorkflowRequest(payload),
-        );
+        if (isPendingNotebookId(notebookId) || isPendingWorkflowId(workflowId)) {
+            return createLocalWorkflowResponse(notebookId, payload, workflowId);
+        }
+
+        try {
+            return await apiClient.put<WorkflowResponse>(
+                `${getWorkflowEndpoint(notebookId)}/${workflowId}`,
+                toWorkflowRequest(payload),
+            );
+        } catch (error) {
+            if (isRetryableNotebookSyncError(error)) {
+                return createLocalWorkflowResponse(
+                    notebookId,
+                    payload,
+                    createPendingWorkflowId(workflowId),
+                );
+            }
+
+            throw error;
+        }
     },
 
     getWorkflow(notebookId: string, workflowId: string) {
