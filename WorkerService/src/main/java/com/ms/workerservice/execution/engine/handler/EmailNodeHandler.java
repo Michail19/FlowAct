@@ -4,6 +4,7 @@ import com.ms.workerservice.common.util.JsonHelper;
 import com.ms.workerservice.execution.engine.ExecutionContext;
 import com.ms.workerservice.execution.engine.NodeResult;
 import com.ms.workerservice.execution.engine.ResolvedInput;
+import com.ms.workerservice.execution.engine.TemplateRenderer;
 import com.ms.workerservice.workflow.entity.WorkflowBlockEntity;
 import com.ms.workerservice.workflow.enumtype.BlockType;
 import jakarta.mail.internet.AddressException;
@@ -23,6 +24,7 @@ public class EmailNodeHandler implements NodeHandler {
 
     private final ObjectProvider<JavaMailSender> mailSenderProvider;
     private final JsonHelper jsonHelper;
+    private final TemplateRenderer templateRenderer;
     private final boolean emailEnabled;
     private final String defaultFrom;
     private final int maxRecipients;
@@ -32,6 +34,7 @@ public class EmailNodeHandler implements NodeHandler {
     public EmailNodeHandler(
             ObjectProvider<JavaMailSender> mailSenderProvider,
             JsonHelper jsonHelper,
+            TemplateRenderer templateRenderer,
             @Value("${flowact.email.enabled:false}") boolean emailEnabled,
             @Value("${flowact.email.default-from:noreply@flowact.local}") String defaultFrom,
             @Value("${flowact.email.max-recipients:10}") int maxRecipients,
@@ -40,6 +43,7 @@ public class EmailNodeHandler implements NodeHandler {
     ) {
         this.mailSenderProvider = mailSenderProvider;
         this.jsonHelper = jsonHelper;
+        this.templateRenderer = templateRenderer;
         this.emailEnabled = emailEnabled;
         this.defaultFrom = defaultFrom;
         this.maxRecipients = Math.max(1, maxRecipients);
@@ -60,13 +64,13 @@ public class EmailNodeHandler implements NodeHandler {
     ) {
         Map<String, Object> config = jsonHelper.toMap(block.getConfig());
 
-        String recipient = getString(config, "recipient", "").trim();
-        String subject = renderTemplate(
+        String recipient = templateRenderer.render(getString(config, "recipient", ""), input, context).trim();
+        String subject = templateRenderer.render(
                 getString(config, "subject", "FlowAct notification"),
                 input,
                 context
         );
-        String body = renderTemplate(
+        String body = templateRenderer.render(
                 getString(config, "body", ""),
                 input,
                 context
@@ -178,29 +182,6 @@ public class EmailNodeHandler implements NodeHandler {
                     fieldName + " exceeds limit: " + value.length() + " > " + maxLength
             );
         }
-    }
-
-    private String renderTemplate(
-            String template,
-            ResolvedInput input,
-            ExecutionContext context
-    ) {
-        if (template == null) {
-            return "";
-        }
-
-        Object inputValue = input.getValue() != null
-                ? input.getValue()
-                : input.getValues();
-
-        String inputJson = jsonHelper.toJson(inputValue);
-        String variablesJson = jsonHelper.toJson(context.getVariables());
-        String lastJson = jsonHelper.toJson(context.getLastSuccessfulOutput());
-
-        return template
-                .replace("{{input}}", inputJson != null ? inputJson : "")
-                .replace("{{last}}", lastJson != null ? lastJson : "")
-                .replace("{{variables}}", variablesJson != null ? variablesJson : "");
     }
 
     private String getString(
