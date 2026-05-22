@@ -30,6 +30,34 @@
     font-weight: 850;
 }
 
+/*
+   The preview SVG uses viewBox="0 0 560 260".
+   Keep block X coordinates in the same relative coordinate system,
+   otherwise SVG curves scale while absolutely positioned blocks do not.
+*/
+.landing-editor-preview__node--start {
+    left: 2.15%;
+}
+
+.landing-editor-preview__node--condition {
+    left: 25%;
+}
+
+.landing-editor-preview__node--ai,
+.landing-editor-preview__node--log {
+    left: 49.1%;
+}
+
+.landing-editor-preview__node--end {
+    right: auto;
+    left: 81.6%;
+}
+
+.landing-editor-preview__branch--yes,
+.landing-editor-preview__branch--no {
+    left: 40.2%;
+}
+
 @media (max-width: 720px) {
     .landing-page {
         padding: 6px;
