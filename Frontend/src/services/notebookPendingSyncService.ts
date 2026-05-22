@@ -56,7 +56,6 @@ function handleBeforeUnload(event: BeforeUnloadEvent) {
     }
 
     event.preventDefault();
-    event.returnValue = '';
 }
 
 async function upsertNotebook(
@@ -122,6 +121,11 @@ async function upsertWorkflow(
 }
 
 async function syncNotebookPayload(payload: NotebookPayloadDto) {
+    if (!payload.id) {
+        return null;
+    }
+
+    const notebookId = payload.id;
     const notebookRequest = {
         name: payload.title,
         description: `FlowAct notebook: ${payload.title}`,
@@ -150,7 +154,7 @@ async function syncNotebookPayload(payload: NotebookPayloadDto) {
     };
 
     saveNotebookLocally(syncedPayload, { enqueueSync: false });
-    removeNotebookSyncItem(payload.id);
+    removeNotebookSyncItem(notebookId);
 
     return syncedPayload;
 }
