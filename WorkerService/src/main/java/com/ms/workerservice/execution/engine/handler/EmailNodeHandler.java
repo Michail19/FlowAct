@@ -6,6 +6,8 @@ import com.ms.workerservice.execution.engine.NodeResult;
 import com.ms.workerservice.execution.engine.ResolvedInput;
 import com.ms.workerservice.workflow.entity.WorkflowBlockEntity;
 import com.ms.workerservice.workflow.enumtype.BlockType;
+import jakarta.mail.internet.AddressException;
+import jakarta.mail.internet.InternetAddress;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
@@ -23,17 +25,26 @@ public class EmailNodeHandler implements NodeHandler {
     private final JsonHelper jsonHelper;
     private final boolean emailEnabled;
     private final String defaultFrom;
+    private final int maxRecipients;
+    private final int maxSubjectLength;
+    private final int maxBodyLength;
 
     public EmailNodeHandler(
             ObjectProvider<JavaMailSender> mailSenderProvider,
             JsonHelper jsonHelper,
             @Value("${flowact.email.enabled:false}") boolean emailEnabled,
-            @Value("${flowact.email.default-from:noreply@flowact.local}") String defaultFrom
+            @Value("${flowact.email.default-from:noreply@flowact.local}") String defaultFrom,
+            @Value("${flowact.email.max-recipients:10}") int maxRecipients,
+            @Value("${flowact.email.max-subject-length:200}") int maxSubjectLength,
+            @Value("${flowact.email.max-body-length:10000}") int maxBodyLength
     ) {
         this.mailSenderProvider = mailSenderProvider;
         this.jsonHelper = jsonHelper;
         this.emailEnabled = emailEnabled;
         this.defaultFrom = defaultFrom;
+        this.maxRecipients = Math.max(1, maxRecipients);
+        this.maxSubjectLength = Math.max(1, maxSubjectLength);
+        this.maxBodyLength = Math.max(1, maxBodyLength);
     }
 
     @Override
@@ -61,11 +72,18 @@ public class EmailNodeHandler implements NodeHandler {
                 context
         );
 
+        validateHeaderSafe("subject", subject);
+        validateHeaderSafe("defaultFrom", defaultFrom);
+        validateLength("Email subject", subject, maxSubjectLength);
+        validateLength("Email body", body, maxBodyLength);
+
         if (recipient.isBlank()) {
             throw new IllegalArgumentException("Email recipient is empty.");
         }
 
         String[] recipients = splitRecipients(recipient);
+        validateRecipients(recipients);
+        validateEmailAddress(defaultFrom, "defaultFrom");
 
         Map<String, Object> output = new LinkedHashMap<>();
         output.put("to", Arrays.asList(recipients));
@@ -104,7 +122,62 @@ public class EmailNodeHandler implements NodeHandler {
         return Arrays.stream(recipient.split(","))
                 .map(String::trim)
                 .filter(value -> !value.isBlank())
+                .distinct()
                 .toArray(String[]::new);
+    }
+
+    private void validateRecipients(String[] recipients) {
+        if (recipients.length == 0) {
+            throw new IllegalArgumentException("Email recipient is empty.");
+        }
+
+        if (recipients.length > maxRecipients) {
+            throw new IllegalArgumentException(
+                    "Email recipient count exceeds limit: " + recipients.length + " > " + maxRecipients
+            );
+        }
+
+        for (String recipient : recipients) {
+            validateHeaderSafe("recipient", recipient);
+            validateEmailAddress(recipient, "recipient");
+        }
+    }
+
+    private void validateEmailAddress(String email, String fieldName) {
+        if (email == null || email.isBlank()) {
+            throw new IllegalArgumentException("Email " + fieldName + " is empty.");
+        }
+
+        try {
+            InternetAddress address = new InternetAddress(email, true);
+            address.validate();
+
+            if (!email.equals(address.getAddress())) {
+                throw new IllegalArgumentException("Email " + fieldName + " must be a plain address: " + email);
+            }
+        } catch (AddressException ex) {
+            throw new IllegalArgumentException("Invalid email " + fieldName + ": " + email, ex);
+        }
+    }
+
+    private void validateHeaderSafe(String fieldName, String value) {
+        if (value == null) {
+            return;
+        }
+
+        if (value.contains("\r") || value.contains("\n")) {
+            throw new IllegalArgumentException(
+                    "Email " + fieldName + " must not contain line breaks."
+            );
+        }
+    }
+
+    private void validateLength(String fieldName, String value, int maxLength) {
+        if (value != null && value.length() > maxLength) {
+            throw new IllegalArgumentException(
+                    fieldName + " exceeds limit: " + value.length() + " > " + maxLength
+            );
+        }
     }
 
     private String renderTemplate(
