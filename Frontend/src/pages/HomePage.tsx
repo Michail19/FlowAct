@@ -290,16 +290,15 @@ function HomePage() {
 
     useEffect(() => {
         const session = getAuthSession();
-
-        if (!session.isAuthenticated || !session.accessToken) {
-            setNotebooks(getVisibleLocalNotebooks());
-            return undefined;
-        }
-
         let isCancelled = false;
 
         const animationFrameId = window.requestAnimationFrame(() => {
             if (isCancelled) {
+                return;
+            }
+
+            if (!session.isAuthenticated || !session.accessToken) {
+                setNotebooks(getVisibleLocalNotebooks());
                 return;
             }
 
