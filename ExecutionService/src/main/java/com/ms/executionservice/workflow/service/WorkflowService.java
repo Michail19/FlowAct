@@ -16,6 +16,7 @@ import com.ms.executionservice.workflow.dto.response.WorkflowValidationResponse;
 import com.ms.executionservice.workflow.entity.WorkflowBlockEntity;
 import com.ms.executionservice.workflow.entity.WorkflowConnectionEntity;
 import com.ms.executionservice.workflow.entity.WorkflowEntity;
+import com.ms.executionservice.workflow.enumtype.BlockType;
 import com.ms.executionservice.workflow.enumtype.WorkflowStatus;
 import com.ms.executionservice.workflow.repository.WorkflowBlockRepository;
 import com.ms.executionservice.workflow.repository.WorkflowConnectionRepository;
@@ -311,7 +312,26 @@ public class WorkflowService {
             return new WorkflowValidationResponse(false, errors, warnings);
         }
 
-        Set<UUID> blockIds = new HashSet<>();
+        Map<UUID, WorkflowBlockEntity> blocksById = validateBlocks(blocks, errors, warnings);
+        validateConnections(connections, blocksById.keySet(), errors, warnings);
+
+        Map<UUID, List<WorkflowConnectionEntity>> outgoingConnections = buildOutgoingConnections(connections);
+        Map<UUID, List<WorkflowConnectionEntity>> incomingConnections = buildIncomingConnections(connections);
+
+        validateStartAndEndBlocks(blocks, incomingConnections, outgoingConnections, errors);
+        validateRequiredOutgoingConnections(blocks, outgoingConnections, errors);
+        validateBlockTypeRules(blocks, incomingConnections, outgoingConnections, errors);
+        validateReachabilityAndCycles(blocks, blocksById, outgoingConnections, errors);
+
+        return new WorkflowValidationResponse(errors.isEmpty(), errors, warnings);
+    }
+
+    private Map<UUID, WorkflowBlockEntity> validateBlocks(
+            List<WorkflowBlockEntity> blocks,
+            List<String> errors,
+            List<String> warnings
+    ) {
+        Map<UUID, WorkflowBlockEntity> blocksById = new HashMap<>();
 
         for (WorkflowBlockEntity block : blocks) {
             if (block.getId() == null) {
@@ -319,7 +339,7 @@ public class WorkflowService {
                 continue;
             }
 
-            if (!blockIds.add(block.getId())) {
+            if (blocksById.put(block.getId(), block) != null) {
                 errors.add("Duplicate block id: " + block.getId());
             }
 
@@ -340,39 +360,347 @@ public class WorkflowService {
             }
         }
 
-        if (connections != null) {
-            for (WorkflowConnectionEntity connection : connections) {
-                if (connection.getFromBlock() == null || connection.getFromBlock().getId() == null) {
-                    errors.add("Connection %s has no fromBlock".formatted(connection.getId()));
-                    continue;
-                }
+        return blocksById;
+    }
 
-                if (connection.getToBlock() == null || connection.getToBlock().getId() == null) {
-                    errors.add("Connection %s has no toBlock".formatted(connection.getId()));
-                    continue;
-                }
+    private void validateConnections(
+            List<WorkflowConnectionEntity> connections,
+            Set<UUID> blockIds,
+            List<String> errors,
+            List<String> warnings
+    ) {
+        if (connections == null) {
+            return;
+        }
 
-                UUID fromBlockId = connection.getFromBlock().getId();
-                UUID toBlockId = connection.getToBlock().getId();
+        for (WorkflowConnectionEntity connection : connections) {
+            if (connection.getFromBlock() == null || connection.getFromBlock().getId() == null) {
+                errors.add("Connection %s has no fromBlock".formatted(connection.getId()));
+                continue;
+            }
 
-                if (!blockIds.contains(fromBlockId)) {
-                    errors.add("Connection %s references non-existent fromBlock: %s"
-                            .formatted(connection.getId(), fromBlockId));
-                }
+            if (connection.getToBlock() == null || connection.getToBlock().getId() == null) {
+                errors.add("Connection %s has no toBlock".formatted(connection.getId()));
+                continue;
+            }
 
-                if (!blockIds.contains(toBlockId)) {
-                    errors.add("Connection %s references non-existent toBlock: %s"
-                            .formatted(connection.getId(), toBlockId));
-                }
+            UUID fromBlockId = connection.getFromBlock().getId();
+            UUID toBlockId = connection.getToBlock().getId();
 
-                if (Objects.equals(fromBlockId, toBlockId)) {
-                    warnings.add("Connection %s points block to itself: %s"
-                            .formatted(connection.getId(), fromBlockId));
-                }
+            if (!blockIds.contains(fromBlockId)) {
+                errors.add("Connection %s references non-existent fromBlock: %s"
+                        .formatted(connection.getId(), fromBlockId));
+            }
+
+            if (!blockIds.contains(toBlockId)) {
+                errors.add("Connection %s references non-existent toBlock: %s"
+                        .formatted(connection.getId(), toBlockId));
+            }
+
+            if (Objects.equals(fromBlockId, toBlockId)) {
+                warnings.add("Connection %s points block to itself: %s"
+                        .formatted(connection.getId(), fromBlockId));
+            }
+        }
+    }
+
+    private Map<UUID, List<WorkflowConnectionEntity>> buildOutgoingConnections(
+            List<WorkflowConnectionEntity> connections
+    ) {
+        Map<UUID, List<WorkflowConnectionEntity>> result = new HashMap<>();
+
+        if (connections == null) {
+            return result;
+        }
+
+        for (WorkflowConnectionEntity connection : connections) {
+            if (connection.getFromBlock() == null || connection.getFromBlock().getId() == null) {
+                continue;
+            }
+
+            result.computeIfAbsent(connection.getFromBlock().getId(), key -> new ArrayList<>())
+                    .add(connection);
+        }
+
+        return result;
+    }
+
+    private Map<UUID, List<WorkflowConnectionEntity>> buildIncomingConnections(
+            List<WorkflowConnectionEntity> connections
+    ) {
+        Map<UUID, List<WorkflowConnectionEntity>> result = new HashMap<>();
+
+        if (connections == null) {
+            return result;
+        }
+
+        for (WorkflowConnectionEntity connection : connections) {
+            if (connection.getToBlock() == null || connection.getToBlock().getId() == null) {
+                continue;
+            }
+
+            result.computeIfAbsent(connection.getToBlock().getId(), key -> new ArrayList<>())
+                    .add(connection);
+        }
+
+        return result;
+    }
+
+    private void validateStartAndEndBlocks(
+            List<WorkflowBlockEntity> blocks,
+            Map<UUID, List<WorkflowConnectionEntity>> incomingConnections,
+            Map<UUID, List<WorkflowConnectionEntity>> outgoingConnections,
+            List<String> errors
+    ) {
+        List<WorkflowBlockEntity> startBlocks = blocks.stream()
+                .filter(block -> block.getType() == BlockType.START)
+                .toList();
+
+        if (startBlocks.isEmpty()) {
+            errors.add("Workflow has no START block");
+        } else if (startBlocks.size() > 1) {
+            errors.add("Workflow has more than one START block");
+        } else {
+            WorkflowBlockEntity startBlock = startBlocks.get(0);
+
+            if (!incomingConnections.getOrDefault(startBlock.getId(), List.of()).isEmpty()) {
+                errors.add("START block must not have incoming connections: " + startBlock.getId());
+            }
+
+            if (outgoingConnections.getOrDefault(startBlock.getId(), List.of()).isEmpty()) {
+                errors.add("START block must have outgoing connection: " + startBlock.getId());
             }
         }
 
-        return new WorkflowValidationResponse(errors.isEmpty(), errors, warnings);
+        List<WorkflowBlockEntity> endBlocks = blocks.stream()
+                .filter(block -> block.getType() == BlockType.END)
+                .toList();
+
+        if (endBlocks.isEmpty()) {
+            errors.add("Workflow has no END block");
+        }
+
+        for (WorkflowBlockEntity endBlock : endBlocks) {
+            if (!outgoingConnections.getOrDefault(endBlock.getId(), List.of()).isEmpty()) {
+                errors.add("END block must not have outgoing connections: " + endBlock.getId());
+            }
+        }
+    }
+
+    private void validateRequiredOutgoingConnections(
+            List<WorkflowBlockEntity> blocks,
+            Map<UUID, List<WorkflowConnectionEntity>> outgoingConnections,
+            List<String> errors
+    ) {
+        for (WorkflowBlockEntity block : blocks) {
+            if (block.getType() == null || block.getType() == BlockType.END) {
+                continue;
+            }
+
+            if (outgoingConnections.getOrDefault(block.getId(), List.of()).isEmpty()) {
+                errors.add("Block has no outgoing connection: " + block.getId());
+            }
+        }
+    }
+
+    private void validateBlockTypeRules(
+            List<WorkflowBlockEntity> blocks,
+            Map<UUID, List<WorkflowConnectionEntity>> incomingConnections,
+            Map<UUID, List<WorkflowConnectionEntity>> outgoingConnections,
+            List<String> errors
+    ) {
+        for (WorkflowBlockEntity block : blocks) {
+            if (block.getType() == null) {
+                continue;
+            }
+
+            switch (block.getType()) {
+                case IF -> validateIfBlock(block, outgoingConnections, errors);
+                case SWITCH -> validateSwitchBlock(block, outgoingConnections, errors);
+                case MERGE -> validateMergeBlock(block, incomingConnections, outgoingConnections, errors);
+                default -> validateSingleOutgoingBlock(block, outgoingConnections, errors);
+            }
+        }
+    }
+
+    private void validateIfBlock(
+            WorkflowBlockEntity block,
+            Map<UUID, List<WorkflowConnectionEntity>> outgoingConnections,
+            List<String> errors
+    ) {
+        List<WorkflowConnectionEntity> outgoing = outgoingConnections.getOrDefault(block.getId(), List.of());
+
+        if (outgoing.size() < 2) {
+            errors.add("IF block must have at least 2 outgoing connections: " + block.getId());
+            return;
+        }
+
+        boolean hasTrue = outgoing.stream()
+                .anyMatch(connection -> "true".equalsIgnoreCase(normalizeCondition(connection.getCondition())));
+
+        boolean hasFalse = outgoing.stream()
+                .anyMatch(connection -> "false".equalsIgnoreCase(normalizeCondition(connection.getCondition())));
+
+        if (!hasTrue || !hasFalse) {
+            errors.add("IF block must have outgoing branches with conditions 'true' and 'false': "
+                    + block.getId());
+        }
+    }
+
+    private void validateSwitchBlock(
+            WorkflowBlockEntity block,
+            Map<UUID, List<WorkflowConnectionEntity>> outgoingConnections,
+            List<String> errors
+    ) {
+        List<WorkflowConnectionEntity> outgoing = outgoingConnections.getOrDefault(block.getId(), List.of());
+
+        if (outgoing.size() < 2) {
+            errors.add("SWITCH block must have at least 2 outgoing connections: " + block.getId());
+            return;
+        }
+
+        boolean hasDefault = outgoing.stream()
+                .anyMatch(connection -> "default".equalsIgnoreCase(normalizeCondition(connection.getCondition())));
+
+        if (!hasDefault) {
+            errors.add("SWITCH block should have a 'default' outgoing branch: " + block.getId());
+        }
+
+        long blankConditions = outgoing.stream()
+                .filter(connection -> normalizeCondition(connection.getCondition()).isBlank())
+                .count();
+
+        if (blankConditions > 0) {
+            errors.add("SWITCH block must not have blank conditions on outgoing connections: " + block.getId());
+        }
+    }
+
+    private void validateMergeBlock(
+            WorkflowBlockEntity block,
+            Map<UUID, List<WorkflowConnectionEntity>> incomingConnections,
+            Map<UUID, List<WorkflowConnectionEntity>> outgoingConnections,
+            List<String> errors
+    ) {
+        int incomingCount = incomingConnections.getOrDefault(block.getId(), List.of()).size();
+        int outgoingCount = outgoingConnections.getOrDefault(block.getId(), List.of()).size();
+
+        if (incomingCount < 2) {
+            errors.add("MERGE block must have at least 2 incoming connections: " + block.getId());
+        }
+
+        if (outgoingCount != 1) {
+            errors.add("MERGE block must have exactly 1 outgoing connection: " + block.getId());
+        }
+    }
+
+    private void validateSingleOutgoingBlock(
+            WorkflowBlockEntity block,
+            Map<UUID, List<WorkflowConnectionEntity>> outgoingConnections,
+            List<String> errors
+    ) {
+        if (block.getType() == BlockType.END) {
+            return;
+        }
+
+        int outgoingCount = outgoingConnections.getOrDefault(block.getId(), List.of()).size();
+
+        if (requiresSingleOutgoing(block.getType()) && outgoingCount > 1) {
+            errors.add("Block must have no more than one outgoing connection: " + block.getId());
+        }
+    }
+
+    private void validateReachabilityAndCycles(
+            List<WorkflowBlockEntity> blocks,
+            Map<UUID, WorkflowBlockEntity> blocksById,
+            Map<UUID, List<WorkflowConnectionEntity>> outgoingConnections,
+            List<String> errors
+    ) {
+        List<WorkflowBlockEntity> startBlocks = blocks.stream()
+                .filter(block -> block.getType() == BlockType.START)
+                .toList();
+
+        if (startBlocks.size() != 1) {
+            return;
+        }
+
+        Set<UUID> visiting = new HashSet<>();
+        Set<UUID> visited = new HashSet<>();
+
+        boolean endReachable = dfs(
+                startBlocks.get(0),
+                blocksById,
+                outgoingConnections,
+                visiting,
+                visited,
+                errors
+        );
+
+        if (!endReachable) {
+            errors.add("END block is not reachable from START");
+        }
+
+        if (visited.size() != blocks.size()) {
+            errors.add("Workflow contains unreachable blocks");
+        }
+    }
+
+    private boolean dfs(
+            WorkflowBlockEntity currentBlock,
+            Map<UUID, WorkflowBlockEntity> blocksById,
+            Map<UUID, List<WorkflowConnectionEntity>> outgoingConnections,
+            Set<UUID> visiting,
+            Set<UUID> visited,
+            List<String> errors
+    ) {
+        UUID currentBlockId = currentBlock.getId();
+
+        if (visiting.contains(currentBlockId)) {
+            errors.add("Cycle detected near block: " + currentBlockId);
+            return false;
+        }
+
+        if (visited.contains(currentBlockId)) {
+            return currentBlock.getType() == BlockType.END;
+        }
+
+        visiting.add(currentBlockId);
+
+        boolean endReachable = currentBlock.getType() == BlockType.END;
+
+        for (WorkflowConnectionEntity connection : outgoingConnections.getOrDefault(currentBlockId, List.of())) {
+            WorkflowBlockEntity nextBlock = blocksById.get(connection.getToBlock().getId());
+
+            if (nextBlock == null) {
+                errors.add("Connection points to missing block: " + connection.getToBlock().getId());
+                continue;
+            }
+
+            if (dfs(nextBlock, blocksById, outgoingConnections, visiting, visited, errors)) {
+                endReachable = true;
+            }
+        }
+
+        visiting.remove(currentBlockId);
+        visited.add(currentBlockId);
+
+        return endReachable;
+    }
+
+    private String normalizeCondition(String condition) {
+        if (condition == null) {
+            return "";
+        }
+        return condition.trim().toLowerCase();
+    }
+
+    private boolean requiresSingleOutgoing(BlockType blockType) {
+        return switch (blockType) {
+            case START, INPUT, SET_VARIABLE, MAP, FILTER, TRANSFORM_JSON,
+                 HTTP_REQUEST, LLM_REQUEST, ML_REQUEST,
+                 DATABASE_QUERY, EMAIL_SEND, LOG_MESSAGE,
+                 DELAY, WAIT, WEBHOOK -> true;
+            case IF, SWITCH, MERGE, END -> false;
+        };
     }
 
     private WorkflowResponse mapToWorkflowResponse(WorkflowEntity workflow) {
