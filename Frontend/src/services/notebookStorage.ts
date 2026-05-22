@@ -1,5 +1,6 @@
 import type { NotebookPayloadDto } from '../components/notebook/notebookBackendTypes';
 import { getStoredAuthUser } from '../auth/authStorage';
+import { enqueueNotebookSync } from './notebookSyncQueue';
 
 const NOTEBOOK_LIST_KEY = 'flowact-notebooks';
 const NOTEBOOK_KEY_PREFIX = 'flowact-notebook:';
@@ -14,6 +15,11 @@ export type NotebookListItem = {
     updatedAt: string;
     blocksCount: number;
     connectionsCount: number;
+};
+
+type SaveNotebookLocallyOptions = {
+    enqueueSync?: boolean;
+    syncReason?: string;
 };
 
 function getCurrentStorageScope() {
@@ -106,7 +112,10 @@ export function listNotebooksLocally(): NotebookListItem[] {
     return dedupeNotebookListByServerId(sortedList);
 }
 
-export function saveNotebookLocally(payload: NotebookPayloadDto): NotebookPayloadDto {
+export function saveNotebookLocally(
+    payload: NotebookPayloadDto,
+    options: SaveNotebookLocallyOptions = {},
+): NotebookPayloadDto {
     const notebookId = payload.id ?? crypto.randomUUID();
 
     const normalizedPayload: NotebookPayloadDto = {
@@ -148,6 +157,13 @@ export function saveNotebookLocally(payload: NotebookPayloadDto): NotebookPayloa
     ];
 
     localStorage.setItem(getNotebookListStorageKey(), JSON.stringify(nextList, null, 2));
+
+    if (options.enqueueSync) {
+        enqueueNotebookSync(
+            normalizedPayload,
+            options.syncReason ?? 'local-save',
+        );
+    }
 
     return normalizedPayload;
 }
@@ -193,7 +209,7 @@ export function createEmptyNotebookLocally(title = 'Новый notebook'): Noteb
         blocks: [],
         connections: [],
         updatedAt: now,
-    });
+    }, { enqueueSync: true, syncReason: 'create-local-notebook' });
 }
 
 export function createDemoNotebookLocally(): NotebookPayloadDto {
@@ -307,7 +323,7 @@ export function createDemoNotebookLocally(): NotebookPayloadDto {
         ],
         viewport: { x: 80, y: 80, zoom: 0.75 },
         updatedAt: now,
-    });
+    }, { enqueueSync: false });
 }
 
 export function clearLegacyNotebookStorage() {
