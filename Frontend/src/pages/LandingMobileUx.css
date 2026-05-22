@@ -239,12 +239,14 @@
     }
 
     .landing-editor-preview__suggestion {
-        right: auto;
-        bottom: 14px;
-        left: 50%;
-        width: min(264px, calc(100% - 40px));
-        max-width: calc(100% - 40px);
-        transform: translateX(-50%);
+        position: absolute !important;
+        right: auto !important;
+        bottom: 14px !important;
+        left: 50% !important;
+        width: min(264px, calc(100% - 40px)) !important;
+        max-width: calc(100% - 40px) !important;
+        margin: 0 !important;
+        transform: translateX(-50%) !important;
         transform-origin: center bottom;
     }
 
@@ -328,8 +330,8 @@
     }
 
     .landing-editor-preview__suggestion {
-        width: min(250px, calc(100% - 32px));
-        max-width: calc(100% - 32px);
-        transform: translateX(-50%);
+        width: min(250px, calc(100% - 32px)) !important;
+        max-width: calc(100% - 32px) !important;
+        transform: translateX(-50%) !important;
     }
 }
