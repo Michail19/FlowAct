@@ -171,13 +171,14 @@
         font-size: 15px;
     }
 
+    /* Mobile preview is controlled here, not by LandingPage.css. */
     .landing-editor-preview {
         border-radius: 14px;
     }
 
     .landing-editor-preview__header {
-        min-height: 24px;
-        padding: 0 6px;
+        min-height: 24px !important;
+        padding: 0 6px !important;
     }
 
     .landing-editor-preview__header strong {
@@ -194,8 +195,8 @@
     }
 
     .landing-editor-preview__body {
-        min-height: 205px;
-        grid-template-columns: 20px 1fr;
+        min-height: 250px !important;
+        grid-template-columns: 36px 1fr !important;
     }
 
     .landing-editor-preview__toolbar {
@@ -204,38 +205,47 @@
     }
 
     .landing-editor-preview__toolbar span {
-        width: 12px;
-        height: 12px;
+        width: 12px !important;
+        height: 12px !important;
         border-radius: 4px;
     }
 
-    .landing-editor-preview__node,
-    .landing-editor-preview__branch {
+    .landing-editor-preview__node {
+        min-width: 56px !important;
+        min-height: 28px !important;
+        font-size: 10px !important;
         transform: scale(0.7);
         transform-origin: center;
     }
 
     .landing-editor-preview__node--start {
-        left: 5%;
+        top: 58px !important;
+        left: 5% !important;
     }
 
     .landing-editor-preview__node--condition {
-        left: 28%;
+        top: 58px !important;
+        left: 28% !important;
     }
 
-    .landing-editor-preview__node--ai,
     .landing-editor-preview__node--log {
-        left: 54%;
+        top: 24px !important;
+        left: 54% !important;
+    }
+
+    .landing-editor-preview__node--ai {
+        top: 105px !important;
+        left: 54% !important;
     }
 
     .landing-editor-preview__node--end {
-        right: auto;
-        left: calc(100% - 82px);
+        top: 105px !important;
+        right: auto !important;
+        left: calc(100% - 82px) !important;
     }
 
-    .landing-editor-preview__branch--yes,
-    .landing-editor-preview__branch--no {
-        left: 45%;
+    .landing-editor-preview__branch {
+        display: none !important;
     }
 
     .landing-editor-preview__suggestion {
@@ -322,7 +332,7 @@
     }
 
     .landing-editor-preview__node--end {
-        left: calc(100% - 78px);
+        left: calc(100% - 78px) !important;
     }
 
     .landing-editor-preview__suggestion {
