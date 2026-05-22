@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 @Component
@@ -20,6 +21,48 @@ public class DatabaseNodeHandler implements NodeHandler {
 
     private static final Pattern SAFE_TABLE_NAME_PATTERN = Pattern.compile(
             "^[a-zA-Z_][a-zA-Z0-9_]*(\\.[a-zA-Z_][a-zA-Z0-9_]*)?$"
+    );
+
+    private static final Pattern SQL_COMMENT_PATTERN = Pattern.compile(
+            "(--.*?$)|(/\\*.*?\\*/)",
+            Pattern.MULTILINE | Pattern.DOTALL
+    );
+
+    private static final Set<String> SUPPORTED_OPERATIONS = Set.of(
+            "select",
+            "insert",
+            "update",
+            "delete"
+    );
+
+    private static final Set<String> DANGEROUS_KEYWORDS = Set.of(
+            "alter",
+            "analyze",
+            "call",
+            "copy",
+            "create",
+            "discard",
+            "drop",
+            "execute",
+            "grant",
+            "listen",
+            "notify",
+            "reassign",
+            "refresh",
+            "reindex",
+            "reset",
+            "revoke",
+            "security",
+            "set",
+            "truncate",
+            "unlisten",
+            "vacuum"
+    );
+
+    private static final Set<String> SYSTEM_SCHEMA_PREFIXES = Set.of(
+            "pg_catalog.",
+            "information_schema.",
+            "pg_toast."
     );
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
@@ -39,7 +82,7 @@ public class DatabaseNodeHandler implements NodeHandler {
         this.jsonHelper = jsonHelper;
         this.writeEnabled = writeEnabled;
         this.allowDangerousSql = allowDangerousSql;
-        this.maxSelectRows = maxSelectRows;
+        this.maxSelectRows = Math.max(1, maxSelectRows);
     }
 
     @Override
@@ -55,9 +98,14 @@ public class DatabaseNodeHandler implements NodeHandler {
     ) {
         Map<String, Object> config = jsonHelper.toMap(block.getConfig());
 
-        String operation = getString(config, "operation", "select").toLowerCase(Locale.ROOT);
-        String tableName = getString(config, "tableName", "");
+        String operation = getString(config, "operation", "select")
+                .trim()
+                .toLowerCase(Locale.ROOT);
+        String tableName = getString(config, "tableName", "").trim();
         String query = getString(config, "query", "").trim();
+
+        validateOperation(operation);
+        validateTableNameIfProvided(tableName);
 
         Map<String, Object> params = toParameterMap(config.get("payload"));
 
@@ -84,8 +132,8 @@ public class DatabaseNodeHandler implements NodeHandler {
 
         if (!writeEnabled) {
             throw new IllegalStateException(
-                    "Database write operations are disabled. " +
-                            "Set FLOWACT_DATABASE_BLOCK_WRITE_ENABLED=true to enable them."
+                    "Database write operations are disabled. "
+                            + "Set FLOWACT_DATABASE_BLOCK_WRITE_ENABLED=true to enable them."
             );
         }
 
@@ -107,11 +155,7 @@ public class DatabaseNodeHandler implements NodeHandler {
             );
         }
 
-        if (!SAFE_TABLE_NAME_PATTERN.matcher(tableName).matches()) {
-            throw new IllegalArgumentException(
-                    "Invalid tableName. Only simple table names are allowed."
-            );
-        }
+        validateTableNameIfProvided(tableName);
 
         if ("select".equals(operation)) {
             return "SELECT * FROM " + tableName;
@@ -122,85 +166,108 @@ public class DatabaseNodeHandler implements NodeHandler {
         );
     }
 
-    private void validateQuery(String operation, String query) {
-        if (query == null || query.isBlank()) {
-            throw new IllegalArgumentException("Database query is empty.");
-        }
-
-        String normalizedQuery = query.trim().toLowerCase(Locale.ROOT);
-
-        if (!allowDangerousSql && normalizedQuery.contains(";")) {
-            throw new IllegalArgumentException(
-                    "Multiple SQL statements are not allowed in database block."
-            );
-        }
-
-        if (
-                !allowDangerousSql &&
-                        (
-                                normalizedQuery.contains(" drop ") ||
-                                        normalizedQuery.startsWith("drop ") ||
-                                        normalizedQuery.contains(" truncate ") ||
-                                        normalizedQuery.startsWith("truncate ") ||
-                                        normalizedQuery.contains(" alter ") ||
-                                        normalizedQuery.startsWith("alter ") ||
-                                        normalizedQuery.contains(" create ") ||
-                                        normalizedQuery.startsWith("create ") ||
-                                        normalizedQuery.contains(" grant ") ||
-                                        normalizedQuery.startsWith("grant ") ||
-                                        normalizedQuery.contains(" revoke ") ||
-                                        normalizedQuery.startsWith("revoke ")
-                        )
-        ) {
-            throw new IllegalArgumentException(
-                    "Dangerous SQL statement is not allowed in database block."
-            );
-        }
-
-        if ("select".equals(operation) && !normalizedQuery.startsWith("select")) {
-            throw new IllegalArgumentException(
-                    "Select operation requires SELECT query."
-            );
-        }
-
-        if ("insert".equals(operation) && !normalizedQuery.startsWith("insert")) {
-            throw new IllegalArgumentException(
-                    "Insert operation requires INSERT query."
-            );
-        }
-
-        if ("update".equals(operation) && !normalizedQuery.startsWith("update")) {
-            throw new IllegalArgumentException(
-                    "Update operation requires UPDATE query."
-            );
-        }
-
-        if ("delete".equals(operation) && !normalizedQuery.startsWith("delete")) {
-            throw new IllegalArgumentException(
-                    "Delete operation requires DELETE query."
-            );
-        }
-
-        if (
-                !"select".equals(operation) &&
-                        !"insert".equals(operation) &&
-                        !"update".equals(operation) &&
-                        !"delete".equals(operation)
-        ) {
+    private void validateOperation(String operation) {
+        if (!SUPPORTED_OPERATIONS.contains(operation)) {
             throw new IllegalArgumentException(
                     "Unsupported database operation: " + operation
             );
         }
     }
 
+    private void validateTableNameIfProvided(String tableName) {
+        if (tableName == null || tableName.isBlank()) {
+            return;
+        }
+
+        if (!SAFE_TABLE_NAME_PATTERN.matcher(tableName).matches()) {
+            throw new IllegalArgumentException(
+                    "Invalid tableName. Only simple table names are allowed."
+            );
+        }
+
+        assertNotSystemSchemaReference(tableName.toLowerCase(Locale.ROOT));
+    }
+
+    private void validateQuery(String operation, String query) {
+        if (query == null || query.isBlank()) {
+            throw new IllegalArgumentException("Database query is empty.");
+        }
+
+        String normalizedQuery = normalizeSql(query);
+        String firstKeyword = firstKeyword(normalizedQuery);
+
+        if (!operation.equals(firstKeyword)) {
+            throw new IllegalArgumentException(
+                    capitalize(operation) + " operation requires " + operation.toUpperCase(Locale.ROOT) + " query."
+            );
+        }
+
+        if (!allowDangerousSql) {
+            validateSafeSql(normalizedQuery);
+        }
+    }
+
+    private void validateSafeSql(String normalizedQuery) {
+        if (normalizedQuery.contains(";")) {
+            throw new IllegalArgumentException(
+                    "Multiple SQL statements are not allowed in database block."
+            );
+        }
+
+        for (String keyword : DANGEROUS_KEYWORDS) {
+            if (containsKeyword(normalizedQuery, keyword)) {
+                throw new IllegalArgumentException(
+                        "Dangerous SQL keyword is not allowed in database block: " + keyword
+                );
+            }
+        }
+
+        assertNotSystemSchemaReference(normalizedQuery);
+    }
+
+    private String normalizeSql(String query) {
+        String withoutComments = SQL_COMMENT_PATTERN.matcher(query).replaceAll(" ");
+        return withoutComments
+                .replaceAll("\\s+", " ")
+                .trim()
+                .toLowerCase(Locale.ROOT);
+    }
+
+    private String firstKeyword(String normalizedQuery) {
+        if (normalizedQuery == null || normalizedQuery.isBlank()) {
+            return "";
+        }
+
+        int firstSpaceIndex = normalizedQuery.indexOf(' ');
+        return firstSpaceIndex < 0
+                ? normalizedQuery
+                : normalizedQuery.substring(0, firstSpaceIndex);
+    }
+
+    private boolean containsKeyword(String normalizedQuery, String keyword) {
+        return Pattern.compile("(^|[^a-zA-Z0-9_])" + Pattern.quote(keyword) + "([^a-zA-Z0-9_]|$)")
+                .matcher(normalizedQuery)
+                .find();
+    }
+
+    private void assertNotSystemSchemaReference(String value) {
+        for (String prefix : SYSTEM_SCHEMA_PREFIXES) {
+            if (value.contains(prefix)) {
+                throw new IllegalArgumentException(
+                        "Database block cannot access system schema: " + prefix.substring(0, prefix.length() - 1)
+                );
+            }
+        }
+    }
+
     private String applyLimitIfNeeded(String query) {
-        String normalizedQuery = query.toLowerCase(Locale.ROOT);
+        String normalizedQuery = normalizeSql(query);
 
         if (normalizedQuery.matches("(?s).*\\blimit\\s+\\d+.*")) {
             return query;
         }
 
-        return query + " LIMIT " + Math.max(1, maxSelectRows);
+        return query + " LIMIT " + maxSelectRows;
     }
 
     @SuppressWarnings("unchecked")
@@ -222,6 +289,14 @@ public class DatabaseNodeHandler implements NodeHandler {
         }
 
         return Map.of("value", value);
+    }
+
+    private String capitalize(String value) {
+        if (value == null || value.isBlank()) {
+            return "Database";
+        }
+
+        return value.substring(0, 1).toUpperCase(Locale.ROOT) + value.substring(1);
     }
 
     private String getString(
