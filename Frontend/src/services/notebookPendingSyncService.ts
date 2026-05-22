@@ -31,7 +31,7 @@ const NOTEBOOKS_ENDPOINT = '/v1/notebooks';
 
 let syncIntervalId: number | null = null;
 let isSyncRunning = false;
-let isBeforeUnloadListenerRegistered = false;
+let onlineHandler: (() => void) | null = null;
 
 function getWorkflowEndpoint(notebookId: string) {
     return `/v1/notebooks/${notebookId}/workflows`;
@@ -48,14 +48,6 @@ function toWorkflowRequest(payload: BackendWorkflowUpsertRequest): WorkflowReque
         connections: payload.connections,
         metadata: payload.metadata,
     };
-}
-
-function handleBeforeUnload(event: BeforeUnloadEvent) {
-    if (listPendingNotebookSyncItems().length === 0) {
-        return;
-    }
-
-    event.preventDefault();
 }
 
 async function upsertNotebook(
@@ -197,16 +189,11 @@ export function startNotebookPendingSyncWorker() {
 
     void flushPendingNotebookSyncQueue();
 
-    const handleOnline = () => {
+    onlineHandler = () => {
         void flushPendingNotebookSyncQueue();
     };
 
-    window.addEventListener('online', handleOnline);
-
-    if (!isBeforeUnloadListenerRegistered) {
-        window.addEventListener('beforeunload', handleBeforeUnload);
-        isBeforeUnloadListenerRegistered = true;
-    }
+    window.addEventListener('online', onlineHandler);
 
     syncIntervalId = window.setInterval(() => {
         void flushPendingNotebookSyncQueue();
@@ -220,4 +207,9 @@ export function stopNotebookPendingSyncWorker() {
 
     window.clearInterval(syncIntervalId);
     syncIntervalId = null;
+
+    if (onlineHandler) {
+        window.removeEventListener('online', onlineHandler);
+        onlineHandler = null;
+    }
 }
