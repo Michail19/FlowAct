@@ -9,6 +9,7 @@ import com.ms.workerservice.workflow.enumtype.BlockType;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.OptionalInt;
@@ -59,14 +60,10 @@ public class IfNodeHandler implements NodeHandler {
 
         Object inputKey = config.get("inputKey");
         if (inputKey != null && !String.valueOf(inputKey).isBlank()) {
-            String key = String.valueOf(inputKey);
+            Object resolvedByPath = resolvePath(input, context, String.valueOf(inputKey));
 
-            if (input.get(key) != null) {
-                return input.get(key);
-            }
-
-            if (input.getInputs().containsKey(key)) {
-                return input.getInputs().get(key);
+            if (resolvedByPath != null) {
+                return resolvedByPath;
             }
         }
 
@@ -83,6 +80,129 @@ public class IfNodeHandler implements NodeHandler {
         }
 
         return null;
+    }
+
+    private Object resolvePath(
+            ResolvedInput input,
+            ExecutionContext context,
+            String path
+    ) {
+        if (path == null || path.isBlank()) {
+            return null;
+        }
+
+        String normalizedPath = path.trim();
+
+        if ("input".equals(normalizedPath) || "executionInput".equals(normalizedPath)) {
+            return context.getExecutionInput();
+        }
+
+        if ("value".equals(normalizedPath) || "condition".equals(normalizedPath)) {
+            return input.getValue();
+        }
+
+        if ("last".equals(normalizedPath) || "output".equals(normalizedPath)) {
+            return context.getLastSuccessfulOutput();
+        }
+
+        if ("inputs".equals(normalizedPath)) {
+            return input.getInputs();
+        }
+
+        if ("outputs".equals(normalizedPath)) {
+            return context.getBlockOutputsByStringId();
+        }
+
+        if ("variables".equals(normalizedPath)) {
+            return context.getVariables();
+        }
+
+        if (normalizedPath.startsWith("input.")) {
+            return readNestedValue(context.getExecutionInput(), normalizedPath.substring("input.".length()));
+        }
+
+        if (normalizedPath.startsWith("executionInput.")) {
+            return readNestedValue(context.getExecutionInput(), normalizedPath.substring("executionInput.".length()));
+        }
+
+        if (normalizedPath.startsWith("value.")) {
+            return readNestedValue(input.getValue(), normalizedPath.substring("value.".length()));
+        }
+
+        if (normalizedPath.startsWith("condition.")) {
+            return readNestedValue(input.getValue(), normalizedPath.substring("condition.".length()));
+        }
+
+        if (normalizedPath.startsWith("last.")) {
+            return readNestedValue(context.getLastSuccessfulOutput(), normalizedPath.substring("last.".length()));
+        }
+
+        if (normalizedPath.startsWith("output.")) {
+            return readNestedValue(context.getLastSuccessfulOutput(), normalizedPath.substring("output.".length()));
+        }
+
+        if (normalizedPath.startsWith("inputs.")) {
+            return readNestedValue(input.getInputs(), normalizedPath.substring("inputs.".length()));
+        }
+
+        if (normalizedPath.startsWith("outputs.")) {
+            return readNestedValue(context.getBlockOutputsByStringId(), normalizedPath.substring("outputs.".length()));
+        }
+
+        if (normalizedPath.startsWith("variables.")) {
+            return readNestedValue(context.getVariables(), normalizedPath.substring("variables.".length()));
+        }
+
+        if (input.get(normalizedPath) != null) {
+            return input.get(normalizedPath);
+        }
+
+        if (input.getInputs().containsKey(normalizedPath)) {
+            return input.getInputs().get(normalizedPath);
+        }
+
+        return readNestedValue(input.getValues(), normalizedPath);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Object readNestedValue(Object source, String path) {
+        if (source == null || path == null || path.isBlank()) {
+            return source;
+        }
+
+        Object currentValue = source;
+
+        for (String segment : path.split("\\.")) {
+            if (currentValue == null) {
+                return null;
+            }
+
+            if (currentValue instanceof Map<?, ?> mapValue) {
+                currentValue = ((Map<String, Object>) mapValue).get(segment);
+                continue;
+            }
+
+            if (currentValue instanceof List<?> listValue) {
+                int index;
+
+                try {
+                    index = Integer.parseInt(segment);
+                } catch (NumberFormatException ex) {
+                    return null;
+                }
+
+                if (index < 0 || index >= listValue.size()) {
+                    return null;
+                }
+
+                currentValue = listValue.get(index);
+                continue;
+            }
+
+            return null;
+        }
+
+        return currentValue;
     }
 
     private boolean evaluateCondition(Object actualValue, String operator, Object expectedValue) {
