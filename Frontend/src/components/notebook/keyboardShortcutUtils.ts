@@ -30,6 +30,18 @@ export function isRedoShortcut(event: KeyboardEvent) {
     );
 }
 
+export function isCopyShortcut(event: KeyboardEvent) {
+    return isPrimaryShortcut(event) && !event.shiftKey && isShortcutKey(event, 'c');
+}
+
+export function isCutShortcut(event: KeyboardEvent) {
+    return isPrimaryShortcut(event) && !event.shiftKey && isShortcutKey(event, 'x');
+}
+
+export function isPasteShortcut(event: KeyboardEvent) {
+    return isPrimaryShortcut(event) && !event.shiftKey && isShortcutKey(event, 'v');
+}
+
 export function isEditableShortcutTarget(target: EventTarget | null) {
     if (!(target instanceof HTMLElement)) {
         return false;
