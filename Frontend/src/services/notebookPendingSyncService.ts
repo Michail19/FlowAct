@@ -1,7 +1,7 @@
 import type { NotebookPayloadDto } from '../components/notebook/notebookBackendTypes';
 import { toBackendWorkflowRequest } from '../components/notebook/backendWorkflowMapper';
 import { getAuthSession } from '../auth/authSession';
-import { apiClient } from './apiClient';
+import { ApiError, apiClient } from './apiClient';
 import { saveNotebookLocally } from './notebookStorage';
 import {
     getNotebookSyncErrorMessage,
@@ -37,6 +37,10 @@ function getWorkflowEndpoint(notebookId: string) {
     return `/v1/notebooks/${notebookId}/workflows`;
 }
 
+function isNotFoundError(error: unknown) {
+    return error instanceof ApiError && error.status === 404;
+}
+
 function toWorkflowRequest(payload: BackendWorkflowUpsertRequest): WorkflowRequest {
     return {
         name: payload.name,
@@ -56,21 +60,18 @@ async function upsertNotebook(
 ) {
     const originalNotebookId = getOriginalNotebookId(payload.serverNotebookId);
 
-    if (originalNotebookId && !isPendingNotebookId(payload.serverNotebookId)) {
-        return apiClient.put<NotebookResponse>(
-            `${NOTEBOOKS_ENDPOINT}/${originalNotebookId}`,
-            request,
-        );
-    }
-
-    if (originalNotebookId && isPendingNotebookId(payload.serverNotebookId)) {
+    if (originalNotebookId) {
         try {
             return await apiClient.put<NotebookResponse>(
                 `${NOTEBOOKS_ENDPOINT}/${originalNotebookId}`,
                 request,
             );
         } catch (error) {
-            if (!isRetryableNotebookSyncError(error)) {
+            if (isNotFoundError(error)) {
+                return apiClient.post<NotebookResponse>(NOTEBOOKS_ENDPOINT, request);
+            }
+
+            if (!isPendingNotebookId(payload.serverNotebookId) || !isRetryableNotebookSyncError(error)) {
                 throw error;
             }
         }
@@ -85,22 +86,23 @@ async function upsertWorkflow(
     request: BackendWorkflowUpsertRequest,
 ) {
     const originalWorkflowId = getOriginalWorkflowId(payload.workflowId);
+    const workflowRequest = toWorkflowRequest(request);
 
-    if (originalWorkflowId && !isPendingWorkflowId(payload.workflowId)) {
-        return apiClient.put<WorkflowResponse>(
-            `${getWorkflowEndpoint(serverNotebookId)}/${originalWorkflowId}`,
-            toWorkflowRequest(request),
-        );
-    }
-
-    if (originalWorkflowId && isPendingWorkflowId(payload.workflowId)) {
+    if (originalWorkflowId) {
         try {
             return await apiClient.put<WorkflowResponse>(
                 `${getWorkflowEndpoint(serverNotebookId)}/${originalWorkflowId}`,
-                toWorkflowRequest(request),
+                workflowRequest,
             );
         } catch (error) {
-            if (!isRetryableNotebookSyncError(error)) {
+            if (isNotFoundError(error)) {
+                return apiClient.post<WorkflowResponse>(
+                    getWorkflowEndpoint(serverNotebookId),
+                    workflowRequest,
+                );
+            }
+
+            if (!isPendingWorkflowId(payload.workflowId) || !isRetryableNotebookSyncError(error)) {
                 throw error;
             }
         }
@@ -108,7 +110,7 @@ async function upsertWorkflow(
 
     return apiClient.post<WorkflowResponse>(
         getWorkflowEndpoint(serverNotebookId),
-        toWorkflowRequest(request),
+        workflowRequest,
     );
 }
 
