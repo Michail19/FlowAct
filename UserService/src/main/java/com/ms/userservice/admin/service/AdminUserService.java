@@ -153,6 +153,7 @@ public class AdminUserService {
         return new AdminUserResponse(
                 user.getId(),
                 user.getEmail(),
+                user.getUsername(),
                 user.getDisplayName(),
                 user.getAvatarUrl(),
                 user.getRole(),
