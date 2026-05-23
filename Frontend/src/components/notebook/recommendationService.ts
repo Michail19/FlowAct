@@ -127,6 +127,20 @@ function getIncomingConnections(payload: NotebookPayloadDto, blockId: string) {
     );
 }
 
+function getSchemaRevision(payload: NotebookPayloadDto) {
+    return `${payload.blocks.length}-${payload.connections.length}`;
+}
+
+function withSchemaRevision(
+    recommendation: NotebookRecommendation,
+    payload: NotebookPayloadDto,
+): NotebookRecommendation {
+    return {
+        ...recommendation,
+        id: `${recommendation.id}:${getSchemaRevision(payload)}`,
+    };
+}
+
 function findFirstDanglingOutputBlock(
     payload: NotebookPayloadDto,
 ): NotebookBlockDto | null {
@@ -289,7 +303,17 @@ export function getBlockAutocompleteRecommendation(
         return null;
     }
 
-    return createNextBlockRecommendation(block);
+    const recommendation = createNextBlockRecommendation(block);
+
+    if (!recommendation) {
+        return null;
+    }
+
+    return {
+        ...recommendation,
+        id: recommendation.id.replace(':next-block:', ':autocomplete:'),
+        kind: 'autocomplete',
+    };
 }
 
 export function getLocalNotebookRecommendations(
@@ -306,7 +330,9 @@ export function getLocalNotebookRecommendations(
         recommendations.push(createMissingStartRecommendation());
         recommendations.push(createMissingEndRecommendation());
 
-        return recommendations.slice(0, limit);
+        return recommendations
+            .map((recommendation) => withSchemaRevision(recommendation, payload))
+            .slice(0, limit);
     }
 
     if (!hasBlockOfType(payload, 'start')) {
@@ -340,6 +366,7 @@ export function getLocalNotebookRecommendations(
     });
 
     return Array.from(uniqueRecommendations.values())
+        .map((recommendation) => withSchemaRevision(recommendation, payload))
         .sort((firstRecommendation, secondRecommendation) => {
             return secondRecommendation.confidence - firstRecommendation.confidence;
         })
