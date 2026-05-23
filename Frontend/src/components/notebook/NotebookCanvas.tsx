@@ -20,6 +20,7 @@ import AiBlockNode from './AiBlockNode';
 import CustomBlockNode from './CustomBlockNode';
 import BlockSettingsModal, { type BlockSettingsPayload } from './BlockSettingsModal';
 import EdgeSettingsModal from './EdgeSettingsModal';
+import { NotebookClipboardShortcutsBridge } from './useNotebookClipboardShortcuts';
 import { getBlockDefinition } from './blockLibrary';
 import type {
     AiBlockConfig,
@@ -1230,6 +1231,12 @@ function NotebookCanvas({
                 zoomOnScroll
                 fitView
             >
+                <NotebookClipboardShortcutsBridge
+                    readonly={readonly}
+                    setNodes={setNodes}
+                    setEdges={setEdges}
+                />
+                
                 <Background />
                 <Controls />
                 {!readonly && (
