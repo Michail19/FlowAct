@@ -6,6 +6,7 @@ import HomePage from './pages/HomePage';
 import NotebookPage from './pages/NotebookPage';
 import AccountPage from './pages/AccountPage';
 import AdminPage from './pages/AdminPage';
+import HelpPage from './pages/HelpPage';
 import { AuthProvider } from './auth/AuthProvider';
 import { ProtectedRoute } from './auth/ProtectedRoute';
 import {
@@ -31,6 +32,7 @@ function App() {
                 <Routes>
                     <Route path="/" element={<Navigate to="/landing" replace />} />
                     <Route path="/landing" element={<LandingPage />} />
+                    <Route path="/help" element={<HelpPage />} />
                     <Route
                         path="/home"
                         element={(
