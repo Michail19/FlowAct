@@ -1,7 +1,7 @@
 import { type FormEvent, useEffect, useState } from 'react';
 
 import NotebookSvgIcon from './NotebookSvgIcon';
-import type { NotebookSearchResult } from './notebookTypes';
+import type { NotebookHistoryAction, NotebookSearchResult } from './notebookTypes';
 import {
     isRedoShortcut,
     isUndoShortcut,
@@ -19,6 +19,14 @@ type NotebookSearchProps = {
     canUndo?: boolean;
     canRedo?: boolean;
 };
+
+const HISTORY_ACTION_EVENT = 'flowact:notebook-history-action';
+
+function requestNotebookHistoryAction(action: NotebookHistoryAction) {
+    window.dispatchEvent(new CustomEvent(HISTORY_ACTION_EVENT, {
+        detail: { action },
+    }));
+}
 
 function getSearchResultText(result?: NotebookSearchResult | null) {
     if (!result) {
@@ -46,6 +54,16 @@ function NotebookSearch({
                         }: NotebookSearchProps) {
     const [query, setQuery] = useState('');
 
+    const requestUndo = () => {
+        requestNotebookHistoryAction('undo');
+        onUndo?.();
+    };
+
+    const requestRedo = () => {
+        requestNotebookHistoryAction('redo');
+        onRedo?.();
+    };
+
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
             if (shouldIgnoreCanvasShortcut(event)) {
@@ -54,22 +72,14 @@ function NotebookSearch({
 
             if (isUndoShortcut(event)) {
                 stopNotebookShortcutEvent(event);
-
-                if (!canUndo) {
-                    return;
-                }
-
+                requestNotebookHistoryAction('undo');
                 onUndo?.();
                 return;
             }
 
             if (isRedoShortcut(event)) {
                 stopNotebookShortcutEvent(event);
-
-                if (!canRedo) {
-                    return;
-                }
-
+                requestNotebookHistoryAction('redo');
                 onRedo?.();
             }
         };
@@ -79,7 +89,7 @@ function NotebookSearch({
         return () => {
             window.removeEventListener('keydown', handleKeyDown, { capture: true });
         };
-    }, [canRedo, canUndo, onRedo, onUndo]);
+    }, [onRedo, onUndo]);
 
     const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -87,6 +97,8 @@ function NotebookSearch({
     };
 
     const resultText = getSearchResultText(result);
+    const canRequestUndo = canUndo || true;
+    const canRequestRedo = canRedo || true;
 
     return (
         <div className="notebook-search">
@@ -128,10 +140,10 @@ function NotebookSearch({
                 <button
                     className="notebook-search__history-button"
                     type="button"
-                    onClick={onUndo}
-                    disabled={!canUndo}
+                    onClick={requestUndo}
+                    disabled={!canRequestUndo}
                     aria-label="Отменить последнее действие"
-                    title={canUndo ? 'Отменить последнее действие (Ctrl+Z)' : 'Нет действий для отмены'}
+                    title="Отменить последнее действие (Ctrl+Z)"
                 >
                     <NotebookSvgIcon name="undo" size={17} />
                 </button>
@@ -139,10 +151,10 @@ function NotebookSearch({
                 <button
                     className="notebook-search__history-button"
                     type="button"
-                    onClick={onRedo}
-                    disabled={!canRedo}
+                    onClick={requestRedo}
+                    disabled={!canRequestRedo}
                     aria-label="Повторить отменённое действие"
-                    title={canRedo ? 'Повторить отменённое действие (Ctrl+Shift+Z / Ctrl+Shift+C / Ctrl+Y)' : 'Нет действий для повтора'}
+                    title="Повторить отменённое действие (Ctrl+Shift+Z / Ctrl+Shift+C / Ctrl+Y)"
                 >
                     <NotebookSvgIcon name="redo" size={17} />
                 </button>
