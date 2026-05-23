@@ -347,8 +347,15 @@ function LandingPage() {
 
                     <div className="landing-page__actions">
                         {isAuthenticated ? (
-                            <Link className="landing-page__login-button" to="/home">
-                                В workspace
+                            <Link
+                                className="landing-page__login-button landing-page__workspace-button"
+                                to="/home"
+                                aria-label="Перейти в workspace"
+                            >
+                                <span className="landing-page__workspace-button-icon" aria-hidden="true">
+                                    ↗
+                                </span>
+                                <span>Workspace</span>
                             </Link>
                         ) : (
                             <>
@@ -524,76 +531,68 @@ function LandingPage() {
                 <section className="landing-tasks" id="tasks" data-reveal="up">
                     <div className="landing-tasks__header">
                         <span className="landing-page__eyebrow">Сценарии</span>
-                        <h2>Для каких задач подходит FlowAct</h2>
+                        <h2>Где FlowAct особенно полезен</h2>
                         <p>
-                            Используйте FlowAct как визуальный редактор и систему запуска
-                            процессов: от простых повторяемых цепочек до сценариев с AI и
-                            интеграциями.
+                            Начните с простого процесса и постепенно усложняйте workflow:
+                            добавляйте условия, внешние сервисы, AI-блоки и логи.
                         </p>
                     </div>
 
                     <div className="landing-tasks__grid">
                         {taskCards.map((task) => (
                             <article className="landing-task-card" key={task.title}>
-                                <span>✓</span>
-                                <div>
-                                    <h3>{task.title}</h3>
-                                    <p>{task.text}</p>
-                                </div>
+                                <h3>{task.title}</h3>
+                                <p>{task.text}</p>
                             </article>
                         ))}
                     </div>
                 </section>
 
-                <section className="landing-cta" data-reveal="scale">
-                    <span className="landing-page__eyebrow">Start building</span>
-                    <h2>Откройте редактор и соберите первый workflow</h2>
+                <section className="landing-cta" data-reveal="up">
+                    <span className="landing-page__eyebrow">Начать</span>
+                    <h2>Соберите первый workflow прямо сейчас</h2>
                     <p>
-                        Создайте notebook, добавьте первые блоки, соедините их в цепочку и
-                        запустите процесс, чтобы увидеть результат выполнения.
+                        Откройте редактор, создайте notebook и проверьте схему на примере
+                        простого процесса.
                     </p>
 
                     <div className="landing-cta__actions">
                         {isAuthenticated ? (
                             <Link className="landing-page__primary-button landing-page__primary-button--large" to="/home">
-                                Перейти к notebook
+                                Перейти в workspace
                             </Link>
                         ) : (
-                            <button
-                                className="landing-page__primary-button landing-page__primary-button--large"
-                                type="button"
-                                onClick={handleStartDemo}
-                                disabled={isDemoStarting}
-                            >
-                                {isDemoStarting ? 'Запуск...' : 'Попробовать demo'}
-                            </button>
-                        )}
+                            <>
+                                <button
+                                    className="landing-page__primary-button landing-page__primary-button--large"
+                                    type="button"
+                                    onClick={handleStartDemo}
+                                    disabled={isDemoStarting}
+                                >
+                                    {isDemoStarting ? 'Запуск...' : 'Попробовать demo'}
+                                </button>
 
-                        {!isAuthenticated && (
-                            <button
-                                className="landing-page__secondary-button"
-                                type="button"
-                                onClick={() => openAuthModal('registration')}
-                            >
-                                Создать аккаунт
-                            </button>
+                                <button
+                                    className="landing-page__secondary-button"
+                                    type="button"
+                                    onClick={() => openAuthModal('login')}
+                                >
+                                    Уже есть аккаунт
+                                </button>
+                            </>
                         )}
                     </div>
                 </section>
 
-                <footer className="landing-footer" data-reveal="up">
-                    <span>FlowAct 2026</span>
-                    <div className="landing-footer__links">
-                        <a href="#features">Возможности</a>
-                        <a href="#how-it-works">Как работает</a>
-                        <Link to={isAuthenticated ? '/home' : '/landing'}>Notebook</Link>
-                    </div>
+                <footer className="landing-footer">
+                    <span>FlowAct</span>
+                    <a href="#about">Наверх</a>
                 </footer>
             </section>
 
             {authModal && !isAuthenticated && (
                 <AuthModal
-                    mode={authModal.mode}
+                    initialMode={authModal.mode}
                     onClose={closeAuthModal}
                     onSwitchMode={switchAuthMode}
                 />
