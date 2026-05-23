@@ -59,23 +59,32 @@ function NotebookSuggestion({
 
     useEffect(() => {
         if (!suggestion || initialSuggestionId) {
-            return;
+            return undefined;
         }
 
-        setInitialSuggestionId(suggestion.id);
-        setIsInitialSuggestionSuppressed(true);
+        const timeoutId = window.setTimeout(() => {
+            setInitialSuggestionId(suggestion.id);
+            setIsInitialSuggestionSuppressed(true);
+        }, 0);
+
+        return () => window.clearTimeout(timeoutId);
     }, [initialSuggestionId, suggestion]);
 
     useEffect(() => {
         if (!suggestion || suggestion.id === initialSuggestionId) {
-            return;
+            return undefined;
         }
 
-        setIsInitialSuggestionSuppressed(false);
+        const timeoutId = window.setTimeout(() => {
+            setIsInitialSuggestionSuppressed(false);
+        }, 0);
+
+        return () => window.clearTimeout(timeoutId);
     }, [initialSuggestionId, suggestion]);
 
     const shouldShowSuggestion = Boolean(
         suggestion &&
+        initialSuggestionId &&
         (
             suggestion.kind === 'autocomplete' ||
             !isInitialSuggestionSuppressed ||
