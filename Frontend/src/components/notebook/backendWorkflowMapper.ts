@@ -720,11 +720,19 @@ function getViewportFromWorkflowMetadata(
     return fallbackPayload?.viewport;
 }
 
-export function fromBackendWorkflowResponse(
-    workflow: WorkflowResponse,
-    notebook: NotebookResponse,
-    fallbackPayload?: NotebookPayloadDto | null,
-): NotebookPayloadDto {
+type FromBackendWorkflowResponseParams = {
+    localNotebookId?: string;
+    workflow: WorkflowResponse;
+    notebook: NotebookResponse;
+    fallbackPayload?: NotebookPayloadDto | null;
+};
+
+export function fromBackendWorkflowResponse({
+    localNotebookId,
+    workflow,
+    notebook,
+    fallbackPayload,
+}: FromBackendWorkflowResponseParams): NotebookPayloadDto {
     const blocks: NotebookBlockDto[] = workflow.blocks.map((block) => {
         const frontendType = getFrontendBlockTypeFromBackendBlock(block);
         const definition = getBlockDefinition(frontendType);
@@ -781,7 +789,7 @@ export function fromBackendWorkflowResponse(
     }));
 
     return {
-        id: fallbackPayload?.id ?? notebook.id,
+        id: localNotebookId ?? fallbackPayload?.id ?? notebook.id,
         serverNotebookId: notebook.id,
         workflowId: workflow.id,
         workflowStatus: workflow.status,
