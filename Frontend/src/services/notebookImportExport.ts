@@ -1,15 +1,31 @@
+import { createElement } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import {
+    Background,
+    ReactFlow,
+    ReactFlowProvider,
+    type Edge,
+    type NodeTypes,
+} from '@xyflow/react';
+
+import AiBlockNode from '../components/notebook/AiBlockNode';
+import CustomBlockNode from '../components/notebook/CustomBlockNode';
+import { fromNotebookPayload } from '../components/notebook/notebookMapper';
 import type {
     NotebookBlockDto,
     NotebookConnectionDto,
     NotebookPayloadDto,
 } from '../components/notebook/notebookBackendTypes';
+import type { NotebookNode } from '../components/notebook/notebookTypes';
 import { saveNotebookLocally } from './notebookStorage';
+
+import '@xyflow/react/dist/style.css';
 
 const EXPORT_SCHEMA = 'flowact.notebook.export';
 const EXPORT_VERSION = 1;
 const PNG_WIDTH = 1600;
 const PNG_HEIGHT = 1000;
-const PNG_PADDING = 96;
+const RENDER_WAIT_MS = 260;
 
 type NotebookExportPayload = {
     schema: typeof EXPORT_SCHEMA;
@@ -18,26 +34,9 @@ type NotebookExportPayload = {
     notebook: NotebookPayloadDto;
 };
 
-type NormalizedBounds = {
-    minX: number;
-    minY: number;
-    scale: number;
-    offsetX: number;
-    offsetY: number;
-};
-
-const blockColors: Record<string, string> = {
-    start: '#22c55e',
-    end: '#ef4444',
-    ai: '#22d3ee',
-    condition: '#facc15',
-    action: '#fb7185',
-    database: '#60a5fa',
-    email: '#a78bfa',
-    log: '#94a3b8',
-    http: '#38bdf8',
-    loop: '#f97316',
-    merge: '#14b8a6',
+const exportNodeTypes: NodeTypes = {
+    customBlock: CustomBlockNode,
+    aiBlock: AiBlockNode,
 };
 
 function sanitizeFileName(value: string) {
@@ -141,177 +140,196 @@ function readNotebookFromUnknown(value: unknown): NotebookPayloadDto {
     };
 }
 
-function getBlockSize(block: NotebookBlockDto) {
-    return {
-        width: block.type === 'ai' ? 230 : 180,
-        height: block.type === 'condition' ? 82 : 72,
-    };
+function waitForReactFlowRender() {
+    return new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                window.setTimeout(resolve, RENDER_WAIT_MS);
+            });
+        });
+    });
 }
 
-function getBlockCenter(block: NotebookBlockDto, bounds: NormalizedBounds) {
-    const size = getBlockSize(block);
+function createOffscreenContainer() {
+    const host = document.createElement('div');
 
-    return {
-        x: bounds.offsetX + (block.position.x - bounds.minX) * bounds.scale + size.width * bounds.scale / 2,
-        y: bounds.offsetY + (block.position.y - bounds.minY) * bounds.scale + size.height * bounds.scale / 2,
-    };
+    host.className = 'flowact-png-export-host';
+    host.style.position = 'fixed';
+    host.style.left = '-100000px';
+    host.style.top = '0';
+    host.style.width = `${PNG_WIDTH}px`;
+    host.style.height = `${PNG_HEIGHT}px`;
+    host.style.overflow = 'hidden';
+    host.style.pointerEvents = 'none';
+    host.style.background = '#f8fafc';
+
+    document.body.append(host);
+
+    return host;
 }
 
-function calculateBounds(blocks: NotebookBlockDto[]): NormalizedBounds {
-    if (blocks.length === 0) {
-        return {
-            minX: 0,
-            minY: 0,
-            scale: 1,
-            offsetX: PNG_PADDING,
-            offsetY: PNG_PADDING,
-        };
+function prepareExportNodes(nodes: NotebookNode[]): NotebookNode[] {
+    return nodes.map((node) => ({
+        ...node,
+        selected: false,
+        draggable: false,
+        selectable: false,
+        data: {
+            ...node.data,
+            status: node.data.status ?? 'idle',
+            canAutocomplete: false,
+        },
+    }));
+}
+
+function prepareExportEdges(edges: Edge[]): Edge[] {
+    return edges.map((edge) => ({
+        ...edge,
+        selected: false,
+        selectable: false,
+        animated: false,
+    }));
+}
+
+function renderHiddenReactFlow(payload: NotebookPayloadDto, host: HTMLElement): Root {
+    const { nodes, edges } = fromNotebookPayload(payload);
+    const exportNodes = prepareExportNodes(nodes);
+    const exportEdges = prepareExportEdges(edges);
+    const root = createRoot(host);
+
+    root.render(
+        createElement(
+            ReactFlowProvider,
+            null,
+            createElement(
+                'div',
+                {
+                    className: 'flowact-png-export-frame',
+                    style: {
+                        width: `${PNG_WIDTH}px`,
+                        height: `${PNG_HEIGHT}px`,
+                        background: '#f8fafc',
+                    },
+                },
+                createElement(
+                    ReactFlow,
+                    {
+                        nodes: exportNodes,
+                        edges: exportEdges,
+                        nodeTypes: exportNodeTypes,
+                        fitView: true,
+                        fitViewOptions: {
+                            padding: 0.18,
+                            minZoom: 0.12,
+                            maxZoom: 1.25,
+                        },
+                        nodesDraggable: false,
+                        nodesConnectable: false,
+                        elementsSelectable: false,
+                        panOnDrag: false,
+                        zoomOnScroll: false,
+                        zoomOnPinch: false,
+                        zoomOnDoubleClick: false,
+                        preventScrolling: false,
+                        proOptions: {
+                            hideAttribution: true,
+                        },
+                    },
+                    createElement(Background, {
+                        color: '#cbd5e1',
+                        gap: 18,
+                        size: 1.4,
+                    }),
+                ),
+            ),
+        ),
+    );
+
+    return root;
+}
+
+function inlineComputedStyles(source: Element, target: Element) {
+    const computedStyle = window.getComputedStyle(source);
+    let cssText = '';
+
+    for (let index = 0; index < computedStyle.length; index += 1) {
+        const propertyName = computedStyle.item(index);
+
+        cssText += `${propertyName}:${computedStyle.getPropertyValue(propertyName)};`;
     }
 
-    const minX = Math.min(...blocks.map((block) => block.position.x));
-    const minY = Math.min(...blocks.map((block) => block.position.y));
-    const maxX = Math.max(...blocks.map((block) => block.position.x + getBlockSize(block).width));
-    const maxY = Math.max(...blocks.map((block) => block.position.y + getBlockSize(block).height));
-    const width = Math.max(maxX - minX, 1);
-    const height = Math.max(maxY - minY, 1);
-    const availableWidth = PNG_WIDTH - PNG_PADDING * 2;
-    const availableHeight = PNG_HEIGHT - PNG_PADDING * 2;
-    const scale = Math.min(1.35, availableWidth / width, availableHeight / height);
+    target.setAttribute('style', cssText);
 
-    return {
-        minX,
-        minY,
-        scale,
-        offsetX: (PNG_WIDTH - width * scale) / 2,
-        offsetY: (PNG_HEIGHT - height * scale) / 2 + 20,
-    };
-}
+    Array.from(source.children).forEach((child, index) => {
+        const targetChild = target.children.item(index);
 
-function roundRect(
-    context: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-    radius: number,
-) {
-    context.beginPath();
-    context.moveTo(x + radius, y);
-    context.lineTo(x + width - radius, y);
-    context.quadraticCurveTo(x + width, y, x + width, y + radius);
-    context.lineTo(x + width, y + height - radius);
-    context.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-    context.lineTo(x + radius, y + height);
-    context.quadraticCurveTo(x, y + height, x, y + height - radius);
-    context.lineTo(x, y + radius);
-    context.quadraticCurveTo(x, y, x + radius, y);
-    context.closePath();
-}
-
-function drawConnections(
-    context: CanvasRenderingContext2D,
-    payload: NotebookPayloadDto,
-    bounds: NormalizedBounds,
-) {
-    const blocksById = new Map(payload.blocks.map((block) => [block.id, block]));
-
-    context.save();
-    context.strokeStyle = '#64748b';
-    context.lineWidth = 4;
-    context.lineCap = 'round';
-
-    payload.connections.forEach((connection) => {
-        const source = blocksById.get(connection.sourceBlockId);
-        const target = blocksById.get(connection.targetBlockId);
-
-        if (!source || !target) {
-            return;
+        if (targetChild) {
+            inlineComputedStyles(child, targetChild);
         }
+    });
+}
 
-        const sourceSize = getBlockSize(source);
-        const targetSize = getBlockSize(target);
-        const start = {
-            x: bounds.offsetX + (source.position.x - bounds.minX + sourceSize.width) * bounds.scale,
-            y: bounds.offsetY + (source.position.y - bounds.minY + sourceSize.height / 2) * bounds.scale,
-        };
-        const end = {
-            x: bounds.offsetX + (target.position.x - bounds.minX) * bounds.scale,
-            y: bounds.offsetY + (target.position.y - bounds.minY + targetSize.height / 2) * bounds.scale,
-        };
-        const controlOffset = Math.max(80, Math.abs(end.x - start.x) * 0.45);
+function createCanvasFromForeignObject(element: HTMLElement) {
+    const clonedElement = element.cloneNode(true) as HTMLElement;
 
-        context.beginPath();
-        context.moveTo(start.x, start.y);
-        context.bezierCurveTo(
-            start.x + controlOffset,
-            start.y,
-            end.x - controlOffset,
-            end.y,
-            end.x,
-            end.y,
-        );
-        context.stroke();
+    inlineComputedStyles(element, clonedElement);
+    clonedElement.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
 
-        if (connection.label) {
-            const labelX = (start.x + end.x) / 2;
-            const labelY = (start.y + end.y) / 2 - 10;
+    const serializedElement = new XMLSerializer().serializeToString(clonedElement);
+    const svgContent = [
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${PNG_WIDTH}" height="${PNG_HEIGHT}">`,
+        `<foreignObject width="100%" height="100%">${serializedElement}</foreignObject>`,
+        '</svg>',
+    ].join('');
 
+    const svgBlob = new Blob([svgContent], {
+        type: 'image/svg+xml;charset=utf-8',
+    });
+    const svgUrl = URL.createObjectURL(svgBlob);
+
+    return new Promise<HTMLCanvasElement>((resolve, reject) => {
+        const image = new Image();
+
+        image.onload = () => {
+            URL.revokeObjectURL(svgUrl);
+
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+
+            if (!context) {
+                reject(new Error('Не удалось подготовить canvas для PNG-экспорта.'));
+                return;
+            }
+
+            canvas.width = PNG_WIDTH;
+            canvas.height = PNG_HEIGHT;
             context.fillStyle = '#f8fafc';
-            roundRect(context, labelX - 24, labelY - 15, 48, 28, 14);
-            context.fill();
-            context.fillStyle = '#0f172a';
-            context.font = '700 18px Arial, sans-serif';
-            context.textAlign = 'center';
-            context.fillText(connection.label, labelX, labelY + 6);
-        }
-    });
+            context.fillRect(0, 0, PNG_WIDTH, PNG_HEIGHT);
+            context.drawImage(image, 0, 0, PNG_WIDTH, PNG_HEIGHT);
+            resolve(canvas);
+        };
 
-    context.restore();
-}
+        image.onerror = () => {
+            URL.revokeObjectURL(svgUrl);
+            reject(new Error('Не удалось отрисовать notebook canvas в PNG.'));
+        };
 
-function drawBlocks(
-    context: CanvasRenderingContext2D,
-    payload: NotebookPayloadDto,
-    bounds: NormalizedBounds,
-) {
-    payload.blocks.forEach((block) => {
-        const size = getBlockSize(block);
-        const x = bounds.offsetX + (block.position.x - bounds.minX) * bounds.scale;
-        const y = bounds.offsetY + (block.position.y - bounds.minY) * bounds.scale;
-        const width = size.width * bounds.scale;
-        const height = size.height * bounds.scale;
-        const color = blockColors[block.type] ?? '#334155';
-
-        context.save();
-        context.shadowColor = 'rgba(15, 23, 42, 0.22)';
-        context.shadowBlur = 20;
-        context.shadowOffsetY = 8;
-        context.fillStyle = color;
-        roundRect(context, x, y, width, height, Math.min(24, height / 2));
-        context.fill();
-        context.shadowColor = 'transparent';
-
-        context.fillStyle = block.type === 'condition' ? '#111827' : '#ffffff';
-        context.textAlign = 'center';
-        context.textBaseline = 'middle';
-        context.font = `${Math.max(18, 22 * bounds.scale)}px Arial, sans-serif`;
-        context.fillText(block.title || block.type, x + width / 2, y + height / 2 - 6);
-
-        if (block.subtitle) {
-            context.globalAlpha = 0.82;
-            context.font = `${Math.max(12, 13 * bounds.scale)}px Arial, sans-serif`;
-            context.fillText(block.subtitle, x + width / 2, y + height / 2 + 18);
-        }
-
-        context.restore();
+        image.src = svgUrl;
     });
 }
 
-function drawEmptyState(context: CanvasRenderingContext2D) {
-    context.fillStyle = '#64748b';
-    context.font = '600 36px Arial, sans-serif';
-    context.textAlign = 'center';
-    context.fillText('Notebook пока пуст', PNG_WIDTH / 2, PNG_HEIGHT / 2);
+function downloadCanvasAsPng(canvas: HTMLCanvasElement, fileName: string) {
+    return new Promise<void>((resolve, reject) => {
+        canvas.toBlob((blob) => {
+            if (!blob) {
+                reject(new Error('Не удалось сформировать PNG-файл.'));
+                return;
+            }
+
+            downloadBlob(blob, fileName);
+            resolve();
+        }, 'image/png');
+    });
 }
 
 export function exportNotebookAsJson(payload: NotebookPayloadDto) {
@@ -329,45 +347,25 @@ export function exportNotebookAsJson(payload: NotebookPayloadDto) {
 }
 
 export async function exportNotebookAsPng(payload: NotebookPayloadDto) {
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
+    const host = createOffscreenContainer();
+    const root = renderHiddenReactFlow(payload, host);
 
-    if (!context) {
-        throw new Error('Не удалось подготовить canvas для экспорта PNG.');
+    try {
+        await waitForReactFlowRender();
+
+        const exportElement = host.querySelector<HTMLElement>('.flowact-png-export-frame');
+
+        if (!exportElement) {
+            throw new Error('Не удалось найти отрисованный ReactFlow canvas для PNG-экспорта.');
+        }
+
+        const canvas = await createCanvasFromForeignObject(exportElement);
+
+        await downloadCanvasAsPng(canvas, `${sanitizeFileName(payload.title)}.png`);
+    } finally {
+        root.unmount();
+        host.remove();
     }
-
-    canvas.width = PNG_WIDTH;
-    canvas.height = PNG_HEIGHT;
-
-    context.fillStyle = '#f8fafc';
-    context.fillRect(0, 0, PNG_WIDTH, PNG_HEIGHT);
-    context.fillStyle = '#0f172a';
-    context.font = '800 44px Arial, sans-serif';
-    context.fillText(payload.title || 'FlowAct notebook', PNG_PADDING, 70);
-    context.fillStyle = '#64748b';
-    context.font = '20px Arial, sans-serif';
-    context.fillText(`Экспортировано ${new Date().toLocaleString('ru-RU')}`, PNG_PADDING, 104);
-
-    const bounds = calculateBounds(payload.blocks);
-
-    if (payload.blocks.length === 0) {
-        drawEmptyState(context);
-    } else {
-        drawConnections(context, payload, bounds);
-        drawBlocks(context, payload, bounds);
-    }
-
-    await new Promise<void>((resolve, reject) => {
-        canvas.toBlob((blob) => {
-            if (!blob) {
-                reject(new Error('Не удалось сформировать PNG-файл.'));
-                return;
-            }
-
-            downloadBlob(blob, `${sanitizeFileName(payload.title)}.png`);
-            resolve();
-        }, 'image/png');
-    });
 }
 
 export async function importNotebookFromJsonFile(file: File): Promise<NotebookPayloadDto> {
