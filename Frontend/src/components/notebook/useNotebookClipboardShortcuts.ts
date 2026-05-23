@@ -27,6 +27,8 @@ const PASTE_OFFSET = 48;
 const CLIPBOARD_STORAGE_KEY = 'flowact-notebook-clipboard';
 
 let memoryClipboard: NotebookClipboardData | null = null;
+let clipboardShortcutRegistrationCounter = 0;
+let activeClipboardShortcutRegistrationId = 0;
 
 function cloneValue<T>(value: T): T {
     if (typeof structuredClone === 'function') {
@@ -175,13 +177,24 @@ function createPastedElements(params: {
 export function useNotebookClipboardShortcuts(readonly: boolean) {
     const reactFlow = useReactFlow<NotebookNode, Edge>();
     const reactFlowRef = useRef(reactFlow);
+    const registrationIdRef = useRef(0);
 
     useEffect(() => {
         reactFlowRef.current = reactFlow;
     }, [reactFlow]);
 
     useEffect(() => {
+        clipboardShortcutRegistrationCounter += 1;
+        const registrationId = clipboardShortcutRegistrationCounter;
+
+        registrationIdRef.current = registrationId;
+        activeClipboardShortcutRegistrationId = registrationId;
+
         const handleKeyDown = (event: KeyboardEvent) => {
+            if (registrationIdRef.current !== activeClipboardShortcutRegistrationId) {
+                return;
+            }
+
             if (readonly || shouldIgnoreCanvasShortcut(event)) {
                 return;
             }
@@ -256,6 +269,10 @@ export function useNotebookClipboardShortcuts(readonly: boolean) {
 
         return () => {
             window.removeEventListener('keydown', handleKeyDown, { capture: true });
+
+            if (activeClipboardShortcutRegistrationId === registrationId) {
+                activeClipboardShortcutRegistrationId = 0;
+            }
         };
     }, [readonly]);
 }
