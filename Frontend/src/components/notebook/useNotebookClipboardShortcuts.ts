@@ -23,6 +23,14 @@ type NotebookClipboardData = {
     copiedAt: number;
 };
 
+type NotebookStateUpdater<T> = (updater: (currentValue: T[]) => T[]) => void;
+
+type NotebookClipboardShortcutOptions = {
+    readonly: boolean;
+    setNodes: NotebookStateUpdater<NotebookNode>;
+    setEdges: NotebookStateUpdater<Edge>;
+};
+
 const PASTE_OFFSET = 48;
 const CLIPBOARD_STORAGE_KEY = 'flowact-notebook-clipboard';
 
@@ -173,7 +181,11 @@ function createPastedElements(params: {
     };
 }
 
-export function useNotebookClipboardShortcuts(readonly: boolean) {
+function useNotebookClipboardShortcuts({
+    readonly,
+    setNodes,
+    setEdges,
+}: NotebookClipboardShortcutOptions) {
     const reactFlow = useReactFlow<NotebookNode, Edge>();
     const reactFlowRef = useRef(reactFlow);
     const registrationIdRef = useRef(0);
@@ -221,10 +233,10 @@ export function useNotebookClipboardShortcuts(readonly: boolean) {
                 if (isCutShortcut(event)) {
                     const cutNodeIds = new Set(clipboard.nodes.map((node) => node.id));
 
-                    instance.setNodes((currentNodes) =>
+                    setNodes((currentNodes) =>
                         currentNodes.filter((node) => !cutNodeIds.has(node.id)),
                     );
-                    instance.setEdges((currentEdges) =>
+                    setEdges((currentEdges) =>
                         currentEdges.filter(
                             (edge) =>
                                 !cutNodeIds.has(edge.source) &&
@@ -248,14 +260,14 @@ export function useNotebookClipboardShortcuts(readonly: boolean) {
                 copyIndex,
             });
 
-            instance.setNodes((currentNodes) => [
+            setNodes((currentNodes) => [
                 ...currentNodes.map((node) => ({
                     ...node,
                     selected: false,
                 })),
                 ...pastedNodes,
             ]);
-            instance.setEdges((currentEdges) => [
+            setEdges((currentEdges) => [
                 ...currentEdges.map((edge) => ({
                     ...edge,
                     selected: false,
@@ -273,5 +285,13 @@ export function useNotebookClipboardShortcuts(readonly: boolean) {
                 activeClipboardShortcutRegistrationId = 0;
             }
         };
-    }, [readonly]);
+    }, [readonly, setEdges, setNodes]);
+}
+
+export function NotebookClipboardShortcutsBridge(
+    props: NotebookClipboardShortcutOptions,
+) {
+    useNotebookClipboardShortcuts(props);
+
+    return null;
 }
