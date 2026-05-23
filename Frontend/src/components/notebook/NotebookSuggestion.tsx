@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { getBlockDefinition } from './blockLibrary';
 import type { NotebookRecommendation } from './recommendationTypes';
@@ -52,34 +52,34 @@ function NotebookSuggestion({
                                 onAccept,
                                 onDismiss,
                             }: NotebookSuggestionProps) {
-    const initialSuggestionIdRef = useRef<string | null>(null);
+    const [initialSuggestionId, setInitialSuggestionId] = useState<string | null>(null);
     const [isEnabled, setIsEnabled] = useState(getInitialVisibility);
     const [isInitialSuggestionSuppressed, setIsInitialSuggestionSuppressed] =
         useState(false);
 
     useEffect(() => {
-        if (!suggestion || initialSuggestionIdRef.current) {
+        if (!suggestion || initialSuggestionId) {
             return;
         }
 
-        initialSuggestionIdRef.current = suggestion.id;
+        setInitialSuggestionId(suggestion.id);
         setIsInitialSuggestionSuppressed(true);
-    }, [suggestion]);
+    }, [initialSuggestionId, suggestion]);
 
     useEffect(() => {
-        if (!suggestion || suggestion.id === initialSuggestionIdRef.current) {
+        if (!suggestion || suggestion.id === initialSuggestionId) {
             return;
         }
 
         setIsInitialSuggestionSuppressed(false);
-    }, [suggestion]);
+    }, [initialSuggestionId, suggestion]);
 
     const shouldShowSuggestion = Boolean(
         suggestion &&
         (
             suggestion.kind === 'autocomplete' ||
             !isInitialSuggestionSuppressed ||
-            suggestion.id !== initialSuggestionIdRef.current
+            suggestion.id !== initialSuggestionId
         ),
     );
 
