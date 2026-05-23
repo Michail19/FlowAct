@@ -351,8 +351,8 @@
 .home-page__card-actions {
     position: absolute;
     z-index: 20;
-    top: 22px;
-    left: 50%;
+    top: 8px;
+    left: 65%;
     display: flex;
     width: max-content;
     max-width: calc(100% - 24px);
