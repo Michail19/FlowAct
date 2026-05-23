@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { getBlockDefinition } from './blockLibrary';
 import type { NotebookRecommendation } from './recommendationTypes';
@@ -31,6 +31,10 @@ function getSuggestionTitle(suggestion: NotebookRecommendation) {
         return 'Подсказка по схеме';
     }
 
+    if (suggestion.kind === 'autocomplete') {
+        return 'Автодополнение блока';
+    }
+
     return 'Умная подсказка';
 }
 
@@ -48,9 +52,62 @@ function NotebookSuggestion({
                                 onAccept,
                                 onDismiss,
                             }: NotebookSuggestionProps) {
+    const initialSuggestionIdRef = useRef<string | null>(null);
     const [isEnabled, setIsEnabled] = useState(getInitialVisibility);
+    const [isInitialSuggestionSuppressed, setIsInitialSuggestionSuppressed] =
+        useState(false);
 
-    if (!isEnabled || !suggestion) {
+    useEffect(() => {
+        if (!suggestion || initialSuggestionIdRef.current) {
+            return;
+        }
+
+        initialSuggestionIdRef.current = suggestion.id;
+        setIsInitialSuggestionSuppressed(true);
+    }, [suggestion]);
+
+    useEffect(() => {
+        if (!suggestion || suggestion.id === initialSuggestionIdRef.current) {
+            return;
+        }
+
+        setIsInitialSuggestionSuppressed(false);
+    }, [suggestion]);
+
+    const shouldShowSuggestion = Boolean(
+        suggestion &&
+        (
+            suggestion.kind === 'autocomplete' ||
+            !isInitialSuggestionSuppressed ||
+            suggestion.id !== initialSuggestionIdRef.current
+        ),
+    );
+
+    const className = isMobile
+        ? 'notebook-suggestion notebook-suggestion--mobile'
+        : 'notebook-suggestion';
+
+    if (!isEnabled) {
+        return suggestion ? (
+            <button
+                className={
+                    isMobile
+                        ? 'notebook-suggestion-toggle notebook-suggestion-toggle--mobile'
+                        : 'notebook-suggestion-toggle'
+                }
+                type="button"
+                onClick={() => {
+                    localStorage.removeItem(STORAGE_KEY);
+                    setIsEnabled(true);
+                    setIsInitialSuggestionSuppressed(false);
+                }}
+            >
+                Включить AI-подсказки
+            </button>
+        ) : null;
+    }
+
+    if (!suggestion || !shouldShowSuggestion) {
         return null;
     }
 
@@ -69,10 +126,6 @@ function NotebookSuggestion({
         localStorage.setItem(STORAGE_KEY, 'true');
         setIsEnabled(false);
     };
-
-    const className = isMobile
-        ? 'notebook-suggestion notebook-suggestion--mobile'
-        : 'notebook-suggestion';
 
     return (
         <aside className={className}>
