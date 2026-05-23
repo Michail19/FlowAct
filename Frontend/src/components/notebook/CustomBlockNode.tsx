@@ -3,7 +3,6 @@ import { Handle, Position, type NodeProps } from '@xyflow/react';
 import type { NotebookBlockStatus, NotebookNode } from './notebookTypes';
 import NotebookSvgIcon from './NotebookSvgIcon';
 import type { NotebookSvgIconName } from './notebookSvgIconTypes';
-import { useNotebookClipboardShortcuts } from './useNotebookClipboardShortcuts';
 
 import './CustomBlockNode.css';
 
@@ -75,8 +74,6 @@ function stopReactFlowEvent(event: React.SyntheticEvent) {
 }
 
 function CustomBlockNode({ id, data, selected }: NodeProps<NotebookNode>) {
-    useNotebookClipboardShortcuts(false);
-
     const status = data.status ?? 'idle';
     const isCondition = data.blockType === 'condition';
 
