@@ -6,7 +6,11 @@ import type { NotebookZoomValue } from './notebookTypes';
 import type { WorkflowStatus } from '../../services/workflowApiTypes';
 import NotebookSvgIcon from './NotebookSvgIcon';
 import {
+    isPrimaryShortcut,
+    isRedoShortcut,
     isSaveShortcut,
+    isShortcutKey,
+    isUndoShortcut,
     shouldIgnoreCanvasShortcut,
     stopNotebookShortcutEvent,
 } from './keyboardShortcutUtils';
@@ -62,6 +66,16 @@ function getWorkflowStatusLabel(status?: WorkflowStatus | null, isDemoMode = fal
     }
 }
 
+function clickNotebookButton(selectors: string[]) {
+    const button = selectors
+        .map((selector) => document.querySelector<HTMLButtonElement>(selector))
+        .find((element) => element && !element.disabled);
+
+    button?.click();
+
+    return Boolean(button);
+}
+
 function NotebookHeader({
                             isMobile,
                             title,
@@ -85,17 +99,79 @@ function NotebookHeader({
 
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
-            if (!isSaveShortcut(event)) {
+            if (shouldIgnoreCanvasShortcut(event)) {
                 return;
             }
 
-            stopNotebookShortcutEvent(event);
+            if (isSaveShortcut(event)) {
+                stopNotebookShortcutEvent(event);
 
-            if (isDemoNotebook || shouldIgnoreCanvasShortcut(event) || isSaving) {
+                if (isDemoNotebook || isSaving) {
+                    return;
+                }
+
+                onSave?.();
                 return;
             }
 
-            onSave?.();
+            if (isUndoShortcut(event)) {
+                stopNotebookShortcutEvent(event);
+                clickNotebookButton([
+                    '[aria-label="Отменить последнее действие"]',
+                    '[title^="Отменить последнее действие"]',
+                ]);
+                return;
+            }
+
+            if (isRedoShortcut(event)) {
+                stopNotebookShortcutEvent(event);
+                clickNotebookButton([
+                    '[aria-label="Повторить отменённое действие"]',
+                    '[title^="Повторить отменённое действие"]',
+                ]);
+                return;
+            }
+
+            if (!isPrimaryShortcut(event)) {
+                return;
+            }
+
+            if (isShortcutKey(event, 'Enter')) {
+                stopNotebookShortcutEvent(event);
+                clickNotebookButton([
+                    '[aria-label="Запустить рабочий процесс"]',
+                    '[title^="Запустить рабочий процесс"]',
+                ]);
+                return;
+            }
+
+            if (event.shiftKey && isShortcutKey(event, 'a')) {
+                stopNotebookShortcutEvent(event);
+                clickNotebookButton([
+                    '[aria-label="Автосборка схемы (Ctrl+Shift+A)"]',
+                    '[title^="Автосборка схемы"]',
+                ]);
+                return;
+            }
+
+            if (event.shiftKey && isShortcutKey(event, 'v')) {
+                stopNotebookShortcutEvent(event);
+                clickNotebookButton([
+                    '[aria-label="Проверить схему (Ctrl+Shift+V)"]',
+                    '[title^="Проверить схему"]',
+                    '.notebook-mobile-actions__result:nth-of-type(2)',
+                ]);
+                return;
+            }
+
+            if (event.shiftKey && isShortcutKey(event, 'l')) {
+                stopNotebookShortcutEvent(event);
+                clickNotebookButton([
+                    '[aria-label="Показать логи выполнения (Ctrl+Shift+L)"]',
+                    '[title^="Показать логи выполнения"]',
+                    '.notebook-mobile-actions__result:nth-of-type(3)',
+                ]);
+            }
         };
 
         window.addEventListener('keydown', handleKeyDown, { capture: true });
