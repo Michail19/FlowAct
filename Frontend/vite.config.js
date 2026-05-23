@@ -24,6 +24,10 @@ export default defineConfig(({ mode }) => {
           target: userApiProxyTarget,
           changeOrigin: true,
         },
+        '/api/v1/admin': {
+          target: userApiProxyTarget,
+          changeOrigin: true,
+        },
         '/api': {
           target: executionApiProxyTarget,
           changeOrigin: true,
