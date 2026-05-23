@@ -127,6 +127,126 @@ function getIncomingConnections(payload: NotebookPayloadDto, blockId: string) {
     );
 }
 
+function getSchemaRevision(payload: NotebookPayloadDto) {
+    return `${payload.blocks.length}-${payload.connections.length}`;
+}
+
+function withSchemaRevision(
+    recommendation: NotebookRecommendation,
+    payload: NotebookPayloadDto,
+): NotebookRecommendation {
+    return {
+        ...recommendation,
+        id: `${recommendation.id}:${getSchemaRevision(payload)}`,
+    };
+}
+
+function getReachableBlockIds(startBlockId: string, payload: NotebookPayloadDto) {
+    const reachableBlockIds = new Set<string>();
+    const stack = [startBlockId];
+
+    while (stack.length > 0) {
+        const currentBlockId = stack.pop();
+
+        if (!currentBlockId || reachableBlockIds.has(currentBlockId)) {
+            continue;
+        }
+
+        reachableBlockIds.add(currentBlockId);
+
+        getOutgoingConnections(payload, currentBlockId).forEach((connection) => {
+            stack.push(connection.targetBlockId);
+        });
+    }
+
+    return reachableBlockIds;
+}
+
+function getBlockIdsThatCanReachEnd(payload: NotebookPayloadDto) {
+    const endBlockIds = payload.blocks
+        .filter((block) => block.type === 'end')
+        .map((block) => block.id);
+    const reachableBlockIds = new Set<string>();
+    const stack = [...endBlockIds];
+
+    while (stack.length > 0) {
+        const currentBlockId = stack.pop();
+
+        if (!currentBlockId || reachableBlockIds.has(currentBlockId)) {
+            continue;
+        }
+
+        reachableBlockIds.add(currentBlockId);
+
+        getIncomingConnections(payload, currentBlockId).forEach((connection) => {
+            stack.push(connection.sourceBlockId);
+        });
+    }
+
+    return reachableBlockIds;
+}
+
+export function hasNotebookTopologyGaps(
+    payload: NotebookPayloadDto | null | undefined,
+) {
+    if (!payload || payload.blocks.length === 0) {
+        return true;
+    }
+
+    const blockIds = new Set(payload.blocks.map((block) => block.id));
+    const hasInvalidConnection = payload.connections.some(
+        (connection) =>
+            !blockIds.has(connection.sourceBlockId) ||
+            !blockIds.has(connection.targetBlockId) ||
+            connection.sourceBlockId === connection.targetBlockId,
+    );
+
+    if (hasInvalidConnection) {
+        return true;
+    }
+
+    const startBlocks = payload.blocks.filter((block) => block.type === 'start');
+    const endBlocks = payload.blocks.filter((block) => block.type === 'end');
+
+    if (startBlocks.length !== 1 || endBlocks.length === 0) {
+        return true;
+    }
+
+    const hasDanglingInput = payload.blocks.some((block) => {
+        if (block.type === 'start') {
+            return false;
+        }
+
+        return getIncomingConnections(payload, block.id).length === 0;
+    });
+
+    if (hasDanglingInput) {
+        return true;
+    }
+
+    const hasDanglingOutput = payload.blocks.some((block) => {
+        if (block.type === 'end') {
+            return false;
+        }
+
+        return getOutgoingConnections(payload, block.id).length === 0;
+    });
+
+    if (hasDanglingOutput) {
+        return true;
+    }
+
+    const reachableFromStart = getReachableBlockIds(startBlocks[0].id, payload);
+
+    if (payload.blocks.some((block) => !reachableFromStart.has(block.id))) {
+        return true;
+    }
+
+    const canReachEnd = getBlockIdsThatCanReachEnd(payload);
+
+    return payload.blocks.some((block) => !canReachEnd.has(block.id));
+}
+
 function findFirstDanglingOutputBlock(
     payload: NotebookPayloadDto,
 ): NotebookBlockDto | null {
@@ -289,7 +409,17 @@ export function getBlockAutocompleteRecommendation(
         return null;
     }
 
-    return createNextBlockRecommendation(block);
+    const recommendation = createNextBlockRecommendation(block);
+
+    if (!recommendation) {
+        return null;
+    }
+
+    return {
+        ...recommendation,
+        id: recommendation.id.replace(':next-block:', ':autocomplete:'),
+        kind: 'autocomplete',
+    };
 }
 
 export function getLocalNotebookRecommendations(
@@ -306,7 +436,13 @@ export function getLocalNotebookRecommendations(
         recommendations.push(createMissingStartRecommendation());
         recommendations.push(createMissingEndRecommendation());
 
-        return recommendations.slice(0, limit);
+        return recommendations
+            .map((recommendation) => withSchemaRevision(recommendation, payload))
+            .slice(0, limit);
+    }
+
+    if (!hasNotebookTopologyGaps(payload)) {
+        return [];
     }
 
     if (!hasBlockOfType(payload, 'start')) {
@@ -340,6 +476,7 @@ export function getLocalNotebookRecommendations(
     });
 
     return Array.from(uniqueRecommendations.values())
+        .map((recommendation) => withSchemaRevision(recommendation, payload))
         .sort((firstRecommendation, secondRecommendation) => {
             return secondRecommendation.confidence - firstRecommendation.confidence;
         })

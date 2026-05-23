@@ -32,13 +32,16 @@ public class UserEntity extends BaseEntity {
     @Column(name = "email", nullable = false, length = 320)
     private String email;
 
+    @Column(name = "username", length = 64)
+    private String username;
+
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
 
     @Column(name = "display_name", length = 255)
     private String displayName;
 
-    @Column(name = "avatar_url")
+    @Column(name = "avatar_url", columnDefinition = "text")
     private String avatarUrl;
 
     @Enumerated(EnumType.STRING)

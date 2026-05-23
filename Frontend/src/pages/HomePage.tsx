@@ -9,6 +9,11 @@ import {
     saveNotebookLocally,
     type NotebookListItem,
 } from '../services/notebookStorage';
+import {
+    exportNotebookAsJson,
+    exportNotebookAsPng,
+    importNotebookFromJsonFile,
+} from '../services/notebookImportExport';
 import { notebookApi, type NotebookResponse } from '../services/notebookApi';
 import { workflowApi } from '../services/workflowApi';
 import { fromBackendWorkflowResponse } from '../components/notebook/backendWorkflowMapper';
@@ -17,6 +22,8 @@ import type { WorkflowResponse } from '../services/workflowApiTypes';
 import NotebookSvgIcon from '../components/notebook/NotebookSvgIcon';
 import { UserAvatar } from '../components/user/UserAvatar';
 import { useAuth } from '../auth/useAuth';
+import { getAuthSession } from '../auth/authSession';
+import { devLogger } from '../utils/devLogger';
 
 import './HomePage.css';
 import './HomeAuthUx.css';
@@ -183,6 +190,7 @@ function HomePage() {
     const navigate = useNavigate();
     const { user, logout } = useAuth();
 
+    const importInputRef = useRef<HTMLInputElement | null>(null);
     const deletedLocalNotebookIdsRef = useRef<Set<string>>(new Set());
     const deletedServerNotebookIdsRef = useRef<Set<string>>(new Set());
 
@@ -193,6 +201,7 @@ function HomePage() {
     const [notebookToDelete, setNotebookToDelete] = useState<NotebookListItem | null>(null);
     const [isSyncing, setIsSyncing] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
+    const [importError, setImportError] = useState<string | null>(null);
 
     const userLabel = user?.displayName || user?.email || 'Пользователь';
     const isAdmin = user?.role === 'ADMIN';
@@ -204,6 +213,14 @@ function HomePage() {
     }, []);
 
     const syncNotebooksFromBackend = useCallback(async () => {
+        const session = getAuthSession();
+
+        if (!session.isAuthenticated || !session.accessToken) {
+            setNotebooks(getVisibleLocalNotebooks());
+            devLogger.warn('Home backend sync skipped: auth session is missing.');
+            return;
+        }
+
         setIsSyncing(true);
 
         try {
@@ -240,7 +257,7 @@ function HomePage() {
                             );
                         }
                     } catch (error) {
-                        console.warn(
+                        devLogger.warn(
                             `Failed to load workflows for notebook ${backendNotebook.id}`,
                             error,
                         );
@@ -269,9 +286,9 @@ function HomePage() {
 
             setNotebooks(getVisibleLocalNotebooks());
 
-            console.log('Home notebooks synced from backend:', visibleBackendNotebooks.length);
+            devLogger.log('Home notebooks synced from backend:', visibleBackendNotebooks.length);
         } catch (error) {
-            console.warn('Home backend sync failed, local notebooks are used:', error);
+            devLogger.warn('Home backend sync failed, local notebooks are used:', error);
             setNotebooks(getVisibleLocalNotebooks());
         } finally {
             setIsSyncing(false);
@@ -279,10 +296,16 @@ function HomePage() {
     }, [getVisibleLocalNotebooks]);
 
     useEffect(() => {
+        const session = getAuthSession();
         let isCancelled = false;
 
         const animationFrameId = window.requestAnimationFrame(() => {
             if (isCancelled) {
+                return;
+            }
+
+            if (!session.isAuthenticated || !session.accessToken) {
+                setNotebooks(getVisibleLocalNotebooks());
                 return;
             }
 
@@ -293,7 +316,7 @@ function HomePage() {
             isCancelled = true;
             window.cancelAnimationFrame(animationFrameId);
         };
-    }, [syncNotebooksFromBackend]);
+    }, [getVisibleLocalNotebooks, syncNotebooksFromBackend, user?.id]);
 
     const normalizedSearch = search.trim().toLowerCase();
     const isSearching = normalizedSearch.length > 0;
@@ -312,6 +335,55 @@ function HomePage() {
         const notebook = createEmptyNotebookLocally('Новый notebook');
         setNotebooks(listNotebooksLocally());
         navigate(`/notebook/${notebook.id}`);
+    };
+
+    const handleOpenImportDialog = () => {
+        setImportError(null);
+        importInputRef.current?.click();
+    };
+
+    const handleImportNotebook = async (file?: File) => {
+        if (!file) {
+            return;
+        }
+
+        try {
+            const importedNotebook = await importNotebookFromJsonFile(file);
+
+            setImportError(null);
+            setNotebooks(getVisibleLocalNotebooks());
+            navigate(`/notebook/${importedNotebook.id}`);
+        } catch (error) {
+            setImportError(
+                error instanceof Error
+                    ? error.message
+                    : 'Не удалось импортировать notebook из JSON.',
+            );
+        } finally {
+            if (importInputRef.current) {
+                importInputRef.current.value = '';
+            }
+        }
+    };
+
+    const handleExportJson = (notebookId: string) => {
+        const payload = loadNotebookLocally(notebookId);
+
+        if (!payload) {
+            return;
+        }
+
+        exportNotebookAsJson(payload);
+    };
+
+    const handleExportPng = (notebookId: string) => {
+        const payload = loadNotebookLocally(notebookId);
+
+        if (!payload) {
+            return;
+        }
+
+        void exportNotebookAsPng(payload);
     };
 
     const handleLogout = async () => {
@@ -347,11 +419,13 @@ function HomePage() {
         setNotebookToDelete(null);
 
         try {
-            if (payload?.serverNotebookId) {
+            const session = getAuthSession();
+
+            if (payload?.serverNotebookId && session.isAuthenticated && session.accessToken) {
                 await notebookApi.deleteNotebook(payload.serverNotebookId);
             }
         } catch (error) {
-            console.warn(
+            devLogger.warn(
                 `Failed to delete backend notebook ${payload?.serverNotebookId}`,
                 error,
             );
@@ -415,6 +489,9 @@ function HomePage() {
                             <p className="home-page__subtitle">
                                 Создавайте, настраивайте и запускайте рабочие процессы.
                             </p>
+                            {importError && (
+                                <p className="home-page__import-error">{importError}</p>
+                            )}
                         </div>
 
                         <div className="home-page__hero-actions">
@@ -426,6 +503,24 @@ function HomePage() {
                                 <NotebookSvgIcon name="plus" size={18} />
                                 <span>Создать notebook</span>
                             </button>
+
+                            <button
+                                className="home-page__import-button"
+                                type="button"
+                                onClick={handleOpenImportDialog}
+                            >
+                                Импорт JSON
+                            </button>
+
+                            <input
+                                ref={importInputRef}
+                                className="home-page__import-input"
+                                type="file"
+                                accept="application/json,.json,.flowact.json"
+                                onChange={(event) => {
+                                    void handleImportNotebook(event.target.files?.[0]);
+                                }}
+                            />
                         </div>
                     </div>
 
@@ -496,23 +591,59 @@ function HomePage() {
                                             </div>
                                         </Link>
 
-                                        <button
-                                            className="home-page__delete-button"
-                                            type="button"
-                                            aria-label={`Удалить ${notebook.title}`}
-                                            title="Удалить notebook"
-                                            onMouseDown={(event) => {
-                                                event.preventDefault();
-                                                event.stopPropagation();
-                                            }}
-                                            onClick={(event) => {
-                                                event.preventDefault();
-                                                event.stopPropagation();
-                                                handleAskDeleteNotebook(notebook);
-                                            }}
-                                        >
-                                            <NotebookSvgIcon name="trash" size={15} />
-                                        </button>
+                                        <div className="home-page__card-actions">
+                                            <button
+                                                className="home-page__card-action-button"
+                                                type="button"
+                                                title="Экспортировать JSON"
+                                                onMouseDown={(event) => {
+                                                    event.preventDefault();
+                                                    event.stopPropagation();
+                                                }}
+                                                onClick={(event) => {
+                                                    event.preventDefault();
+                                                    event.stopPropagation();
+                                                    handleExportJson(notebook.id);
+                                                }}
+                                            >
+                                                JSON
+                                            </button>
+
+                                            <button
+                                                className="home-page__card-action-button"
+                                                type="button"
+                                                title="Экспортировать PNG"
+                                                onMouseDown={(event) => {
+                                                    event.preventDefault();
+                                                    event.stopPropagation();
+                                                }}
+                                                onClick={(event) => {
+                                                    event.preventDefault();
+                                                    event.stopPropagation();
+                                                    handleExportPng(notebook.id);
+                                                }}
+                                            >
+                                                PNG
+                                            </button>
+
+                                            <button
+                                                className="home-page__delete-button"
+                                                type="button"
+                                                aria-label={`Удалить ${notebook.title}`}
+                                                title="Удалить notebook"
+                                                onMouseDown={(event) => {
+                                                    event.preventDefault();
+                                                    event.stopPropagation();
+                                                }}
+                                                onClick={(event) => {
+                                                    event.preventDefault();
+                                                    event.stopPropagation();
+                                                    handleAskDeleteNotebook(notebook);
+                                                }}
+                                            >
+                                                <NotebookSvgIcon name="trash" size={15} />
+                                            </button>
+                                        </div>
                                     </article>
                                 ))}
                             </div>

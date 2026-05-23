@@ -95,6 +95,10 @@ public class TemplateRenderer {
             return input.getValue();
         }
 
+        if (input.get("input") != null) {
+            return input.get("input");
+        }
+
         if (!input.getInputs().isEmpty()) {
             return input.getInputs();
         }
@@ -109,11 +113,14 @@ public class TemplateRenderer {
     ) {
         Map<String, Object> root = new LinkedHashMap<>();
 
-        root.put("input", getMainInput(input));
+        root.put("input", input.get("input"));
+        root.put("executionInput", input.get("executionInput"));
         root.put("value", input.getValue());
         root.put("inputs", input.getInputs());
+        root.put("output", input.get("output"));
+        root.put("last", input.get("last"));
+        root.put("outputs", input.get("outputs"));
         root.put("variables", context.getVariables());
-        root.put("last", context.getLastSuccessfulOutput());
 
         return getByPath(root, expression);
     }

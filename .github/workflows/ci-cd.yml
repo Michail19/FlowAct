@@ -203,7 +203,7 @@ jobs:
         run: cp Caddyfile.example Caddyfile
 
       - name: Validate Docker images can be built
-        run: docker compose build --pull frontend user-service execution-service worker-service
+        run: docker compose build --pull frontend user-service execution-service worker-service ml-service
 
       - name: Upload build artifacts
         if: always()

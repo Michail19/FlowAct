@@ -1,16 +1,9 @@
-import { useEffect } from 'react';
-
 import { NOTEBOOK_BLOCK_LIBRARY } from './blockLibrary';
 import NotebookIconButton from './NotebookIconButton';
 import type {
     NotebookAutoLayoutMode,
     NotebookBlockType,
 } from './notebookTypes';
-import {
-    isPrimaryShortcut,
-    isShortcutKey,
-    shouldIgnoreCanvasShortcut,
-} from './keyboardShortcutUtils';
 import { useDemoNotebookMode } from './useDemoNotebookMode';
 
 import './NotebookToolbar.css';
@@ -70,58 +63,6 @@ function NotebookToolbar({
 }: NotebookToolbarProps) {
     const isDemoMode = useDemoNotebookMode();
     const activeToolbarGroups = isDemoMode ? demoToolbarGroups : toolbarGroups;
-
-    useEffect(() => {
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (shouldIgnoreCanvasShortcut(event) || !isPrimaryShortcut(event)) {
-                return;
-            }
-
-            if (isDemoMode) {
-                return;
-            }
-
-            if (isShortcutKey(event, 'Enter')) {
-                if (isWorkflowRunning) {
-                    return;
-                }
-
-                event.preventDefault();
-                onRunWorkflow();
-                return;
-            }
-
-            if (event.shiftKey && isShortcutKey(event, 'a')) {
-                event.preventDefault();
-                onAutoLayout('arrange-connect');
-                return;
-            }
-
-            if (event.shiftKey && isShortcutKey(event, 'v')) {
-                event.preventDefault();
-                onValidateWorkflow();
-                return;
-            }
-
-            if (event.shiftKey && isShortcutKey(event, 'l')) {
-                event.preventDefault();
-                onOpenRunPanel();
-            }
-        };
-
-        window.addEventListener('keydown', handleKeyDown);
-
-        return () => {
-            window.removeEventListener('keydown', handleKeyDown);
-        };
-    }, [
-        isDemoMode,
-        isWorkflowRunning,
-        onAutoLayout,
-        onOpenRunPanel,
-        onRunWorkflow,
-        onValidateWorkflow,
-    ]);
 
     return (
         <aside className="notebook-toolbar" aria-label="Панель блоков">

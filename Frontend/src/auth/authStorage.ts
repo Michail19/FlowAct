@@ -5,6 +5,7 @@ export const AUTH_USER_STORAGE_KEY = 'flowact-auth-user';
 export type StoredAuthUser = {
     id: string;
     email?: string | null;
+    username?: string | null;
     displayName?: string | null;
     avatarUrl?: string | null;
     role?: string | null;
@@ -35,6 +36,7 @@ function safeParseAuthUser(rawUser: string | null): StoredAuthUser | null {
         return {
             id: parsedUser.id,
             email: parsedUser.email ?? null,
+            username: parsedUser.username ?? null,
             displayName: parsedUser.displayName ?? null,
             avatarUrl: parsedUser.avatarUrl ?? null,
             role: parsedUser.role ?? null,

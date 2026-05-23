@@ -13,6 +13,8 @@ public class ExecutionContext {
     private final UUID executionId;
     @Getter
     private final UUID workflowId;
+    @Getter
+    private final Object executionInput;
 
     private final Map<UUID, Object> blockOutputs = new HashMap<>();
     private final Map<String, Object> variables = new HashMap<>();
@@ -22,8 +24,13 @@ public class ExecutionContext {
     private Object lastSuccessfulOutput;
 
     public ExecutionContext(UUID executionId, UUID workflowId) {
+        this(executionId, workflowId, null);
+    }
+
+    public ExecutionContext(UUID executionId, UUID workflowId, Object executionInput) {
         this.executionId = executionId;
         this.workflowId = workflowId;
+        this.executionInput = executionInput;
     }
 
     public void putBlockOutput(UUID blockId, Object output) {
@@ -37,6 +44,16 @@ public class ExecutionContext {
 
     public Map<UUID, Object> getBlockOutputs() {
         return Map.copyOf(blockOutputs);
+    }
+
+    public Map<String, Object> getBlockOutputsByStringId() {
+        Map<String, Object> result = new HashMap<>();
+
+        for (Map.Entry<UUID, Object> entry : blockOutputs.entrySet()) {
+            result.put(entry.getKey().toString(), entry.getValue());
+        }
+
+        return Map.copyOf(result);
     }
 
     public void putVariable(String key, Object value) {

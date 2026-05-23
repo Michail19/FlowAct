@@ -5,9 +5,9 @@ import com.ms.workerservice.config.properties.MlServiceProperties;
 import com.ms.workerservice.execution.engine.ExecutionContext;
 import com.ms.workerservice.execution.engine.NodeResult;
 import com.ms.workerservice.execution.engine.ResolvedInput;
+import com.ms.workerservice.execution.engine.TemplateRenderer;
 import com.ms.workerservice.workflow.entity.WorkflowBlockEntity;
 import com.ms.workerservice.workflow.enumtype.BlockType;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
@@ -23,15 +23,18 @@ public class MlRequestNodeHandler implements NodeHandler {
     private final JsonHelper jsonHelper;
     private final RestClient restClient;
     private final MlServiceProperties mlServiceProperties;
+    private final TemplateRenderer templateRenderer;
 
     public MlRequestNodeHandler(
             JsonHelper jsonHelper,
             RestClient restClient,
-            MlServiceProperties mlServiceProperties
+            MlServiceProperties mlServiceProperties,
+            TemplateRenderer templateRenderer
     ) {
         this.jsonHelper = jsonHelper;
         this.restClient = restClient;
         this.mlServiceProperties = mlServiceProperties;
+        this.templateRenderer = templateRenderer;
     }
 
     @Override
@@ -47,9 +50,10 @@ public class MlRequestNodeHandler implements NodeHandler {
     ) {
         Map<String, Object> config = jsonHelper.toMap(block.getConfig());
 
-        String path = String.valueOf(
+        String rawPath = String.valueOf(
                 config.getOrDefault("path", mlServiceProperties.predictPath())
         );
+        String path = templateRenderer.render(rawPath, input, context);
 
         String url = normalizeUrl(mlServiceProperties.baseUrl(), path);
 
@@ -94,11 +98,16 @@ public class MlRequestNodeHandler implements NodeHandler {
             ExecutionContext context
     ) {
         if (config.containsKey("body")) {
-            return config.get("body");
+            return templateRenderer.renderValue(config.get("body"), input, context);
+        }
+
+        if (config.containsKey("sourcePath")) {
+            Object sourceValue = resolvePath(input, String.valueOf(config.get("sourcePath")));
+            return Map.of("input", sourceValue);
         }
 
         if (config.containsKey("variableName")) {
-            String variableName = String.valueOf(config.get("variableName"));
+            String variableName = templateRenderer.render(String.valueOf(config.get("variableName")), input, context);
             Object variableValue = context.getVariable(variableName);
 
             if (variableValue != null) {
@@ -114,7 +123,40 @@ public class MlRequestNodeHandler implements NodeHandler {
             return Map.of("input", input.getInputs());
         }
 
-        return Map.of();
+        return Map.of("input", input.get("input"));
+    }
+
+    @SuppressWarnings("unchecked")
+    private Object resolvePath(ResolvedInput input, String path) {
+        if (path == null || path.isBlank()) {
+            return input.getValue();
+        }
+
+        Object current = input.getValues();
+        for (String segment : path.trim().split("\\.")) {
+            if (current == null) {
+                return null;
+            }
+
+            if (current instanceof Map<?, ?> map) {
+                current = ((Map<String, Object>) map).get(segment);
+                continue;
+            }
+
+            if (current instanceof java.util.List<?> list) {
+                try {
+                    int index = Integer.parseInt(segment);
+                    current = index >= 0 && index < list.size() ? list.get(index) : null;
+                    continue;
+                } catch (NumberFormatException ex) {
+                    return null;
+                }
+            }
+
+            return null;
+        }
+
+        return current;
     }
 
     private Object parseResponseBody(String rawBody) {

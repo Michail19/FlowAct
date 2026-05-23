@@ -9,7 +9,8 @@ import './AuthModal.css';
 export type AuthMode = 'login' | 'registration';
 
 type AuthModalProps = {
-    mode: AuthMode;
+    mode?: AuthMode;
+    initialMode?: AuthMode;
     onClose: () => void;
     onSwitchMode: (mode: AuthMode) => void;
 };
@@ -30,11 +31,12 @@ function getErrorMessage(error: unknown) {
     return 'Не удалось подключиться к серверу.';
 }
 
-export function AuthModal({ mode, onClose, onSwitchMode }: AuthModalProps) {
+export function AuthModal({ mode, initialMode, onClose, onSwitchMode }: AuthModalProps) {
     const navigate = useNavigate();
     const { login, register } = useAuth();
 
-    const isLogin = mode === 'login';
+    const activeMode = mode ?? initialMode ?? 'login';
+    const isLogin = activeMode === 'login';
 
     const [email, setEmail] = useState('');
     const [displayName, setDisplayName] = useState('');

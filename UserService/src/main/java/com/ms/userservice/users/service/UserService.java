@@ -17,11 +17,13 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 @Service
 public class UserService {
 
     private static final String CREDENTIALS_UPDATED_REASON = "CREDENTIALS_UPDATED";
+    private static final Pattern USERNAME_PATTERN = Pattern.compile("^[a-zA-Z0-9._-]{2,64}$");
 
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
@@ -43,12 +45,14 @@ public class UserService {
     @Transactional(readOnly = true)
     public UserResponse getCurrentUser(UUID userId) {
         UserEntity user = findUserById(userId);
+        ensureUsernameInitialized(user);
         return userMapper.toResponse(user);
     }
 
     @Transactional
     public UserResponse updateCurrentUser(UUID userId, UpdateCurrentUserRequest request) {
         UserEntity user = findUserById(userId);
+        user.setUsername(normalizeUsername(request.username(), user.getEmail()));
         user.setDisplayName(normalizeNullableText(request.displayName()));
         user.setAvatarUrl(normalizeAvatarUrl(request.avatarUrl()));
         return userMapper.toResponse(userRepository.save(user));
@@ -90,6 +94,15 @@ public class UserService {
                 .orElseThrow(() -> new NotFoundException("User not found"));
     }
 
+    private void ensureUsernameInitialized(UserEntity user) {
+        if (user.getUsername() != null && !user.getUsername().isBlank()) {
+            return;
+        }
+
+        user.setUsername(normalizeUsername(null, user.getEmail()));
+        userRepository.save(user);
+    }
+
     private String normalizeNullableText(String value) {
         if (value == null || value.isBlank()) {
             return null;
@@ -102,6 +115,20 @@ public class UserService {
         return value.trim();
     }
 
+    private String normalizeUsername(String username, String email) {
+        String normalizedUsername = normalizeNullableText(username);
+
+        if (normalizedUsername == null) {
+            normalizedUsername = email.split("@", 2)[0].trim();
+        }
+
+        if (!USERNAME_PATTERN.matcher(normalizedUsername).matches()) {
+            throw new IllegalArgumentException("Username must contain 2-64 latin letters, digits, dots, dashes or underscores");
+        }
+
+        return normalizedUsername;
+    }
+
     private String normalizeAvatarUrl(String avatarUrl) {
         String normalizedAvatarUrl = normalizeNullableText(avatarUrl);
 
@@ -109,8 +136,12 @@ public class UserService {
             return null;
         }
 
-        if (!normalizedAvatarUrl.startsWith("http://") && !normalizedAvatarUrl.startsWith("https://")) {
-            throw new IllegalArgumentException("Avatar URL must start with http:// or https://");
+        if (
+                !normalizedAvatarUrl.startsWith("http://") &&
+                !normalizedAvatarUrl.startsWith("https://") &&
+                !normalizedAvatarUrl.startsWith("data:image/")
+        ) {
+            throw new IllegalArgumentException("Avatar must be an HTTP URL or image data URL");
         }
 
         return normalizedAvatarUrl;

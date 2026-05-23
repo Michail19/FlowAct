@@ -21,6 +21,6 @@ public class StartNodeHandler implements NodeHandler {
             ResolvedInput input,
             ExecutionContext context
     ) {
-        return NodeResult.empty();
+        return NodeResult.of(context.getExecutionInput());
     }
 }

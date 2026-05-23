@@ -6,8 +6,13 @@ import type { NotebookZoomValue } from './notebookTypes';
 import type { WorkflowStatus } from '../../services/workflowApiTypes';
 import NotebookSvgIcon from './NotebookSvgIcon';
 import {
+    isPrimaryShortcut,
+    isRedoShortcut,
     isSaveShortcut,
+    isShortcutKey,
+    isUndoShortcut,
     shouldIgnoreCanvasShortcut,
+    stopNotebookShortcutEvent,
 } from './keyboardShortcutUtils';
 import { useDemoNotebookMode } from './useDemoNotebookMode';
 import { useAuth } from '../../auth/useAuth';
@@ -61,6 +66,16 @@ function getWorkflowStatusLabel(status?: WorkflowStatus | null, isDemoMode = fal
     }
 }
 
+function clickNotebookButton(selectors: string[]) {
+    const button = selectors
+        .map((selector) => document.querySelector<HTMLButtonElement>(selector))
+        .find((element) => element && !element.disabled);
+
+    button?.click();
+
+    return Boolean(button);
+}
+
 function NotebookHeader({
                             isMobile,
                             title,
@@ -84,23 +99,85 @@ function NotebookHeader({
 
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
-            if (!isSaveShortcut(event)) {
+            if (shouldIgnoreCanvasShortcut(event)) {
                 return;
             }
 
-            event.preventDefault();
+            if (isSaveShortcut(event)) {
+                stopNotebookShortcutEvent(event);
 
-            if (isDemoNotebook || shouldIgnoreCanvasShortcut(event) || isSaving) {
+                if (isDemoNotebook || isSaving) {
+                    return;
+                }
+
+                onSave?.();
                 return;
             }
 
-            onSave?.();
+            if (isUndoShortcut(event)) {
+                stopNotebookShortcutEvent(event);
+                clickNotebookButton([
+                    '[aria-label="Отменить последнее действие"]',
+                    '[title^="Отменить последнее действие"]',
+                ]);
+                return;
+            }
+
+            if (isRedoShortcut(event)) {
+                stopNotebookShortcutEvent(event);
+                clickNotebookButton([
+                    '[aria-label="Повторить отменённое действие"]',
+                    '[title^="Повторить отменённое действие"]',
+                ]);
+                return;
+            }
+
+            if (!isPrimaryShortcut(event)) {
+                return;
+            }
+
+            if (isShortcutKey(event, 'Enter')) {
+                stopNotebookShortcutEvent(event);
+                clickNotebookButton([
+                    '[aria-label="Запустить рабочий процесс"]',
+                    '[title^="Запустить рабочий процесс"]',
+                ]);
+                return;
+            }
+
+            if (event.shiftKey && isShortcutKey(event, 'a')) {
+                stopNotebookShortcutEvent(event);
+                clickNotebookButton([
+                    '[aria-label="Автосборка схемы (Ctrl+Shift+A)"]',
+                    '[title^="Автосборка схемы"]',
+                ]);
+                return;
+            }
+
+            if (event.shiftKey && isShortcutKey(event, 'v')) {
+                stopNotebookShortcutEvent(event);
+                clickNotebookButton([
+                    '[aria-label="Проверить схему (Ctrl+Shift+V)"]',
+                    '[title^="Проверить схему"]',
+                    '.notebook-mobile-actions__result:nth-of-type(2)',
+                ]);
+                return;
+            }
+
+            if (event.shiftKey && isShortcutKey(event, 'l')) {
+                stopNotebookShortcutEvent(event);
+                clickNotebookButton([
+                    '[aria-label="Показать логи выполнения (Ctrl+Shift+L)"]',
+                    '[title^="Показать логи выполнения"]',
+                    '.notebook-mobile-actions__result:nth-of-type(3)',
+                ]);
+            }
         };
 
-        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keydown', handleKeyDown, { capture: true });
 
         return () => {
-            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keydown', handleKeyDown, { capture: true });
         };
     }, [isDemoNotebook, isSaving, onSave]);
 
@@ -169,21 +246,32 @@ function NotebookHeader({
                 />
 
                 {isMobile ? (
-                    isDemoNotebook ? (
-                        <button
-                            className="notebook-header__home-link"
-                            type="button"
-                            aria-label="На главный экран"
-                            onClick={handleLeaveDemo}
-                            disabled={isLeavingDemo}
+                    <>
+                        {isDemoNotebook ? (
+                            <button
+                                className="notebook-header__home-link"
+                                type="button"
+                                aria-label="На главный экран"
+                                onClick={handleLeaveDemo}
+                                disabled={isLeavingDemo}
+                            >
+                                <NotebookSvgIcon name="home" />
+                            </button>
+                        ) : (
+                            <Link to="/home" className="notebook-header__home-link" aria-label="На главную">
+                                <NotebookSvgIcon name="home" />
+                            </Link>
+                        )}
+
+                        <Link
+                            to="/help"
+                            className="notebook-header__help-link"
+                            aria-label="Открыть справку"
+                            title="Справка"
                         >
-                            <NotebookSvgIcon name="home" />
-                        </button>
-                    ) : (
-                        <Link to="/home" className="notebook-header__home-link" aria-label="На главную">
-                            <NotebookSvgIcon name="home" />
+                            ?
                         </Link>
-                    )
+                    </>
                 ) : (
                     <label className="notebook-header__zoom">
                         <span className="notebook-header__zoom-label">Масштаб</span>
@@ -279,9 +367,19 @@ function NotebookHeader({
                 ) : (
                     <>
                         {!isMobile && (
-                            <Link to="/home" className="notebook-header__home-link">
-                                ⌂
-                            </Link>
+                            <>
+                                <Link to="/home" className="notebook-header__home-link" aria-label="На главную">
+                                    ⌂
+                                </Link>
+                                <Link
+                                    to="/help"
+                                    className="notebook-header__help-link"
+                                    aria-label="Открыть справку"
+                                    title="Справка"
+                                >
+                                    ?
+                                </Link>
+                            </>
                         )}
 
                         <Link to="/my-account" className="notebook-header__profile-link" aria-label="Профиль">

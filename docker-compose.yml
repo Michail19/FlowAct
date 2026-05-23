@@ -145,8 +145,12 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9093
       JWT_SECRET: ${JWT_SECRET:-change-this-dev-secret-change-this-dev-secret}
       JWT_ISSUER: ${JWT_ISSUER:-flowact-user-service}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173}
+      CORS_ALLOWED_METHODS: ${CORS_ALLOWED_METHODS:-GET,POST,PUT,PATCH,DELETE,OPTIONS}
+      CORS_ALLOWED_HEADERS: ${CORS_ALLOWED_HEADERS:-Authorization,Content-Type}
+      CORS_ALLOW_CREDENTIALS: ${CORS_ALLOW_CREDENTIALS:-true}
       AUTH_SERVICE_URL: ${AUTH_SERVICE_URL:-http://user-service:8083}
-      ML_SERVICE_URL: ${ML_SERVICE_URL:-http://host.docker.internal:8000}
+      ML_SERVICE_URL: ${ML_SERVICE_URL:-http://ml-service:8000}
       GATEWAY_SERVICE_URL: ${GATEWAY_SERVICE_URL:-http://frontend}
       SCHEDULE_SERVICE_URL: ${SCHEDULE_SERVICE_URL:-http://host.docker.internal:8084}
       OPENAPI_ENABLED: "true"
@@ -190,7 +194,7 @@ services:
       DB_USERNAME: postgres
       DB_PASSWORD: postgres
       KAFKA_BOOTSTRAP_SERVERS: kafka:9093
-      FLOWACT_ML_BASE_URL: ${FLOWACT_ML_BASE_URL:-http://host.docker.internal:8000}
+      FLOWACT_ML_BASE_URL: ${FLOWACT_ML_BASE_URL:-http://ml-service:8000}
       FLOWACT_LLM_OPENROUTER_BASE_URL: ${FLOWACT_LLM_OPENROUTER_BASE_URL:-https://openrouter.ai}
       FLOWACT_LLM_OPENROUTER_API_KEY: ${FLOWACT_LLM_OPENROUTER_API_KEY:-}
       FLOWACT_LLM_OPENROUTER_DEFAULT_MODEL: ${FLOWACT_LLM_OPENROUTER_DEFAULT_MODEL:-openrouter/free}
@@ -212,8 +216,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      ml-service:
+        condition: service_healthy
     networks:
       - flowact-network
 

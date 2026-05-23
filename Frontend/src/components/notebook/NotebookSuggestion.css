@@ -12,6 +12,34 @@
     box-shadow: 0 -10px 30px rgba(15, 23, 42, 0.28);
 }
 
+.notebook-suggestion-toggle {
+    position: absolute;
+    right: 14px;
+    bottom: 14px;
+    z-index: 8;
+    min-height: 36px;
+    padding: 0 14px;
+    border: 1px solid rgba(34, 211, 238, 0.26);
+    border-radius: 999px;
+    background: var(--color-panel);
+    color: var(--color-primary);
+    cursor: pointer;
+    font-weight: 800;
+    box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.24);
+}
+
+.notebook-suggestion-toggle:hover {
+    border-color: rgba(34, 211, 238, 0.48);
+    background: var(--color-panel-light);
+}
+
+.notebook-suggestion-toggle--mobile {
+    right: 8px;
+    bottom: 70px;
+    left: 8px;
+    width: auto;
+}
+
 .notebook-suggestion__close {
     position: absolute;
     top: 8px;

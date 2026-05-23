@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { getBlockDefinition } from './blockLibrary';
 import type { NotebookRecommendation } from './recommendationTypes';
@@ -31,6 +31,10 @@ function getSuggestionTitle(suggestion: NotebookRecommendation) {
         return 'Подсказка по схеме';
     }
 
+    if (suggestion.kind === 'autocomplete') {
+        return 'Автодополнение блока';
+    }
+
     return 'Умная подсказка';
 }
 
@@ -48,9 +52,71 @@ function NotebookSuggestion({
                                 onAccept,
                                 onDismiss,
                             }: NotebookSuggestionProps) {
+    const [initialSuggestionId, setInitialSuggestionId] = useState<string | null>(null);
     const [isEnabled, setIsEnabled] = useState(getInitialVisibility);
+    const [isInitialSuggestionSuppressed, setIsInitialSuggestionSuppressed] =
+        useState(false);
 
-    if (!isEnabled || !suggestion) {
+    useEffect(() => {
+        if (!suggestion || initialSuggestionId) {
+            return undefined;
+        }
+
+        const timeoutId = window.setTimeout(() => {
+            setInitialSuggestionId(suggestion.id);
+            setIsInitialSuggestionSuppressed(true);
+        }, 0);
+
+        return () => window.clearTimeout(timeoutId);
+    }, [initialSuggestionId, suggestion]);
+
+    useEffect(() => {
+        if (!suggestion || suggestion.id === initialSuggestionId) {
+            return undefined;
+        }
+
+        const timeoutId = window.setTimeout(() => {
+            setIsInitialSuggestionSuppressed(false);
+        }, 0);
+
+        return () => window.clearTimeout(timeoutId);
+    }, [initialSuggestionId, suggestion]);
+
+    const shouldShowSuggestion = Boolean(
+        suggestion &&
+        initialSuggestionId &&
+        (
+            suggestion.kind === 'autocomplete' ||
+            !isInitialSuggestionSuppressed ||
+            suggestion.id !== initialSuggestionId
+        ),
+    );
+
+    const className = isMobile
+        ? 'notebook-suggestion notebook-suggestion--mobile'
+        : 'notebook-suggestion';
+
+    if (!isEnabled) {
+        return suggestion ? (
+            <button
+                className={
+                    isMobile
+                        ? 'notebook-suggestion-toggle notebook-suggestion-toggle--mobile'
+                        : 'notebook-suggestion-toggle'
+                }
+                type="button"
+                onClick={() => {
+                    localStorage.removeItem(STORAGE_KEY);
+                    setIsEnabled(true);
+                    setIsInitialSuggestionSuppressed(false);
+                }}
+            >
+                Включить AI-подсказки
+            </button>
+        ) : null;
+    }
+
+    if (!suggestion || !shouldShowSuggestion) {
         return null;
     }
 
@@ -69,10 +135,6 @@ function NotebookSuggestion({
         localStorage.setItem(STORAGE_KEY, 'true');
         setIsEnabled(false);
     };
-
-    const className = isMobile
-        ? 'notebook-suggestion notebook-suggestion--mobile'
-        : 'notebook-suggestion';
 
     return (
         <aside className={className}>
