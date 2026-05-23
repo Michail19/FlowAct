@@ -158,10 +158,6 @@ function getVariableNameFromConditionLeftValue(leftValue: string) {
 }
 
 function getInputKeyFromConditionLeftValue(leftValue: string) {
-    if (leftValue.startsWith('input.')) {
-        return leftValue.replace('input.', '');
-    }
-
     return leftValue;
 }
 
@@ -302,7 +298,7 @@ function createBackendBlockConfig(block: NotebookBlockDto): BackendJsonObject {
         return {
             ...baseConfig,
             level: block.config?.log?.level ?? 'info',
-            messageTemplate: block.config?.log?.messageTemplate ?? '{{result}}',
+            messageTemplate: block.config?.log?.messageTemplate ?? '{{value}}',
         };
     }
 
@@ -545,7 +541,7 @@ function createConditionConfigFromBackendConfig(
 
     if (frontendCondition) {
         return {
-            leftValue: getConfigString(frontendCondition, 'leftValue', 'input.condition'),
+            leftValue: getConfigString(frontendCondition, 'leftValue', 'value'),
             operator:
                 getConfigString(frontendCondition, 'operator', 'exists') as ConditionBlockConfig['operator'],
             rightValue: getConfigString(frontendCondition, 'rightValue'),
@@ -553,10 +549,10 @@ function createConditionConfigFromBackendConfig(
     }
 
     const variableName = getConfigString(config, 'variableName');
-    const inputKey = getConfigString(config, 'inputKey', 'condition');
+    const inputKey = getConfigString(config, 'inputKey', 'value');
 
     return {
-        leftValue: variableName ? `variables.${variableName}` : `input.${inputKey}`,
+        leftValue: variableName ? `variables.${variableName}` : inputKey,
         operator: 'exists',
         rightValue: getConfigString(config, 'expectedValue'),
     };
@@ -620,7 +616,7 @@ function createFrontendBlockConfigFromBackendBlock(
     if (frontendType === 'loop') {
         return {
             loop: {
-                collectionPath: getConfigString(config, 'collectionPath', 'input.items'),
+                collectionPath: getConfigString(config, 'collectionPath', 'value.items'),
                 itemName: getConfigString(config, 'itemName', 'item'),
                 mode:
                     getConfigString(config, 'mode', 'map') as LoopBlockConfig['mode'],
@@ -664,7 +660,7 @@ function createFrontendBlockConfigFromBackendBlock(
             log: {
                 level:
                     getConfigString(config, 'level', 'info') as LogBlockConfig['level'],
-                messageTemplate: getConfigString(config, 'messageTemplate', '{{result}}'),
+                messageTemplate: getConfigString(config, 'messageTemplate', '{{value}}'),
             },
         };
     }
@@ -724,25 +720,12 @@ function getViewportFromWorkflowMetadata(
     return fallbackPayload?.viewport;
 }
 
-export function fromBackendWorkflowResponse(params: {
-    localNotebookId: string;
-    notebook: NotebookResponse;
-    workflow: WorkflowResponse;
-    fallbackPayload?: NotebookPayloadDto | null;
-}): NotebookPayloadDto {
-    const workflowBlocks = params.workflow.blocks ?? [];
-    const workflowConnections = params.workflow.connections ?? [];
-
-    const backendBlockIdToFrontendBlockId = new Map<string, string>();
-
-    workflowBlocks.forEach((block) => {
-        backendBlockIdToFrontendBlockId.set(
-            block.id,
-            getFrontendBlockIdFromBackendBlock(block),
-        );
-    });
-
-    const blocks: NotebookBlockDto[] = workflowBlocks.map((block) => {
+export function fromBackendWorkflowResponse(
+    workflow: WorkflowResponse,
+    notebook: NotebookResponse,
+    fallbackPayload?: NotebookPayloadDto | null,
+): NotebookPayloadDto {
+    const blocks: NotebookBlockDto[] = workflow.blocks.map((block) => {
         const frontendType = getFrontendBlockTypeFromBackendBlock(block);
         const definition = getBlockDefinition(frontendType);
         const frontendConfig = getFrontendConfig(block.config);
@@ -751,16 +734,20 @@ export function fromBackendWorkflowResponse(params: {
             id: getFrontendBlockIdFromBackendBlock(block),
             type: frontendType,
             title: block.name || definition.title,
-            subtitle: getConfigString(
-                frontendConfig,
-                'subtitle',
+            subtitle:
+                getConfigString(frontendConfig, 'subtitle') ||
+                fallbackPayload?.blocks.find(
+                    (fallbackBlock) =>
+                        fallbackBlock.id === getFrontendBlockIdFromBackendBlock(block),
+                )?.subtitle ||
                 definition.subtitle,
-            ),
-            description: getConfigString(
-                frontendConfig,
-                'description',
+            description:
+                getConfigString(frontendConfig, 'description') ||
+                fallbackPayload?.blocks.find(
+                    (fallbackBlock) =>
+                        fallbackBlock.id === getFrontendBlockIdFromBackendBlock(block),
+                )?.description ||
                 definition.description,
-            ),
             position: {
                 x: getNumberFromPosition(block.position, 'x'),
                 y: getNumberFromPosition(block.position, 'y'),
@@ -769,38 +756,40 @@ export function fromBackendWorkflowResponse(params: {
         };
     });
 
-    const connections: NotebookConnectionDto[] = workflowConnections.map(
-        (connection) => ({
-            id: connection.id,
-            sourceBlockId:
-                backendBlockIdToFrontendBlockId.get(connection.fromBlockId) ??
-                connection.fromBlockId,
-            targetBlockId:
-                backendBlockIdToFrontendBlockId.get(connection.toBlockId) ??
-                connection.toBlockId,
-            sourceHandle: getConnectionSourceHandleFromBackendCondition(
-                connection.condition,
-            ),
-            label: getConnectionLabelFromBackendCondition(connection.condition),
-        }),
-    );
+    const connections: NotebookConnectionDto[] = workflow.connections.map((connection) => ({
+        id: connection.id,
+        sourceBlockId: getFrontendBlockIdFromBackendBlock(
+            workflow.blocks.find((block) => block.id === connection.fromBlockId) ?? {
+                id: connection.fromBlockId,
+                type: 'INPUT',
+                name: '',
+                position: { x: 0, y: 0 },
+                config: {},
+            },
+        ),
+        targetBlockId: getFrontendBlockIdFromBackendBlock(
+            workflow.blocks.find((block) => block.id === connection.toBlockId) ?? {
+                id: connection.toBlockId,
+                type: 'INPUT',
+                name: '',
+                position: { x: 0, y: 0 },
+                config: {},
+            },
+        ),
+        label: getConnectionLabelFromBackendCondition(connection.condition),
+        sourceHandle: getConnectionSourceHandleFromBackendCondition(connection.condition),
+    }));
 
     return {
-        id: params.localNotebookId,
-        serverNotebookId: params.notebook.id,
-        workflowId: params.workflow.id,
-        workflowStatus: params.workflow.status,
-        title: params.notebook.name || params.workflow.name || 'Без названия',
-        version: params.fallbackPayload?.version ?? 1,
+        id: fallbackPayload?.id ?? notebook.id,
+        serverNotebookId: notebook.id,
+        workflowId: workflow.id,
+        workflowStatus: workflow.status,
+        title: notebook.name,
+        version: fallbackPayload?.version ?? 1,
+        updatedAt: workflow.updatedAt ?? notebook.updatedAt,
         blocks,
         connections,
-        viewport: getViewportFromWorkflowMetadata(
-            params.workflow.metadata,
-            params.fallbackPayload,
-        ),
-        updatedAt:
-            params.workflow.updatedAt ??
-            params.notebook.updatedAt ??
-            new Date().toISOString(),
+        viewport: getViewportFromWorkflowMetadata(workflow.metadata, fallbackPayload),
     };
 }
