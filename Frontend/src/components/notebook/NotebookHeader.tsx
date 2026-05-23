@@ -246,21 +246,32 @@ function NotebookHeader({
                 />
 
                 {isMobile ? (
-                    isDemoNotebook ? (
-                        <button
-                            className="notebook-header__home-link"
-                            type="button"
-                            aria-label="На главный экран"
-                            onClick={handleLeaveDemo}
-                            disabled={isLeavingDemo}
+                    <>
+                        {isDemoNotebook ? (
+                            <button
+                                className="notebook-header__home-link"
+                                type="button"
+                                aria-label="На главный экран"
+                                onClick={handleLeaveDemo}
+                                disabled={isLeavingDemo}
+                            >
+                                <NotebookSvgIcon name="home" />
+                            </button>
+                        ) : (
+                            <Link to="/home" className="notebook-header__home-link" aria-label="На главную">
+                                <NotebookSvgIcon name="home" />
+                            </Link>
+                        )}
+
+                        <Link
+                            to="/help"
+                            className="notebook-header__help-link"
+                            aria-label="Открыть справку"
+                            title="Справка"
                         >
-                            <NotebookSvgIcon name="home" />
-                        </button>
-                    ) : (
-                        <Link to="/home" className="notebook-header__home-link" aria-label="На главную">
-                            <NotebookSvgIcon name="home" />
+                            ?
                         </Link>
-                    )
+                    </>
                 ) : (
                     <label className="notebook-header__zoom">
                         <span className="notebook-header__zoom-label">Масштаб</span>
@@ -356,9 +367,19 @@ function NotebookHeader({
                 ) : (
                     <>
                         {!isMobile && (
-                            <Link to="/home" className="notebook-header__home-link">
-                                ⌂
-                            </Link>
+                            <>
+                                <Link to="/home" className="notebook-header__home-link" aria-label="На главную">
+                                    ⌂
+                                </Link>
+                                <Link
+                                    to="/help"
+                                    className="notebook-header__help-link"
+                                    aria-label="Открыть справку"
+                                    title="Справка"
+                                >
+                                    ?
+                                </Link>
+                            </>
                         )}
 
                         <Link to="/my-account" className="notebook-header__profile-link" aria-label="Профиль">
