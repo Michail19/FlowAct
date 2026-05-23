@@ -26,12 +26,20 @@ const EXPORT_VERSION = 1;
 const PNG_WIDTH = 1600;
 const PNG_HEIGHT = 1000;
 const RENDER_WAIT_MS = 260;
+const GRID_GAP = 18;
 
 type NotebookExportPayload = {
     schema: typeof EXPORT_SCHEMA;
     exportVersion: typeof EXPORT_VERSION;
     exportedAt: string;
     notebook: NotebookPayloadDto;
+};
+
+type CanvasRect = {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
 };
 
 const exportNodeTypes: NodeTypes = {
@@ -237,7 +245,7 @@ function renderHiddenReactFlow(payload: NotebookPayloadDto, host: HTMLElement): 
                     },
                     createElement(Background, {
                         color: '#cbd5e1',
-                        gap: 18,
+                        gap: GRID_GAP,
                         size: 1.4,
                     }),
                 ),
@@ -248,87 +256,274 @@ function renderHiddenReactFlow(payload: NotebookPayloadDto, host: HTMLElement): 
     return root;
 }
 
-function inlineComputedStyles(source: Element, target: Element) {
-    const computedStyle = window.getComputedStyle(source);
-    let cssText = '';
+function roundRect(
+    context: CanvasRenderingContext2D,
+    rect: CanvasRect,
+    radius: number,
+) {
+    const normalizedRadius = Math.max(0, Math.min(radius, rect.width / 2, rect.height / 2));
 
-    for (let index = 0; index < computedStyle.length; index += 1) {
-        const propertyName = computedStyle.item(index);
-
-        cssText += `${propertyName}:${computedStyle.getPropertyValue(propertyName)};`;
-    }
-
-    target.setAttribute('style', cssText);
-
-    Array.from(source.children).forEach((child, index) => {
-        const targetChild = target.children.item(index);
-
-        if (targetChild) {
-            inlineComputedStyles(child, targetChild);
-        }
-    });
+    context.beginPath();
+    context.moveTo(rect.x + normalizedRadius, rect.y);
+    context.lineTo(rect.x + rect.width - normalizedRadius, rect.y);
+    context.quadraticCurveTo(
+        rect.x + rect.width,
+        rect.y,
+        rect.x + rect.width,
+        rect.y + normalizedRadius,
+    );
+    context.lineTo(rect.x + rect.width, rect.y + rect.height - normalizedRadius);
+    context.quadraticCurveTo(
+        rect.x + rect.width,
+        rect.y + rect.height,
+        rect.x + rect.width - normalizedRadius,
+        rect.y + rect.height,
+    );
+    context.lineTo(rect.x + normalizedRadius, rect.y + rect.height);
+    context.quadraticCurveTo(
+        rect.x,
+        rect.y + rect.height,
+        rect.x,
+        rect.y + rect.height - normalizedRadius,
+    );
+    context.lineTo(rect.x, rect.y + normalizedRadius);
+    context.quadraticCurveTo(rect.x, rect.y, rect.x + normalizedRadius, rect.y);
+    context.closePath();
 }
 
-function createCanvasFromForeignObject(element: HTMLElement) {
-    const clonedElement = element.cloneNode(true) as HTMLElement;
+function getElementCanvasRect(element: HTMLElement, rootRect: DOMRect): CanvasRect {
+    const rect = element.getBoundingClientRect();
 
-    inlineComputedStyles(element, clonedElement);
-    clonedElement.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
+    return {
+        x: rect.left - rootRect.left,
+        y: rect.top - rootRect.top,
+        width: rect.width,
+        height: rect.height,
+    };
+}
 
-    const serializedElement = new XMLSerializer().serializeToString(clonedElement);
-    const svgContent = [
-        `<svg xmlns="http://www.w3.org/2000/svg" width="${PNG_WIDTH}" height="${PNG_HEIGHT}">`,
-        `<foreignObject width="100%" height="100%">${serializedElement}</foreignObject>`,
-        '</svg>',
-    ].join('');
+function drawGrid(context: CanvasRenderingContext2D) {
+    context.save();
+    context.fillStyle = '#f8fafc';
+    context.fillRect(0, 0, PNG_WIDTH, PNG_HEIGHT);
+    context.fillStyle = 'rgba(148, 163, 184, 0.38)';
 
-    const svgBlob = new Blob([svgContent], {
-        type: 'image/svg+xml;charset=utf-8',
+    for (let x = 0; x <= PNG_WIDTH; x += GRID_GAP) {
+        for (let y = 0; y <= PNG_HEIGHT; y += GRID_GAP) {
+            context.beginPath();
+            context.arc(x, y, 1.15, 0, Math.PI * 2);
+            context.fill();
+        }
+    }
+
+    context.restore();
+}
+
+function drawConnection(
+    context: CanvasRenderingContext2D,
+    sourceRect: CanvasRect,
+    targetRect: CanvasRect,
+    connection: NotebookConnectionDto,
+) {
+    const sourceYRatio = connection.sourceHandle === 'yes'
+        ? 0.35
+        : connection.sourceHandle === 'no'
+            ? 0.68
+            : 0.5;
+    const start = {
+        x: sourceRect.x + sourceRect.width,
+        y: sourceRect.y + sourceRect.height * sourceYRatio,
+    };
+    const end = {
+        x: targetRect.x,
+        y: targetRect.y + targetRect.height / 2,
+    };
+    const controlOffset = Math.max(80, Math.abs(end.x - start.x) * 0.45);
+
+    context.save();
+    context.strokeStyle = '#94a3b8';
+    context.lineWidth = 3;
+    context.lineCap = 'round';
+    context.beginPath();
+    context.moveTo(start.x, start.y);
+    context.bezierCurveTo(
+        start.x + controlOffset,
+        start.y,
+        end.x - controlOffset,
+        end.y,
+        end.x,
+        end.y,
+    );
+    context.stroke();
+
+    if (connection.label) {
+        const labelX = (start.x + end.x) / 2;
+        const labelY = (start.y + end.y) / 2;
+
+        context.fillStyle = '#ffffff';
+        roundRect(context, {
+            x: labelX - 24,
+            y: labelY - 15,
+            width: 48,
+            height: 28,
+        }, 14);
+        context.fill();
+        context.fillStyle = '#111827';
+        context.font = '700 16px Arial, sans-serif';
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+        context.fillText(connection.label, labelX, labelY);
+    }
+
+    context.restore();
+}
+
+function drawText(
+    context: CanvasRenderingContext2D,
+    text: string,
+    x: number,
+    y: number,
+    maxWidth: number,
+) {
+    if (!text.trim()) {
+        return;
+    }
+
+    context.fillText(text, x, y, maxWidth);
+}
+
+function drawNode(
+    context: CanvasRenderingContext2D,
+    nodeElement: HTMLElement,
+    rootRect: DOMRect,
+) {
+    const blockElement = nodeElement.querySelector<HTMLElement>(
+        '.custom-block-node, .ai-block-node',
+    ) ?? nodeElement;
+    const blockRect = getElementCanvasRect(blockElement, rootRect);
+    const styles = window.getComputedStyle(blockElement);
+    const titleElement = blockElement.querySelector<HTMLElement>(
+        '.custom-block-node__title, .ai-block-node__title',
+    );
+    const subtitleElement = blockElement.querySelector<HTMLElement>(
+        '.custom-block-node__subtitle, .ai-block-node__model, .custom-block-node__description, .ai-block-node__prompt',
+    );
+    const titleStyles = titleElement
+        ? window.getComputedStyle(titleElement)
+        : styles;
+    const subtitleStyles = subtitleElement
+        ? window.getComputedStyle(subtitleElement)
+        : styles;
+    const radius = Number.parseFloat(styles.borderRadius) || 14;
+
+    context.save();
+    context.shadowColor = 'rgba(15, 23, 42, 0.28)';
+    context.shadowBlur = 18;
+    context.shadowOffsetY = 8;
+    context.fillStyle = styles.backgroundColor || '#111827';
+    roundRect(context, blockRect, radius);
+    context.fill();
+
+    if (styles.borderWidth !== '0px') {
+        context.shadowColor = 'transparent';
+        context.strokeStyle = styles.borderColor || 'rgba(148, 163, 184, 0.24)';
+        context.lineWidth = Math.max(1, Number.parseFloat(styles.borderWidth) || 1);
+        context.stroke();
+    }
+
+    context.shadowColor = 'transparent';
+    context.textAlign = 'left';
+    context.textBaseline = 'middle';
+    context.fillStyle = titleStyles.color || '#ffffff';
+    context.font = `700 ${Math.max(15, Number.parseFloat(titleStyles.fontSize) || 16)}px ${titleStyles.fontFamily || 'Arial, sans-serif'}`;
+    drawText(
+        context,
+        titleElement?.textContent?.trim() || 'Блок',
+        blockRect.x + 18,
+        blockRect.y + blockRect.height / 2 - 8,
+        blockRect.width - 36,
+    );
+
+    if (subtitleElement?.textContent?.trim()) {
+        context.fillStyle = subtitleStyles.color || 'rgba(226, 232, 240, 0.78)';
+        context.font = `500 ${Math.max(12, Number.parseFloat(subtitleStyles.fontSize) || 12)}px ${subtitleStyles.fontFamily || 'Arial, sans-serif'}`;
+        drawText(
+            context,
+            subtitleElement.textContent.trim(),
+            blockRect.x + 18,
+            blockRect.y + blockRect.height / 2 + 15,
+            blockRect.width - 36,
+        );
+    }
+
+    context.restore();
+}
+
+function drawReactFlowToCanvas(
+    payload: NotebookPayloadDto,
+    exportElement: HTMLElement,
+) {
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+
+    if (!context) {
+        throw new Error('Не удалось подготовить canvas для PNG-экспорта.');
+    }
+
+    canvas.width = PNG_WIDTH;
+    canvas.height = PNG_HEIGHT;
+    drawGrid(context);
+
+    const rootRect = exportElement.getBoundingClientRect();
+    const nodeElements = Array.from(
+        exportElement.querySelectorAll<HTMLElement>('.react-flow__node[data-id]'),
+    );
+    const nodeRectsById = new Map<string, CanvasRect>();
+
+    nodeElements.forEach((nodeElement) => {
+        const nodeId = nodeElement.dataset.id;
+        const blockElement = nodeElement.querySelector<HTMLElement>(
+            '.custom-block-node, .ai-block-node',
+        ) ?? nodeElement;
+
+        if (nodeId) {
+            nodeRectsById.set(nodeId, getElementCanvasRect(blockElement, rootRect));
+        }
     });
-    const svgUrl = URL.createObjectURL(svgBlob);
 
-    return new Promise<HTMLCanvasElement>((resolve, reject) => {
-        const image = new Image();
+    payload.connections.forEach((connection) => {
+        const sourceRect = nodeRectsById.get(connection.sourceBlockId);
+        const targetRect = nodeRectsById.get(connection.targetBlockId);
 
-        image.onload = () => {
-            URL.revokeObjectURL(svgUrl);
-
-            const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
-
-            if (!context) {
-                reject(new Error('Не удалось подготовить canvas для PNG-экспорта.'));
-                return;
-            }
-
-            canvas.width = PNG_WIDTH;
-            canvas.height = PNG_HEIGHT;
-            context.fillStyle = '#f8fafc';
-            context.fillRect(0, 0, PNG_WIDTH, PNG_HEIGHT);
-            context.drawImage(image, 0, 0, PNG_WIDTH, PNG_HEIGHT);
-            resolve(canvas);
-        };
-
-        image.onerror = () => {
-            URL.revokeObjectURL(svgUrl);
-            reject(new Error('Не удалось отрисовать notebook canvas в PNG.'));
-        };
-
-        image.src = svgUrl;
+        if (sourceRect && targetRect) {
+            drawConnection(context, sourceRect, targetRect, connection);
+        }
     });
+
+    nodeElements.forEach((nodeElement) => {
+        drawNode(context, nodeElement, rootRect);
+    });
+
+    return canvas;
 }
 
 function downloadCanvasAsPng(canvas: HTMLCanvasElement, fileName: string) {
     return new Promise<void>((resolve, reject) => {
-        canvas.toBlob((blob) => {
-            if (!blob) {
-                reject(new Error('Не удалось сформировать PNG-файл.'));
-                return;
-            }
+        try {
+            canvas.toBlob((blob) => {
+                if (!blob) {
+                    reject(new Error('Не удалось сформировать PNG-файл.'));
+                    return;
+                }
 
-            downloadBlob(blob, fileName);
-            resolve();
-        }, 'image/png');
+                downloadBlob(blob, fileName);
+                resolve();
+            }, 'image/png');
+        } catch (error) {
+            reject(error instanceof Error
+                ? error
+                : new Error('Не удалось сформировать PNG-файл.'));
+        }
     });
 }
 
@@ -359,7 +554,7 @@ export async function exportNotebookAsPng(payload: NotebookPayloadDto) {
             throw new Error('Не удалось найти отрисованный ReactFlow canvas для PNG-экспорта.');
         }
 
-        const canvas = await createCanvasFromForeignObject(exportElement);
+        const canvas = drawReactFlowToCanvas(payload, exportElement);
 
         await downloadCanvasAsPng(canvas, `${sanitizeFileName(payload.title)}.png`);
     } finally {
