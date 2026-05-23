@@ -86,11 +86,23 @@ function getDefaultLogConfig(config?: NotebookBlockConfig): LogBlockConfig {
     };
 }
 
+const DEFAULT_HTTP_HEADERS = '{\n  "Accept": "application/json",\n  "Content-Type": "application/json"\n}';
+
+function getInitialHttpHeaders(config?: NotebookBlockConfig) {
+    const headers = config?.http?.headers?.trim();
+
+    if (!headers || headers === '{}') {
+        return DEFAULT_HTTP_HEADERS;
+    }
+
+    return config?.http?.headers ?? DEFAULT_HTTP_HEADERS;
+}
+
 function getDefaultHttpConfig(config?: NotebookBlockConfig): HttpBlockConfig {
     return {
         method: config?.http?.method ?? 'GET',
         url: config?.http?.url ?? 'https://jsonplaceholder.typicode.com/posts/1',
-        headers: config?.http?.headers ?? '{\n  "Accept": "application/json"\n}',
+        headers: getInitialHttpHeaders(config),
         body: config?.http?.body ?? '{\n  "text": "{{value.text}}",\n  "source": "FlowAct"\n}',
         timeoutMs: config?.http?.timeoutMs ?? 10000,
         maxResponseChars: config?.http?.maxResponseChars ?? 50000,
