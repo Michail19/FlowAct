@@ -13,6 +13,7 @@ import type {
     NotebookBlockConfig,
     NotebookBlockType,
 } from './notebookTypes';
+import { getBlockSettingsHelp } from './blockSettingsHelp';
 
 import './BlockSettingsModal.css';
 
@@ -33,7 +34,7 @@ type BlockSettingsModalProps = {
     onClose: () => void;
 };
 
-const conditionOperatorLabels = {
+const conditionOperatorLabels: Record<ConditionBlockConfig['operator'], string> = {
     equals: 'равно',
     notEquals: 'не равно',
     contains: 'содержит',
@@ -44,16 +45,18 @@ const conditionOperatorLabels = {
 
 function getDefaultConditionConfig(config?: NotebookBlockConfig): ConditionBlockConfig {
     return {
-        leftValue: config?.condition?.leftValue ?? 'input.value',
+        leftValue: config?.condition?.leftValue ?? 'value.status',
         operator: config?.condition?.operator ?? 'equals',
-        rightValue: config?.condition?.rightValue ?? '',
+        rightValue: config?.condition?.rightValue ?? '200',
     };
 }
 
 function getDefaultActionConfig(config?: NotebookBlockConfig): ActionBlockConfig {
     return {
-        actionType: config?.action?.actionType ?? 'format',
-        parameters: config?.action?.parameters ?? '',
+        actionType: config?.action?.actionType ?? 'transform',
+        parameters:
+            config?.action?.parameters ??
+            '{\n  "text": "{{value.text}}",\n  "status": "processed"\n}',
     };
 }
 
@@ -61,32 +64,34 @@ function getDefaultDatabaseConfig(config?: NotebookBlockConfig): DatabaseBlockCo
     return {
         operation: config?.database?.operation ?? 'select',
         tableName: config?.database?.tableName ?? '',
-        query: config?.database?.query ?? '',
-        payload: config?.database?.payload ?? '',
+        query: config?.database?.query ?? 'SELECT * FROM execution_results WHERE status = :status',
+        payload: config?.database?.payload ?? '{\n  "status": "{{value.status}}"\n}',
     };
 }
 
 function getDefaultEmailConfig(config?: NotebookBlockConfig): EmailBlockConfig {
     return {
         recipient: config?.email?.recipient ?? '',
-        subject: config?.email?.subject ?? '',
-        body: config?.email?.body ?? '',
+        subject: config?.email?.subject ?? 'Результат workflow: {{value.status}}',
+        body:
+            config?.email?.body ??
+            'Workflow завершён.\n\nКраткий результат:\n{{value.text}}\n\nПолные данные:\n{{value}}',
     };
 }
 
 function getDefaultLogConfig(config?: NotebookBlockConfig): LogBlockConfig {
     return {
         level: config?.log?.level ?? 'info',
-        messageTemplate: config?.log?.messageTemplate ?? '{{result}}',
+        messageTemplate: config?.log?.messageTemplate ?? 'Результат блока: {{value}}',
     };
 }
 
 function getDefaultHttpConfig(config?: NotebookBlockConfig): HttpBlockConfig {
     return {
         method: config?.http?.method ?? 'GET',
-        url: config?.http?.url ?? '',
+        url: config?.http?.url ?? 'https://jsonplaceholder.typicode.com/posts/1',
         headers: config?.http?.headers ?? '{\n  "Accept": "application/json"\n}',
-        body: config?.http?.body ?? '',
+        body: config?.http?.body ?? '{\n  "text": "{{value.text}}",\n  "source": "FlowAct"\n}',
         timeoutMs: config?.http?.timeoutMs ?? 10000,
         maxResponseChars: config?.http?.maxResponseChars ?? 50000,
         responseMode: config?.http?.responseMode ?? 'auto',
@@ -96,7 +101,7 @@ function getDefaultHttpConfig(config?: NotebookBlockConfig): HttpBlockConfig {
 
 function getDefaultLoopConfig(config?: NotebookBlockConfig): LoopBlockConfig {
     return {
-        collectionPath: config?.loop?.collectionPath ?? 'input.items',
+        collectionPath: config?.loop?.collectionPath ?? 'value.items',
         itemName: config?.loop?.itemName ?? 'item',
         mode: config?.loop?.mode ?? 'map',
     };
@@ -104,22 +109,117 @@ function getDefaultLoopConfig(config?: NotebookBlockConfig): LoopBlockConfig {
 
 function getDefaultMergeConfig(config?: NotebookBlockConfig): MergeBlockConfig {
     return {
-        mode: config?.merge?.mode ?? 'passThrough',
+        mode: config?.merge?.mode ?? 'combine',
     };
 }
 
+function parseConditionTemplate(template: string): ConditionBlockConfig | null {
+    const [leftValue, operator, ...rightParts] = template.trim().split(/\s+/);
+
+    if (!leftValue || !operator || !(operator in conditionOperatorLabels)) {
+        return null;
+    }
+
+    return {
+        leftValue,
+        operator: operator as ConditionBlockConfig['operator'],
+        rightValue: rightParts.join(' '),
+    };
+}
+
+function BlockHelpPanel({
+    blockType,
+    onApplyTemplate,
+}: {
+    blockType: NotebookBlockType;
+    onApplyTemplate: (template: string) => void;
+}) {
+    const help = getBlockSettingsHelp(blockType);
+
+    return (
+        <section className="block-settings-modal__help">
+            <div className="block-settings-modal__help-main">
+                <span className="block-settings-modal__help-badge">
+                    Backend: {help.backendType}
+                </span>
+                <p>{help.summary}</p>
+            </div>
+
+            <div className="block-settings-modal__help-grid">
+                <div>
+                    <strong>Вход</strong>
+                    <p>{help.input}</p>
+                </div>
+                <div>
+                    <strong>Выход</strong>
+                    <p>{help.output}</p>
+                </div>
+            </div>
+
+            <details className="block-settings-modal__details">
+                <summary>Переменные и готовые шаблоны</summary>
+
+                <div className="block-settings-modal__details-content">
+                    <div>
+                        <span className="block-settings-modal__details-title">
+                            Что можно использовать
+                        </span>
+                        <ul className="block-settings-modal__help-list">
+                            {help.variables.map((variable) => (
+                                <li key={variable}>{variable}</li>
+                            ))}
+                        </ul>
+                    </div>
+
+                    <div>
+                        <span className="block-settings-modal__details-title">
+                            Шаблоны для быстрого старта
+                        </span>
+                        <div className="block-settings-modal__template-list">
+                            {help.templates.map((template) => (
+                                <button
+                                    className="block-settings-modal__template-button"
+                                    type="button"
+                                    key={template}
+                                    onClick={() => onApplyTemplate(template)}
+                                >
+                                    <code>{template}</code>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {help.notes && help.notes.length > 0 && (
+                        <div>
+                            <span className="block-settings-modal__details-title">
+                                Важно
+                            </span>
+                            <ul className="block-settings-modal__help-list">
+                                {help.notes.map((note) => (
+                                    <li key={note}>{note}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+                </div>
+            </details>
+        </section>
+    );
+}
+
 function BlockSettingsModal({
-                                blockType,
-                                initialTitle,
-                                initialSubtitle = '',
-                                initialDescription = '',
-                                initialConfig,
-                                onSave,
-                                onClose,
-                            }: BlockSettingsModalProps) {
+    blockType,
+    initialTitle,
+    initialSubtitle = '',
+    initialDescription = '',
+    initialConfig,
+    onSave,
+    onClose,
+}: BlockSettingsModalProps) {
+    const help = getBlockSettingsHelp(blockType);
     const [title, setTitle] = useState(initialTitle);
     const [subtitle, setSubtitle] = useState(initialSubtitle);
-    const [description, setDescription] = useState(initialDescription);
+    const [description, setDescription] = useState(initialDescription || help.summary);
 
     const [conditionConfig, setConditionConfig] = useState<ConditionBlockConfig>(() =>
         getDefaultConditionConfig(initialConfig),
@@ -162,63 +262,38 @@ function BlockSettingsModal({
 
     const getConfigByBlockType = (): NotebookBlockConfig | undefined => {
         if (blockType === 'condition') {
-            return {
-                condition: conditionConfig,
-            };
+            return { condition: conditionConfig };
         }
 
         if (blockType === 'action') {
-            return {
-                action: actionConfig,
-            };
+            return { action: actionConfig };
         }
 
         if (blockType === 'database') {
-            return {
-                database: databaseConfig,
-            };
+            return { database: databaseConfig };
         }
 
         if (blockType === 'email') {
-            return {
-                email: emailConfig,
-            };
+            return { email: emailConfig };
         }
 
         if (blockType === 'log') {
-            return {
-                log: logConfig,
-            };
+            return { log: logConfig };
         }
 
         if (blockType === 'http') {
-            return {
-                http: httpConfig,
-            };
+            return { http: httpConfig };
         }
 
         if (blockType === 'loop') {
-            return {
-                loop: loopConfig,
-            };
+            return { loop: loopConfig };
         }
 
         if (blockType === 'merge') {
-            return {
-                merge: mergeConfig,
-            };
+            return { merge: mergeConfig };
         }
 
         return undefined;
-    };
-
-    const handleSave = () => {
-        onSave({
-            title: title.trim() || 'Блок',
-            subtitle: getEffectiveSubtitle(),
-            description: description.trim(),
-            config: getConfigByBlockType(),
-        });
     };
 
     const getEffectiveSubtitle = () => {
@@ -226,7 +301,96 @@ function BlockSettingsModal({
             return `${httpConfig.method} ${httpConfig.url}`.trim();
         }
 
-        return subtitle.trim();
+        return subtitle.trim() || help.input;
+    };
+
+    const handleApplyTemplate = (template: string) => {
+        if (blockType === 'condition') {
+            const conditionTemplate = parseConditionTemplate(template);
+
+            if (conditionTemplate) {
+                setConditionConfig(conditionTemplate);
+            }
+            return;
+        }
+
+        if (blockType === 'action') {
+            setActionConfig((currentConfig) => ({
+                ...currentConfig,
+                parameters: template,
+            }));
+            return;
+        }
+
+        if (blockType === 'database') {
+            if (template.trim().toUpperCase().startsWith('SELECT') ||
+                template.trim().toUpperCase().startsWith('INSERT') ||
+                template.trim().toUpperCase().startsWith('UPDATE') ||
+                template.trim().toUpperCase().startsWith('DELETE')) {
+                setDatabaseConfig((currentConfig) => ({
+                    ...currentConfig,
+                    query: template,
+                }));
+            } else {
+                setDatabaseConfig((currentConfig) => ({
+                    ...currentConfig,
+                    payload: template,
+                }));
+            }
+            return;
+        }
+
+        if (blockType === 'email') {
+            setEmailConfig((currentConfig) => ({
+                ...currentConfig,
+                body: template,
+            }));
+            return;
+        }
+
+        if (blockType === 'log') {
+            setLogConfig((currentConfig) => ({
+                ...currentConfig,
+                messageTemplate: template,
+            }));
+            return;
+        }
+
+        if (blockType === 'http') {
+            if (template.startsWith('http')) {
+                setHttpConfig((currentConfig) => ({
+                    ...currentConfig,
+                    url: template,
+                }));
+            } else if (template.includes('Accept') || template.includes('Content-Type')) {
+                setHttpConfig((currentConfig) => ({
+                    ...currentConfig,
+                    headers: template,
+                }));
+            } else {
+                setHttpConfig((currentConfig) => ({
+                    ...currentConfig,
+                    body: template,
+                }));
+            }
+            return;
+        }
+
+        if (blockType === 'loop') {
+            setLoopConfig((currentConfig) => ({
+                ...currentConfig,
+                collectionPath: template,
+            }));
+        }
+    };
+
+    const handleSave = () => {
+        onSave({
+            title: title.trim() || 'Блок',
+            subtitle: getEffectiveSubtitle(),
+            description: description.trim() || help.summary,
+            config: getConfigByBlockType(),
+        });
     };
 
     const shouldShowSubtitleField = blockType !== 'http';
@@ -248,6 +412,8 @@ function BlockSettingsModal({
                 </header>
 
                 <div className="block-settings-modal__body">
+                    <BlockHelpPanel blockType={blockType} onApplyTemplate={handleApplyTemplate} />
+
                     <label className="block-settings-modal__field">
                         <span className="block-settings-modal__label">Название</span>
                         <input
@@ -260,24 +426,24 @@ function BlockSettingsModal({
 
                     {shouldShowSubtitleField && (
                         <label className="block-settings-modal__field">
-                            <span className="block-settings-modal__label">Краткое описание</span>
+                            <span className="block-settings-modal__label">Краткое описание на карточке</span>
                             <input
                                 className="block-settings-modal__input"
                                 value={subtitle}
                                 onChange={(event) => setSubtitle(event.target.value)}
-                                placeholder="Краткое описание"
+                                placeholder={help.input}
                             />
                         </label>
                     )}
 
                     {shouldShowDescriptionField && (
                         <label className="block-settings-modal__field">
-                            <span className="block-settings-modal__label">Описание</span>
+                            <span className="block-settings-modal__label">Описание блока</span>
                             <textarea
                                 className="block-settings-modal__textarea"
                                 value={description}
                                 onChange={(event) => setDescription(event.target.value)}
-                                placeholder="Что делает этот блок"
+                                placeholder={help.summary}
                             />
                         </label>
                     )}
@@ -288,7 +454,7 @@ function BlockSettingsModal({
 
                             <div className="block-settings-modal__grid">
                                 <label className="block-settings-modal__field">
-                                    <span className="block-settings-modal__label">Левое значение</span>
+                                    <span className="block-settings-modal__label">Путь к проверяемому значению</span>
                                     <input
                                         className="block-settings-modal__input"
                                         value={conditionConfig.leftValue}
@@ -298,7 +464,7 @@ function BlockSettingsModal({
                                                 leftValue: event.target.value,
                                             }))
                                         }
-                                        placeholder="input.status"
+                                        placeholder="value.status"
                                     />
                                 </label>
 
@@ -323,7 +489,7 @@ function BlockSettingsModal({
                                 </label>
 
                                 <label className="block-settings-modal__field">
-                                    <span className="block-settings-modal__label">Правое значение</span>
+                                    <span className="block-settings-modal__label">Ожидаемое значение</span>
                                     <input
                                         className="block-settings-modal__input"
                                         value={conditionConfig.rightValue}
@@ -339,9 +505,8 @@ function BlockSettingsModal({
                             </div>
 
                             <p className="block-settings-modal__hint">
-                                В левом значении можно указывать путь к данным:
-                                <code>input.status</code>,
-                                <code>input.body.type</code>,
+                                Путь указывается без фигурных скобок: <code>value.status</code>,
+                                <code>value.body.type</code>, <code>input.type</code>,
                                 <code>variables.mode</code>.
                             </p>
                         </section>
@@ -370,7 +535,7 @@ function BlockSettingsModal({
                             </label>
 
                             <label className="block-settings-modal__field">
-                                <span className="block-settings-modal__label">Параметры</span>
+                                <span className="block-settings-modal__label">Parameters JSON / текст</span>
                                 <textarea
                                     className="block-settings-modal__textarea"
                                     value={actionConfig.parameters}
@@ -380,7 +545,7 @@ function BlockSettingsModal({
                                             parameters: event.target.value,
                                         }))
                                     }
-                                    placeholder='Например: {"format": "json"}'
+                                    placeholder='{"text": "{{value.text}}"}'
                                 />
                             </label>
                         </section>
@@ -411,7 +576,7 @@ function BlockSettingsModal({
                                 </label>
 
                                 <label className="block-settings-modal__field">
-                                    <span className="block-settings-modal__label">Таблица</span>
+                                    <span className="block-settings-modal__label">Таблица, если query пустой</span>
                                     <input
                                         className="block-settings-modal__input"
                                         value={databaseConfig.tableName}
@@ -437,12 +602,12 @@ function BlockSettingsModal({
                                             query: event.target.value,
                                         }))
                                     }
-                                    placeholder="SELECT * FROM table WHERE id = {{id}}"
+                                    placeholder="SELECT * FROM table WHERE id = :id"
                                 />
                             </label>
 
                             <label className="block-settings-modal__field">
-                                <span className="block-settings-modal__label">Payload</span>
+                                <span className="block-settings-modal__label">Payload JSON для SQL-параметров</span>
                                 <textarea
                                     className="block-settings-modal__textarea"
                                     value={databaseConfig.payload}
@@ -452,7 +617,7 @@ function BlockSettingsModal({
                                             payload: event.target.value,
                                         }))
                                     }
-                                    placeholder='{"result": "{{result}}"}'
+                                    placeholder='{"id": "{{value.id}}"}'
                                 />
                             </label>
                         </section>
@@ -473,7 +638,7 @@ function BlockSettingsModal({
                                             recipient: event.target.value,
                                         }))
                                     }
-                                    placeholder="user@example.com"
+                                    placeholder="user@example.com, manager@example.com"
                                 />
                             </label>
 
@@ -488,7 +653,7 @@ function BlockSettingsModal({
                                             subject: event.target.value,
                                         }))
                                     }
-                                    placeholder="Результат выполнения FlowAct"
+                                    placeholder="Результат workflow: {{value.status}}"
                                 />
                             </label>
 
@@ -503,7 +668,7 @@ function BlockSettingsModal({
                                             body: event.target.value,
                                         }))
                                     }
-                                    placeholder="Рабочий процесс завершён. Результат: {{result}}"
+                                    placeholder="Workflow завершён. Результат: {{value}}"
                                 />
                             </label>
                         </section>
@@ -547,7 +712,7 @@ function BlockSettingsModal({
                                                 url: event.target.value,
                                             }))
                                         }
-                                        placeholder="https://api.example.com/data"
+                                        placeholder="https://api.example.com/items/{{value.id}}"
                                     />
                                 </label>
                             </div>
@@ -656,17 +821,10 @@ function BlockSettingsModal({
                                                 body: event.target.value,
                                             }))
                                         }
-                                        placeholder='{"text": "{{input.text}}"}'
+                                        placeholder='{"text": "{{value.text}}"}'
                                     />
                                 </label>
                             )}
-
-                            <p className="block-settings-modal__hint block-settings-modal__hint--compact">
-                                Шаблоны:
-                                <code>{'{{input}}'}</code>
-                                <code>{'{{input.text}}'}</code>
-                                <code>{'{{variables.token}}'}</code>
-                            </p>
                         </section>
                     )}
 
@@ -686,7 +844,7 @@ function BlockSettingsModal({
                                                 collectionPath: event.target.value,
                                             }))
                                         }
-                                        placeholder="input.items"
+                                        placeholder="value.items"
                                     />
                                 </label>
 
@@ -722,11 +880,6 @@ function BlockSettingsModal({
                                     </select>
                                 </label>
                             </div>
-
-                            <p className="block-settings-modal__hint">
-                                В MVP цикл работает как отдельный блок итерации, без стрелки назад.
-                                Графические циклы в схеме пока не используем.
-                            </p>
                         </section>
                     )}
 
@@ -750,11 +903,6 @@ function BlockSettingsModal({
                                     <option value="combine">Объединить входящие результаты</option>
                                 </select>
                             </label>
-
-                            <p className="block-settings-modal__hint">
-                                Merge-блок должен иметь минимум две входящие связи и одну исходящую связь.
-                                Он нужен для явного объединения веток после условия.
-                            </p>
                         </section>
                     )}
 
@@ -791,16 +939,8 @@ function BlockSettingsModal({
                                             messageTemplate: event.target.value,
                                         }))
                                     }
-                                    placeholder="Результат выполнения: {{result}}"
+                                    placeholder="AI result: {{value.text}}"
                                 />
-
-                                <p className="block-settings-modal__hint">
-                                    Можно использовать шаблоны:
-                                    <code>{'{{input}}'}</code>,
-                                    <code>{'{{input.text}}'}</code>,
-                                    <code>{'{{last}}'}</code>.
-                                    Например: <code>{'Результат: {{input.text}}'}</code>
-                                </p>
                             </label>
                         </section>
                     )}
