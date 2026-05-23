@@ -1236,7 +1236,7 @@ function NotebookCanvas({
                     setNodes={setNodes}
                     setEdges={setEdges}
                 />
-                
+
                 <Background />
                 <Controls />
                 {!readonly && (

@@ -39,23 +39,29 @@ let clipboardShortcutRegistrationCounter = 0;
 let activeClipboardShortcutRegistrationId = 0;
 
 function cloneValue<T>(value: T): T {
-    if (typeof structuredClone === 'function') {
-        return structuredClone(value);
+    try {
+        if (typeof structuredClone === 'function') {
+            return structuredClone(value);
+        }
+    } catch {
+        // structuredClone падает на функциях в node.data,
+        // поэтому ниже используем JSON-копирование как fallback.
     }
 
     return JSON.parse(JSON.stringify(value)) as T;
 }
 
 function sanitizeNodeData(node: NotebookNode): ClipboardNode['data'] {
-    const serializableData = cloneValue(node.data);
+    const {
+        onRun,
+        onEdit,
+        onDelete,
+        onAutocomplete,
+        canAutocomplete,
+        ...serializableData
+    } = node.data;
 
-    delete serializableData.onRun;
-    delete serializableData.onEdit;
-    delete serializableData.onDelete;
-    delete serializableData.onAutocomplete;
-    delete serializableData.canAutocomplete;
-
-    return serializableData;
+    return cloneValue(serializableData);
 }
 
 function buildClipboardData(nodes: NotebookNode[], edges: Edge[]): NotebookClipboardData | null {
