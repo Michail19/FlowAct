@@ -5,7 +5,7 @@ import {
     type Node,
 } from '@xyflow/react';
 
-import type { NotebookNode } from './notebookTypes';
+import type { NotebookBlockData, NotebookNode } from './notebookTypes';
 import {
     isCopyShortcut,
     isCutShortcut,
@@ -52,14 +52,13 @@ function cloneValue<T>(value: T): T {
 }
 
 function sanitizeNodeData(node: NotebookNode): ClipboardNode['data'] {
-    const {
-        onRun,
-        onEdit,
-        onDelete,
-        onAutocomplete,
-        canAutocomplete,
-        ...serializableData
-    } = node.data;
+    const serializableData: NotebookBlockData = { ...node.data };
+
+    delete serializableData.onRun;
+    delete serializableData.onEdit;
+    delete serializableData.onDelete;
+    delete serializableData.onAutocomplete;
+    delete serializableData.canAutocomplete;
 
     return cloneValue(serializableData);
 }
