@@ -1,5 +1,6 @@
 import type { NotebookPayloadDto } from '../components/notebook/notebookBackendTypes';
 import type { NotebookRecommendation } from '../components/notebook/recommendationTypes';
+import { hasNotebookTopologyGaps } from '../components/notebook/recommendationService';
 
 const DEFAULT_ML_SERVICE_BASE_URL = 'http://localhost:8000';
 const NEXT_BLOCK_RECOMMENDATION_PATH = '/api/v1/recommendations/next-block/';
@@ -75,6 +76,16 @@ function buildRequestBody(params: GetNextBlockRecommendationsParams): MlRecommen
 async function requestNextBlockRecommendations(
     params: GetNextBlockRecommendationsParams,
 ): Promise<NotebookRecommendation[]> {
+    if (!params.targetBlockId && !hasNotebookTopologyGaps(params.payload)) {
+        return [];
+    }
+
+    const requestBody = buildRequestBody(params);
+
+    if (!params.targetBlockId && !requestBody.targetBlockId) {
+        return [];
+    }
+
     const response = await fetch(
         `${getMlServiceBaseUrl()}${NEXT_BLOCK_RECOMMENDATION_PATH}`,
         {
@@ -82,7 +93,7 @@ async function requestNextBlockRecommendations(
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify(buildRequestBody(params)),
+            body: JSON.stringify(requestBody),
             signal: params.signal,
         },
     );
