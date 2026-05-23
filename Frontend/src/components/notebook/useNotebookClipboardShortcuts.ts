@@ -148,24 +148,24 @@ function createPastedElements(params: {
         } as NotebookNode;
     });
 
-    const pastedEdges: Edge[] = params.clipboard.edges
-        .map((edge) => {
-            const source = idMap.get(edge.source);
-            const target = idMap.get(edge.target);
+    const pastedEdges = params.clipboard.edges.reduce<Edge[]>((result, edge) => {
+        const source = idMap.get(edge.source);
+        const target = idMap.get(edge.target);
 
-            if (!source || !target) {
-                return null;
-            }
+        if (!source || !target) {
+            return result;
+        }
 
-            return {
-                ...cloneValue(edge),
-                id: `${edge.id}-copy-${params.copyIndex}`,
-                source,
-                target,
-                selected: false,
-            };
-        })
-        .filter((edge): edge is Edge => Boolean(edge));
+        result.push({
+            ...cloneValue(edge),
+            id: `${edge.id}-copy-${params.copyIndex}`,
+            source,
+            target,
+            selected: false,
+        });
+
+        return result;
+    }, []);
 
     return {
         pastedNodes,
