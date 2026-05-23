@@ -39,16 +39,15 @@ function cloneValue<T>(value: T): T {
 }
 
 function sanitizeNodeData(node: NotebookNode): ClipboardNode['data'] {
-    const {
-        onRun: _onRun,
-        onEdit: _onEdit,
-        onDelete: _onDelete,
-        onAutocomplete: _onAutocomplete,
-        canAutocomplete: _canAutocomplete,
-        ...serializableData
-    } = node.data;
+    const serializableData = cloneValue(node.data);
 
-    return cloneValue(serializableData) as ClipboardNode['data'];
+    delete serializableData.onRun;
+    delete serializableData.onEdit;
+    delete serializableData.onDelete;
+    delete serializableData.onAutocomplete;
+    delete serializableData.canAutocomplete;
+
+    return serializableData;
 }
 
 function buildClipboardData(nodes: NotebookNode[], edges: Edge[]): NotebookClipboardData | null {
