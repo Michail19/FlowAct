@@ -4,6 +4,7 @@ import com.ms.workerservice.common.util.JsonHelper;
 import com.ms.workerservice.execution.engine.ExecutionContext;
 import com.ms.workerservice.execution.engine.NodeResult;
 import com.ms.workerservice.execution.engine.ResolvedInput;
+import com.ms.workerservice.execution.engine.TemplateRenderer;
 import com.ms.workerservice.workflow.entity.WorkflowBlockEntity;
 import com.ms.workerservice.workflow.enumtype.BlockType;
 import org.springframework.stereotype.Component;
@@ -16,9 +17,11 @@ public class DelayNodeHandler implements NodeHandler {
     private static final long MAX_DELAY_MS = 60_000;
 
     private final JsonHelper jsonHelper;
+    private final TemplateRenderer templateRenderer;
 
-    public DelayNodeHandler(JsonHelper jsonHelper) {
+    public DelayNodeHandler(JsonHelper jsonHelper, TemplateRenderer templateRenderer) {
         this.jsonHelper = jsonHelper;
+        this.templateRenderer = templateRenderer;
     }
 
     @Override
@@ -61,7 +64,7 @@ public class DelayNodeHandler implements NodeHandler {
             return NodeResult.of(input.getInputs());
         }
 
-        return NodeResult.empty();
+        return NodeResult.of(input.get("input"));
     }
 
     private long resolveDelayMs(
@@ -70,16 +73,21 @@ public class DelayNodeHandler implements NodeHandler {
             ExecutionContext context
     ) {
         if (config.containsKey("delayMs")) {
-            return toLong(config.get("delayMs"));
+            return toLong(templateRenderer.renderValue(config.get("delayMs"), input, context));
         }
 
         if (config.containsKey("delaySeconds")) {
-            return toLong(config.get("delaySeconds")) * 1000;
+            return toLong(templateRenderer.renderValue(config.get("delaySeconds"), input, context)) * 1000;
+        }
+
+        if (config.containsKey("sourcePath")) {
+            return toLong(resolvePath(input, String.valueOf(config.get("sourcePath"))));
         }
 
         Object variableName = config.get("variableName");
         if (variableName != null && !String.valueOf(variableName).isBlank()) {
-            Object variableValue = context.getVariable(String.valueOf(variableName));
+            String renderedVariableName = templateRenderer.render(String.valueOf(variableName), input, context);
+            Object variableValue = context.getVariable(renderedVariableName);
             return toLong(variableValue);
         }
 
@@ -87,7 +95,40 @@ public class DelayNodeHandler implements NodeHandler {
             return toLong(input.getValue());
         }
 
-        throw new IllegalStateException("DELAY block requires delayMs, delaySeconds, variableName, or input value");
+        throw new IllegalStateException("DELAY block requires delayMs, delaySeconds, sourcePath, variableName, or input value");
+    }
+
+    @SuppressWarnings("unchecked")
+    private Object resolvePath(ResolvedInput input, String path) {
+        if (path == null || path.isBlank()) {
+            return input.getValue();
+        }
+
+        Object current = input.getValues();
+        for (String segment : path.trim().split("\\.")) {
+            if (current == null) {
+                return null;
+            }
+
+            if (current instanceof Map<?, ?> map) {
+                current = ((Map<String, Object>) map).get(segment);
+                continue;
+            }
+
+            if (current instanceof java.util.List<?> list) {
+                try {
+                    int index = Integer.parseInt(segment);
+                    current = index >= 0 && index < list.size() ? list.get(index) : null;
+                    continue;
+                } catch (NumberFormatException ex) {
+                    return null;
+                }
+            }
+
+            return null;
+        }
+
+        return current;
     }
 
     private long toLong(Object value) {

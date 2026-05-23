@@ -105,8 +105,10 @@ refresh_tokens
 | --- | --- |
 | `id` | UUID пользователя, используется в JWT `sub` |
 | `email` | email для входа, уникален без учёта регистра |
+| `username` | изменяемый username пользователя |
 | `password_hash` | BCrypt-хеш пароля |
 | `display_name` | отображаемое имя пользователя |
+| `avatar_url` | ссылка на аватар или data URL загруженного изображения |
 | `role` | роль пользователя: `USER`, `ADMIN` |
 | `status` | статус аккаунта: `ACTIVE`, `BLOCKED`, `DELETED` |
 | `last_login_at` | время последнего входа |
@@ -131,6 +133,30 @@ refresh_tokens
 | `created_at` | время создания |
 
 Refresh token хранится в БД только в виде hash, не в открытом виде.
+
+## Как сделать пользователя админом локально
+
+Сначала зарегистрируйте пользователя через интерфейс или endpoint `/api/v1/auth/register`, затем обновите роль в БД UserService:
+
+```bash
+docker compose exec user-db psql -U postgres -d flowact_users -c "UPDATE users SET role = 'ADMIN' WHERE email = 'your-email@example.com';"
+```
+
+Проверка роли:
+
+```bash
+docker compose exec user-db psql -U postgres -d flowact_users -c "SELECT id, email, role, status FROM users ORDER BY created_at DESC;"
+```
+
+После изменения роли выйдите из аккаунта и войдите заново. Роль попадает в JWT, поэтому старый access token может ещё содержать `USER`.
+
+Админ-панель frontend доступна по адресу:
+
+```text
+/admin
+```
+
+Если после изменения роли или миграций `/api/v1/users/me` отвечает `401`, значит браузер использует старую или недействительную сессию. Выйдите из аккаунта, очистите localStorage для `localhost:3000` и войдите заново.
 
 ## Переменные окружения
 
@@ -207,6 +233,7 @@ Content-Type: application/json
   "user": {
     "id": "...",
     "email": "user@example.com",
+    "username": "user",
     "displayName": "User",
     "role": "USER",
     "status": "ACTIVE"
@@ -286,6 +313,7 @@ Authorization: Bearer <accessToken>
 {
   "id": "...",
   "email": "user@example.com",
+  "username": "user",
   "displayName": "User",
   "role": "USER",
   "status": "ACTIVE"
@@ -302,7 +330,9 @@ Content-Type: application/json
 
 ```json
 {
-  "displayName": "New Name"
+  "username": "new_username",
+  "displayName": "New Name",
+  "avatarUrl": null
 }
 ```
 
@@ -510,7 +540,7 @@ docker compose exec user-db psql -U postgres -d flowact_users
 Проверить пользователей:
 
 ```sql
-SELECT id, email, display_name, role, status, last_login_at, created_at
+SELECT id, email, username, display_name, role, status, last_login_at, created_at
 FROM users
 ORDER BY created_at DESC;
 ```
@@ -558,59 +588,3 @@ spring.jpa.hibernate.ddl-auto=validate
 ```
 
 При изменении entity нужно добавлять новую SQL-миграцию.
-
-## Типовые HTTP-ответы
-
-| Код | Ситуация |
-| --- | --- |
-| `200` | успешный login, refresh, получение/обновление пользователя |
-| `201` | успешная регистрация |
-| `204` | успешный logout |
-| `400` | ошибка валидации request body |
-| `401` | неверный пароль, отсутствующий/некорректный JWT, недействительный refresh token |
-| `404` | пользователь не найден |
-| `409` | email уже занят |
-
-## Частые проблемы
-
-### UserService не стартует из-за JWT_SECRET
-
-Проверьте, что переменная `JWT_SECRET` задана. Для HS256 используйте достаточно длинное значение.
-
-### ExecutionService возвращает 401 для токена от UserService
-
-Проверьте, что UserService и ExecutionService используют одинаковый `JWT_SECRET` и совместимый `JWT_ISSUER`.
-
-### Регистрация возвращает 409
-
-Пользователь с таким email уже существует. Email уникален без учёта регистра.
-
-### Refresh token не работает
-
-Refresh token может быть:
-
-- просрочен;
-- уже отозван через logout;
-- уже заменён при прошлой refresh-операции.
-
-В таком случае пользователь должен войти заново.
-
-### `users` или `refresh_tokens` не найдены
-
-Проверьте, что Flyway применил миграции к правильной БД:
-
-```bash
-docker compose exec user-db psql -U postgres -d flowact_users
-```
-
-```sql
-\dt
-SELECT * FROM flyway_schema_history ORDER BY installed_rank;
-```
-
-Если локальные данные не важны, можно пересоздать volume:
-
-```bash
-docker compose down -v
-docker compose up -d --build user-db user-service
-```

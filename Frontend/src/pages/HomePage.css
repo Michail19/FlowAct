@@ -72,8 +72,10 @@
 .home-page__hero-actions {
     display: flex;
     flex: 0 0 auto;
+    flex-wrap: wrap;
     align-items: flex-start;
     justify-content: flex-end;
+    gap: 10px;
 }
 
 .home-page__title {
@@ -90,13 +92,24 @@
     line-height: 1.5;
 }
 
+.home-page__import-error {
+    max-width: 620px;
+    margin: 12px 0 0;
+    padding: 10px 12px;
+    border: 1px solid rgba(248, 113, 113, 0.32);
+    border-radius: 12px;
+    background: rgba(239, 68, 68, 0.12);
+    color: #fecaca;
+    line-height: 1.4;
+}
+
 .home-page__create-button,
-.home-page__empty-create-button {
+.home-page__empty-create-button,
+.home-page__import-button {
     min-height: 42px;
     padding: 0 18px;
     border: 0;
     border-radius: 12px;
-    background: var(--color-success);
     color: #ffffff;
     cursor: pointer;
     font-weight: 700;
@@ -106,10 +119,26 @@
             box-shadow 0.15s ease;
 }
 
+.home-page__create-button,
+.home-page__empty-create-button {
+    background: var(--color-success);
+}
+
+.home-page__import-button {
+    border: 1px solid rgba(34, 211, 238, 0.32);
+    background: rgba(34, 211, 238, 0.12);
+    color: var(--color-primary);
+}
+
 .home-page__create-button:hover,
-.home-page__empty-create-button:hover {
+.home-page__empty-create-button:hover,
+.home-page__import-button:hover {
     transform: translateY(-1px);
     box-shadow: 0 10px 20px rgba(34, 197, 94, 0.25);
+}
+
+.home-page__import-input {
+    display: none;
 }
 
 .home-page__panel {
@@ -183,6 +212,8 @@
 }
 
 .home-page__preview {
+    position: relative;
+    z-index: 1;
     display: grid;
     width: 128px;
     height: 128px;
@@ -195,6 +226,7 @@
 
 .home-page__preview-canvas {
     position: relative;
+    z-index: 1;
     width: 100%;
     height: 100%;
     background:
@@ -204,6 +236,7 @@
 
 .home-page__preview-lines {
     position: absolute;
+    z-index: 1;
     inset: 0;
     width: 100%;
     height: 100%;
@@ -227,7 +260,7 @@
 
 .home-page__preview-block {
     position: absolute;
-    z-index: 1;
+    z-index: 2;
     width: 18px;
     height: 10px;
     border-radius: 3px;
@@ -315,10 +348,51 @@
     line-height: 1;
 }
 
-.home-page__delete-button {
+.home-page__card-actions {
     position: absolute;
+    z-index: 20;
     top: 8px;
-    right: 8px;
+    left: 65%;
+    display: flex;
+    width: max-content;
+    max-width: calc(100% - 24px);
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    opacity: 0;
+    pointer-events: auto;
+    transform: translate(-50%, -3px);
+    transition:
+            opacity 0.15s ease,
+            transform 0.15s ease;
+}
+
+.home-page__card:hover .home-page__card-actions,
+.home-page__card:focus-within .home-page__card-actions {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+
+.home-page__card-action-button {
+    min-width: 44px;
+    height: 28px;
+    padding: 0 8px;
+    border: 1px solid rgba(34, 211, 238, 0.42);
+    border-radius: 999px;
+    background: rgba(7, 17, 39, 0.94);
+    color: var(--color-primary);
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 800;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.28);
+}
+
+.home-page__card-action-button:hover {
+    border-color: rgba(34, 211, 238, 0.72);
+    background: rgba(34, 211, 238, 0.16);
+}
+
+.home-page__delete-button {
     display: inline-flex;
     width: 28px;
     height: 28px;
@@ -326,22 +400,15 @@
     justify-content: center;
     border: 0;
     border-radius: 50%;
-    background: rgba(239, 68, 68, 0.92);
+    background: rgba(239, 68, 68, 0.94);
     color: #ffffff;
     cursor: pointer;
     font-size: 18px;
     line-height: 1;
-    opacity: 0;
-    transform: scale(0.92);
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.28);
     transition:
             opacity 0.15s ease,
             transform 0.15s ease;
-}
-
-.home-page__card:hover .home-page__delete-button,
-.home-page__card:focus-within .home-page__delete-button {
-    opacity: 1;
-    transform: scale(1);
 }
 
 .home-page__delete-button:hover {
@@ -466,20 +533,14 @@
     flex: 0 0 auto;
 }
 
-.home-page__delete-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-
 .home-page__delete-button svg {
     display: block;
 }
 
 @media (hover: none) {
-    .home-page__delete-button {
+    .home-page__card-actions {
         opacity: 1;
-        transform: scale(1);
+        transform: translate(-50%, 0);
     }
 }
 
@@ -503,7 +564,7 @@
     }
 
     .home-page__hero-actions {
-        display: none;
+        justify-content: flex-start;
     }
 
     .home-page__title {
@@ -534,6 +595,10 @@
     .home-page__preview {
         width: 118px;
         height: 118px;
+    }
+
+    .home-page__card-actions {
+        top: 18px;
     }
 
     .home-page__modal-actions {

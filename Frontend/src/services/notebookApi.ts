@@ -1,4 +1,7 @@
 import { apiClient } from './apiClient';
+import { createPendingNotebookId, isPendingNotebookId } from './pendingBackendIds';
+import { isRetryableNotebookSyncError } from './notebookSyncQueue';
+import { createPersistenceError } from './persistenceError';
 
 const NOTEBOOKS_ENDPOINT = '/v1/notebooks';
 
@@ -18,6 +21,22 @@ export type NotebookShortResponse = {
 
 export type NotebookResponse = NotebookShortResponse;
 
+function createLocalNotebookResponse(
+    request: NotebookRequest,
+    id = createPendingNotebookId(),
+): NotebookResponse {
+    const now = new Date().toISOString();
+
+    return {
+        id,
+        ownerUserId: 'local',
+        name: request.name,
+        description: request.description ?? null,
+        createdAt: now,
+        updatedAt: now,
+    };
+}
+
 export const notebookApi = {
     getNotebook(notebookId: string) {
         return apiClient.get<NotebookResponse>(`${NOTEBOOKS_ENDPOINT}/${notebookId}`);
@@ -27,15 +46,35 @@ export const notebookApi = {
         return apiClient.get<NotebookShortResponse[]>(NOTEBOOKS_ENDPOINT);
     },
 
-    createNotebook(request: NotebookRequest) {
-        return apiClient.post<NotebookResponse>(NOTEBOOKS_ENDPOINT, request);
+    async createNotebook(request: NotebookRequest) {
+        try {
+            return await apiClient.post<NotebookResponse>(NOTEBOOKS_ENDPOINT, request);
+        } catch (error) {
+            if (isRetryableNotebookSyncError(error)) {
+                return createLocalNotebookResponse(request);
+            }
+
+            throw createPersistenceError('notebook', error);
+        }
     },
 
-    updateNotebook(notebookId: string, request: NotebookRequest) {
-        return apiClient.put<NotebookResponse>(
-            `${NOTEBOOKS_ENDPOINT}/${notebookId}`,
-            request,
-        );
+    async updateNotebook(notebookId: string, request: NotebookRequest) {
+        if (isPendingNotebookId(notebookId)) {
+            return createLocalNotebookResponse(request, notebookId);
+        }
+
+        try {
+            return await apiClient.put<NotebookResponse>(
+                `${NOTEBOOKS_ENDPOINT}/${notebookId}`,
+                request,
+            );
+        } catch (error) {
+            if (isRetryableNotebookSyncError(error)) {
+                return createLocalNotebookResponse(request, createPendingNotebookId(notebookId));
+            }
+
+            throw createPersistenceError('notebook', error);
+        }
     },
 
     deleteNotebook(notebookId: string) {

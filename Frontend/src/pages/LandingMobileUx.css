@@ -30,6 +30,44 @@
     font-weight: 850;
 }
 
+/*
+   The preview SVG uses viewBox="0 0 560 260".
+   Keep block X coordinates in the same relative coordinate system,
+   otherwise SVG curves scale while absolutely positioned blocks do not.
+*/
+.landing-editor-preview__node--start {
+    left: 2.15%;
+}
+
+.landing-editor-preview__node--condition {
+    left: 25%;
+}
+
+.landing-editor-preview__node--ai,
+.landing-editor-preview__node--log {
+    left: 50.5%;
+}
+
+.landing-editor-preview__node--ai {
+    width: 86px;
+    min-width: 86px;
+}
+
+.landing-editor-preview__node--log {
+    width: 80px;
+    min-width: 80px;
+}
+
+.landing-editor-preview__node--end {
+    right: auto;
+    left: 81.6%;
+}
+
+.landing-editor-preview__branch--yes,
+.landing-editor-preview__branch--no {
+    left: 40.2%;
+}
+
 @media (max-width: 720px) {
     .landing-page {
         padding: 6px;
@@ -80,18 +118,28 @@
     }
 
     .landing-hero {
-        gap: 26px;
-        padding: 56px 22px 28px;
+        display: grid;
+        min-height: auto;
+        grid-template-columns: 1fr;
+        align-items: start;
+        gap: 18px;
+        padding: 38px 22px 30px;
         text-align: center;
     }
 
+    .landing-hero__content {
+        display: contents;
+    }
+
     .landing-page__eyebrow {
+        order: 1;
         justify-content: center;
         width: 100%;
         font-size: 11px;
     }
 
     .landing-hero__content h1 {
+        order: 2;
         max-width: 330px;
         margin: 0 auto;
         font-size: 26px;
@@ -100,17 +148,30 @@
     }
 
     .landing-hero__content p {
+        order: 3;
         max-width: 320px;
-        margin: 18px auto 0;
+        margin: 0 auto;
         font-size: 14px;
-        line-height: 1.22;
+        line-height: 1.38;
+    }
+
+    .landing-hero__preview {
+        order: 4;
+        display: block;
+        width: 100%;
+        max-width: 320px;
+        min-height: auto;
+        margin: 6px auto 0;
     }
 
     .landing-hero__buttons {
+        order: 5;
         display: grid;
+        width: 100%;
         max-width: 290px;
         grid-template-columns: 1fr;
-        margin: 22px auto 0;
+        gap: 12px;
+        margin: 2px auto 0;
     }
 
     .landing-page__primary-button,
@@ -120,19 +181,14 @@
         font-size: 15px;
     }
 
-    .landing-hero__preview {
-        width: 100%;
-        max-width: 320px;
-        margin: 0 auto;
-    }
-
+    /* Mobile preview is controlled here, not by LandingPage.css. */
     .landing-editor-preview {
-        border-radius: 0;
+        border-radius: 14px;
     }
 
     .landing-editor-preview__header {
-        min-height: 24px;
-        padding: 0 6px;
+        min-height: 24px !important;
+        padding: 0 6px !important;
     }
 
     .landing-editor-preview__header strong {
@@ -149,8 +205,8 @@
     }
 
     .landing-editor-preview__body {
-        min-height: 205px;
-        grid-template-columns: 20px 1fr;
+        min-height: 250px !important;
+        grid-template-columns: 36px 1fr !important;
     }
 
     .landing-editor-preview__toolbar {
@@ -159,26 +215,66 @@
     }
 
     .landing-editor-preview__toolbar span {
-        width: 12px;
-        height: 12px;
+        width: 12px !important;
+        height: 12px !important;
         border-radius: 4px;
     }
 
-    .landing-editor-preview__node,
-    .landing-editor-preview__branch,
-    .landing-editor-preview__suggestion {
-        transform: scale(0.72);
+    .landing-editor-preview__node {
+        min-width: 56px !important;
+        min-height: 28px !important;
+        font-size: 10px !important;
+        transform: scale(0.7);
         transform-origin: center;
     }
 
+    .landing-editor-preview__node--start {
+        top: 38px !important;
+        left: 5% !important;
+    }
+
+    .landing-editor-preview__node--condition {
+        top: 58px !important;
+        left: 28% !important;
+    }
+
+    .landing-editor-preview__node--log {
+        top: 24px !important;
+        left: 54% !important;
+        width: 70px !important;
+        min-width: 70px !important;
+    }
+
+    .landing-editor-preview__node--ai {
+        top: 105px !important;
+        left: 48% !important;
+        width: 88px !important;
+        min-width: 88px !important;
+    }
+
+    .landing-editor-preview__node--end {
+        top: 105px !important;
+        right: auto !important;
+        left: calc(100% - 82px) !important;
+    }
+
+    .landing-editor-preview__branch {
+        display: none !important;
+    }
+
     .landing-editor-preview__suggestion {
-        right: -18px;
-        bottom: -2px;
+        position: static !important;
+        width: min(264px, calc(100% - 40px)) !important;
+        max-width: calc(100% - 40px) !important;
+        margin: 12px auto 16px !important;
+        transform: none !important;
     }
 
     .landing-hero__highlights {
+        order: 6;
+        width: 100%;
         max-width: 320px;
-        margin: 14px auto 0;
+        margin: 2px auto 0;
         text-align: left;
     }
 
@@ -247,5 +343,47 @@
     .landing-page__login-button {
         min-height: 50px;
         padding: 0 14px;
+    }
+
+    .landing-editor-preview__node--end {
+        left: calc(100% - 78px) !important;
+    }
+
+    .landing-editor-preview__suggestion {
+        width: min(250px, calc(100% - 32px)) !important;
+        max-width: calc(100% - 32px) !important;
+        transform: none !important;
+    }
+}
+
+@media (max-width: 720px) {
+    .landing-editor-preview__node--start {
+        top: 90px !important;
+        left: 5% !important;
+    }
+
+    .landing-editor-preview__node--condition {
+        top: 90px !important;
+        left: 24% !important;
+    }
+
+    .landing-editor-preview__node--log {
+        top: 66px !important;
+        left: 48% !important;
+        width: 70px !important;
+        min-width: 70px !important;
+    }
+
+    .landing-editor-preview__node--ai {
+        top: 115px !important;
+        left: 44% !important;
+        width: 88px !important;
+        min-width: 88px !important;
+    }
+
+    .landing-editor-preview__node--end {
+        top: 90px !important;
+        right: auto !important;
+        left: calc(100% - 82px) !important;
     }
 }

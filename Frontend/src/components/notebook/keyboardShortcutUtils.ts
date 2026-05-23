@@ -3,7 +3,15 @@ export function isPrimaryShortcut(event: KeyboardEvent) {
 }
 
 export function isShortcutKey(event: KeyboardEvent, key: string) {
-    return event.key.toLowerCase() === key.toLowerCase();
+    const normalizedKey = key.toLowerCase();
+    const eventKey = event.key.toLowerCase();
+    const eventCode = event.code.toLowerCase();
+
+    return (
+        eventKey === normalizedKey ||
+        eventCode === `key${normalizedKey}` ||
+        eventCode === normalizedKey
+    );
 }
 
 export function isSaveShortcut(event: KeyboardEvent) {
@@ -17,8 +25,21 @@ export function isUndoShortcut(event: KeyboardEvent) {
 export function isRedoShortcut(event: KeyboardEvent) {
     return isPrimaryShortcut(event) && (
         (event.shiftKey && isShortcutKey(event, 'z')) ||
+        (event.shiftKey && isShortcutKey(event, 'c')) ||
         (!event.shiftKey && isShortcutKey(event, 'y'))
     );
+}
+
+export function isCopyShortcut(event: KeyboardEvent) {
+    return isPrimaryShortcut(event) && !event.shiftKey && isShortcutKey(event, 'c');
+}
+
+export function isCutShortcut(event: KeyboardEvent) {
+    return isPrimaryShortcut(event) && !event.shiftKey && isShortcutKey(event, 'x');
+}
+
+export function isPasteShortcut(event: KeyboardEvent) {
+    return isPrimaryShortcut(event) && !event.shiftKey && isShortcutKey(event, 'v');
 }
 
 export function isEditableShortcutTarget(target: EventTarget | null) {
@@ -34,4 +55,10 @@ export function isEditableShortcutTarget(target: EventTarget | null) {
 
 export function shouldIgnoreCanvasShortcut(event: KeyboardEvent) {
     return isEditableShortcutTarget(event.target);
+}
+
+export function stopNotebookShortcutEvent(event: KeyboardEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
 }

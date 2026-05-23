@@ -10,6 +10,7 @@ import java.util.UUID;
 public record AdminUserResponse(
         UUID id,
         String email,
+        String username,
         String displayName,
         String avatarUrl,
         UserRole role,

@@ -10,8 +10,24 @@ type UserAvatarProps = {
     className?: string;
 };
 
-function getUserInitials(displayName?: string | null, email?: string | null) {
-    const source = displayName?.trim() || email?.trim() || 'U';
+function getEmailInitials(email?: string | null) {
+    const localPart = email?.split('@')[0]?.trim() ?? '';
+    const letters = Array.from(localPart.replace(/[^\p{L}\p{N}]/gu, ''));
+
+    if (letters.length === 0) {
+        return null;
+    }
+
+    return letters.slice(0, 2).join('').toUpperCase();
+}
+
+function getDisplayNameInitials(displayName?: string | null) {
+    const source = displayName?.trim();
+
+    if (!source) {
+        return null;
+    }
+
     const parts = source.split(/\s+/).filter(Boolean);
 
     if (parts.length >= 2) {
@@ -19,6 +35,10 @@ function getUserInitials(displayName?: string | null, email?: string | null) {
     }
 
     return source.slice(0, 2).toUpperCase();
+}
+
+function getUserInitials(displayName?: string | null, email?: string | null) {
+    return getEmailInitials(email) ?? getDisplayNameInitials(displayName) ?? 'U';
 }
 
 export function UserAvatar({

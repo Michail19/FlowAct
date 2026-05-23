@@ -204,10 +204,20 @@ function LandingEditorPreview() {
                     </span>
 
                     <svg className="landing-editor-preview__lines" viewBox="0 0 560 260" aria-hidden="true">
-                        <path d="M118 88 C170 88 175 88 224 88" />
-                        <path d="M300 88 C350 88 354 132 392 132" />
-                        <path d="M452 132 C485 132 490 132 520 132" />
-                        <path d="M300 88 C345 88 350 42 390 42" />
+                        {/* Старт -> IF */}
+                        <path d="M95 92 C112 92 124 92 150 92" />
+
+                        {/* IF -> AI, ветка Да */}
+                        <path d="M190 92 C226 92 238 42 290 42" />
+
+                        {/* IF -> Лог, ветка Нет */}
+                        <path d="M190 92 C226 92 238 142 292 142" />
+
+                        {/* AI -> Конец */}
+                        <path d="M365 42 C420 42 424 104 482 92" />
+
+                        {/* Лог -> Конец */}
+                        <path d="M365 142 C420 142 424 80 482 92" />
                     </svg>
                 </div>
             </div>
@@ -337,8 +347,15 @@ function LandingPage() {
 
                     <div className="landing-page__actions">
                         {isAuthenticated ? (
-                            <Link className="landing-page__login-button" to="/home">
-                                В workspace
+                            <Link
+                                className="landing-page__login-button landing-page__workspace-button"
+                                to="/home"
+                                aria-label="Перейти в workspace"
+                            >
+                                <span className="landing-page__workspace-button-icon" aria-hidden="true">
+                                    ↗
+                                </span>
+                                <span>Workspace</span>
                             </Link>
                         ) : (
                             <>
@@ -514,76 +531,68 @@ function LandingPage() {
                 <section className="landing-tasks" id="tasks" data-reveal="up">
                     <div className="landing-tasks__header">
                         <span className="landing-page__eyebrow">Сценарии</span>
-                        <h2>Для каких задач подходит FlowAct</h2>
+                        <h2>Где FlowAct особенно полезен</h2>
                         <p>
-                            Используйте FlowAct как визуальный редактор и систему запуска
-                            процессов: от простых повторяемых цепочек до сценариев с AI и
-                            интеграциями.
+                            Начните с простого процесса и постепенно усложняйте workflow:
+                            добавляйте условия, внешние сервисы, AI-блоки и логи.
                         </p>
                     </div>
 
                     <div className="landing-tasks__grid">
                         {taskCards.map((task) => (
                             <article className="landing-task-card" key={task.title}>
-                                <span>✓</span>
-                                <div>
-                                    <h3>{task.title}</h3>
-                                    <p>{task.text}</p>
-                                </div>
+                                <h3>{task.title}</h3>
+                                <p>{task.text}</p>
                             </article>
                         ))}
                     </div>
                 </section>
 
-                <section className="landing-cta" data-reveal="scale">
-                    <span className="landing-page__eyebrow">Start building</span>
-                    <h2>Откройте редактор и соберите первый workflow</h2>
+                <section className="landing-cta" data-reveal="up">
+                    <span className="landing-page__eyebrow">Начать</span>
+                    <h2>Соберите первый workflow прямо сейчас</h2>
                     <p>
-                        Создайте notebook, добавьте первые блоки, соедините их в цепочку и
-                        запустите процесс, чтобы увидеть результат выполнения.
+                        Откройте редактор, создайте notebook и проверьте схему на примере
+                        простого процесса.
                     </p>
 
                     <div className="landing-cta__actions">
                         {isAuthenticated ? (
                             <Link className="landing-page__primary-button landing-page__primary-button--large" to="/home">
-                                Перейти к notebook
+                                Перейти в workspace
                             </Link>
                         ) : (
-                            <button
-                                className="landing-page__primary-button landing-page__primary-button--large"
-                                type="button"
-                                onClick={handleStartDemo}
-                                disabled={isDemoStarting}
-                            >
-                                {isDemoStarting ? 'Запуск...' : 'Попробовать demo'}
-                            </button>
-                        )}
+                            <>
+                                <button
+                                    className="landing-page__primary-button landing-page__primary-button--large"
+                                    type="button"
+                                    onClick={handleStartDemo}
+                                    disabled={isDemoStarting}
+                                >
+                                    {isDemoStarting ? 'Запуск...' : 'Попробовать demo'}
+                                </button>
 
-                        {!isAuthenticated && (
-                            <button
-                                className="landing-page__secondary-button"
-                                type="button"
-                                onClick={() => openAuthModal('registration')}
-                            >
-                                Создать аккаунт
-                            </button>
+                                <button
+                                    className="landing-page__secondary-button"
+                                    type="button"
+                                    onClick={() => openAuthModal('login')}
+                                >
+                                    Уже есть аккаунт
+                                </button>
+                            </>
                         )}
                     </div>
                 </section>
 
-                <footer className="landing-footer" data-reveal="up">
-                    <span>FlowAct 2026</span>
-                    <div className="landing-footer__links">
-                        <a href="#features">Возможности</a>
-                        <a href="#how-it-works">Как работает</a>
-                        <Link to={isAuthenticated ? '/home' : '/landing'}>Notebook</Link>
-                    </div>
+                <footer className="landing-footer">
+                    <span>FlowAct</span>
+                    <a href="#about">Наверх</a>
                 </footer>
             </section>
 
             {authModal && !isAuthenticated && (
                 <AuthModal
-                    mode={authModal.mode}
+                    initialMode={authModal.mode}
                     onClose={closeAuthModal}
                     onSwitchMode={switchAuthMode}
                 />
