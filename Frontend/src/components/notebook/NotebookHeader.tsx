@@ -8,6 +8,7 @@ import NotebookSvgIcon from './NotebookSvgIcon';
 import {
     isSaveShortcut,
     shouldIgnoreCanvasShortcut,
+    stopNotebookShortcutEvent,
 } from './keyboardShortcutUtils';
 import { useDemoNotebookMode } from './useDemoNotebookMode';
 import { useAuth } from '../../auth/useAuth';
@@ -88,7 +89,7 @@ function NotebookHeader({
                 return;
             }
 
-            event.preventDefault();
+            stopNotebookShortcutEvent(event);
 
             if (isDemoNotebook || shouldIgnoreCanvasShortcut(event) || isSaving) {
                 return;
@@ -97,10 +98,10 @@ function NotebookHeader({
             onSave?.();
         };
 
-        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keydown', handleKeyDown, { capture: true });
 
         return () => {
-            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keydown', handleKeyDown, { capture: true });
         };
     }, [isDemoNotebook, isSaving, onSave]);
 
