@@ -49,13 +49,13 @@
 }
 
 .landing-editor-preview__node--ai {
-    width: 136px;
-    min-width: 136px;
+    width: 86px;
+    min-width: 86px;
 }
 
 .landing-editor-preview__node--log {
-    width: 112px;
-    min-width: 112px;
+    width: 80px;
+    min-width: 80px;
 }
 
 .landing-editor-preview__node--end {
@@ -247,7 +247,7 @@
 
     .landing-editor-preview__node--ai {
         top: 105px !important;
-        left: 54% !important;
+        left: 48% !important;
         width: 88px !important;
         min-width: 88px !important;
     }
@@ -376,7 +376,7 @@
 
     .landing-editor-preview__node--ai {
         top: 115px !important;
-        left: 48% !important;
+        left: 44% !important;
         width: 88px !important;
         min-width: 88px !important;
     }
