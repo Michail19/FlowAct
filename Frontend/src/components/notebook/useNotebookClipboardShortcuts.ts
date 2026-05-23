@@ -27,8 +27,8 @@ type NotebookStateUpdater<T> = (updater: (currentValue: T[]) => T[]) => void;
 
 type NotebookClipboardShortcutOptions = {
     readonly: boolean;
-    setNodes: NotebookStateUpdater<NotebookNode>;
-    setEdges: NotebookStateUpdater<Edge>;
+    setNodes?: NotebookStateUpdater<NotebookNode>;
+    setEdges?: NotebookStateUpdater<Edge>;
 };
 
 const PASTE_OFFSET = 48;
@@ -181,11 +181,18 @@ function createPastedElements(params: {
     };
 }
 
-function useNotebookClipboardShortcuts({
-    readonly,
-    setNodes,
-    setEdges,
-}: NotebookClipboardShortcutOptions) {
+function normalizeOptions(
+    optionsOrReadonly: NotebookClipboardShortcutOptions | boolean,
+): NotebookClipboardShortcutOptions {
+    return typeof optionsOrReadonly === 'boolean'
+        ? { readonly: optionsOrReadonly }
+        : optionsOrReadonly;
+}
+
+export function useNotebookClipboardShortcuts(
+    optionsOrReadonly: NotebookClipboardShortcutOptions | boolean,
+) {
+    const options = normalizeOptions(optionsOrReadonly);
     const reactFlow = useReactFlow<NotebookNode, Edge>();
     const reactFlowRef = useRef(reactFlow);
     const registrationIdRef = useRef(0);
@@ -201,12 +208,15 @@ function useNotebookClipboardShortcuts({
         registrationIdRef.current = registrationId;
         activeClipboardShortcutRegistrationId = registrationId;
 
+        const setNodes = options.setNodes ?? reactFlowRef.current.setNodes;
+        const setEdges = options.setEdges ?? reactFlowRef.current.setEdges;
+
         const handleKeyDown = (event: KeyboardEvent) => {
             if (registrationIdRef.current !== activeClipboardShortcutRegistrationId) {
                 return;
             }
 
-            if (readonly || shouldIgnoreCanvasShortcut(event)) {
+            if (options.readonly || shouldIgnoreCanvasShortcut(event)) {
                 return;
             }
 
@@ -285,7 +295,7 @@ function useNotebookClipboardShortcuts({
                 activeClipboardShortcutRegistrationId = 0;
             }
         };
-    }, [readonly, setEdges, setNodes]);
+    }, [options.readonly, options.setEdges, options.setNodes]);
 }
 
 export function NotebookClipboardShortcutsBridge(
