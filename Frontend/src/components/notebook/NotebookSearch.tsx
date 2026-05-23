@@ -6,6 +6,7 @@ import {
     isRedoShortcut,
     isUndoShortcut,
     shouldIgnoreCanvasShortcut,
+    stopNotebookShortcutEvent,
 } from './keyboardShortcutUtils';
 
 import './NotebookSearch.css';
@@ -52,29 +53,31 @@ function NotebookSearch({
             }
 
             if (isUndoShortcut(event)) {
+                stopNotebookShortcutEvent(event);
+
                 if (!canUndo) {
                     return;
                 }
 
-                event.preventDefault();
                 onUndo?.();
                 return;
             }
 
             if (isRedoShortcut(event)) {
+                stopNotebookShortcutEvent(event);
+
                 if (!canRedo) {
                     return;
                 }
 
-                event.preventDefault();
                 onRedo?.();
             }
         };
 
-        window.addEventListener('keydown', handleKeyDown);
+        window.addEventListener('keydown', handleKeyDown, { capture: true });
 
         return () => {
-            window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('keydown', handleKeyDown, { capture: true });
         };
     }, [canRedo, canUndo, onRedo, onUndo]);
 
@@ -139,7 +142,7 @@ function NotebookSearch({
                     onClick={onRedo}
                     disabled={!canRedo}
                     aria-label="Повторить отменённое действие"
-                    title={canRedo ? 'Повторить отменённое действие (Ctrl+Shift+Z / Ctrl+Y)' : 'Нет действий для повтора'}
+                    title={canRedo ? 'Повторить отменённое действие (Ctrl+Shift+Z / Ctrl+Shift+C / Ctrl+Y)' : 'Нет действий для повтора'}
                 >
                     <NotebookSvgIcon name="redo" size={17} />
                 </button>
