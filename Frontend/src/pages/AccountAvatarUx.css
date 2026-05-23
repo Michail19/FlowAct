@@ -1,7 +1,12 @@
-.account-page__avatar-url-field small {
+.account-page__field-hint,
+.account-page__avatar-hint {
     color: var(--color-muted);
     font-size: 12px;
     line-height: 1.45;
+}
+
+.account-page__avatar-input {
+    display: none;
 }
 
 .account-page__side-panel .user-avatar {
@@ -11,4 +16,45 @@
 
 .account-page__mobile-avatar .user-avatar {
     margin: 0 auto;
+}
+
+.account-page__avatar-button,
+.account-page__avatar-remove-button {
+    min-height: 38px;
+    margin-top: 12px;
+    padding: 0 18px;
+    border: 0;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.account-page__avatar-button {
+    background: #334155;
+    color: var(--color-text);
+}
+
+.account-page__avatar-button:hover {
+    background: #3f4f67;
+}
+
+.account-page__avatar-remove-button {
+    background: rgba(239, 68, 68, 0.16);
+    color: #fecaca;
+}
+
+.account-page__avatar-remove-button:hover {
+    background: rgba(239, 68, 68, 0.26);
+}
+
+.account-page__avatar-button:disabled,
+.account-page__avatar-remove-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.65;
+}
+
+.account-page__avatar-hint {
+    max-width: 260px;
+    margin: 12px 0 0;
 }
