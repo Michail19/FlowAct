@@ -118,9 +118,9 @@ const validationChecklist = [
     'Нет случайных изолированных блоков, которые не участвуют в запуске.',
 ];
 
-function createAnchor(value: string) {
-    return value.replace(/[^a-zA-Zа-яА-Я0-9_-]+/g, '-').toLowerCase();
-}
+// function createAnchor(value: string) {
+//     return value.replace(/[^a-zA-Zа-яА-Я0-9_-]+/g, '-').toLowerCase();
+// }
 
 function renderTemplate(template: string) {
     return template.includes('\n') ? template : template.trim();
