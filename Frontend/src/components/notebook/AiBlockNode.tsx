@@ -3,6 +3,7 @@ import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { getAiModelName } from './aiModels';
 import NotebookSvgIcon from './NotebookSvgIcon';
 import type { NotebookBlockStatus, NotebookNode } from './notebookTypes';
+import { useNotebookClipboardShortcuts } from './useNotebookClipboardShortcuts';
 
 import './AiBlockNode.css';
 
@@ -37,6 +38,8 @@ function getPromptPreview(prompt?: string): string {
 }
 
 function AiBlockNode({ id, data, selected }: AiBlockNodeProps) {
+    useNotebookClipboardShortcuts(false);
+
     const status = data.status ?? 'idle';
     const selectedModels = data.aiConfig?.models ?? [];
     const promptPreview = getPromptPreview(data.aiConfig?.prompt);
