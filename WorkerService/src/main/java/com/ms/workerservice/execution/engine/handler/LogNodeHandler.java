@@ -4,6 +4,7 @@ import com.ms.workerservice.common.util.JsonHelper;
 import com.ms.workerservice.execution.engine.ExecutionContext;
 import com.ms.workerservice.execution.engine.NodeResult;
 import com.ms.workerservice.execution.engine.ResolvedInput;
+import com.ms.workerservice.execution.engine.TemplateRenderer;
 import com.ms.workerservice.workflow.entity.WorkflowBlockEntity;
 import com.ms.workerservice.workflow.enumtype.BlockType;
 import org.springframework.stereotype.Component;
@@ -16,9 +17,11 @@ import java.util.Map;
 public class LogNodeHandler implements NodeHandler {
 
     private final JsonHelper jsonHelper;
+    private final TemplateRenderer templateRenderer;
 
-    public LogNodeHandler(JsonHelper jsonHelper) {
+    public LogNodeHandler(JsonHelper jsonHelper, TemplateRenderer templateRenderer) {
         this.jsonHelper = jsonHelper;
+        this.templateRenderer = templateRenderer;
     }
 
     @Override
@@ -35,13 +38,13 @@ public class LogNodeHandler implements NodeHandler {
         Map<String, Object> config = jsonHelper.toMap(block.getConfig());
 
         String level = getString(config, "level", "info").toLowerCase(Locale.ROOT);
-        String messageTemplate = getString(config, "messageTemplate", "{{input}}");
+        String messageTemplate = getString(config, "messageTemplate", "{{value}}");
 
         Object inputValue = input.getValue() != null
                 ? input.getValue()
-                : input.getValues();
+                : input.getInputs();
 
-        String message = renderTemplate(messageTemplate, input, context);
+        String message = templateRenderer.render(messageTemplate, input, context);
 
         Map<String, Object> log = new LinkedHashMap<>();
         log.put("level", normalizeLevel(level));
@@ -61,32 +64,6 @@ public class LogNodeHandler implements NodeHandler {
         return NodeResult.of(output);
     }
 
-    private String renderTemplate(
-            String template,
-            ResolvedInput input,
-            ExecutionContext context
-    ) {
-        if (template == null || template.isBlank()) {
-            return "";
-        }
-
-        Object inputValue = input.getValue() != null
-                ? input.getValue()
-                : input.getValues();
-
-        String inputJson = jsonHelper.toJson(inputValue);
-        String valuesJson = jsonHelper.toJson(input.getValues());
-        String variablesJson = jsonHelper.toJson(context.getVariables());
-        String lastJson = jsonHelper.toJson(context.getLastSuccessfulOutput());
-
-        return template
-                .replace("{{input}}", safe(inputJson))
-                .replace("{{value}}", safe(inputJson))
-                .replace("{{values}}", safe(valuesJson))
-                .replace("{{variables}}", safe(variablesJson))
-                .replace("{{last}}", safe(lastJson));
-    }
-
     private String normalizeLevel(String level) {
         return switch (level) {
             case "warning", "warn" -> "warning";
@@ -94,10 +71,6 @@ public class LogNodeHandler implements NodeHandler {
             case "info" -> "info";
             default -> "info";
         };
-    }
-
-    private String safe(String value) {
-        return value != null ? value : "";
     }
 
     private String getString(
