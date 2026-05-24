@@ -157,7 +157,7 @@ class EmailNodeHandlerTest {
                 block("""
                         {
                           "recipient": "user@example.com",
-                          "subject": "Hello\nBCC: attacker@example.com",
+                          "subject": "Hello\\nBCC: attacker@example.com",
                           "body": "Body"
                         }
                         """),
