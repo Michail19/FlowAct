@@ -575,7 +575,7 @@
 
 .landing-ai__visual {
     position: relative;
-    min-height: 340px;
+    min-height: 410px;
 }
 
 .landing-ai__orb {
@@ -593,6 +593,7 @@
     color: var(--orb-accent, var(--color-primary));
     font-weight: 900;
     isolation: isolate;
+    will-change: transform;
 }
 
 .landing-ai__orb::after {
@@ -614,8 +615,18 @@
 }
 
 .landing-ai__model-icon--gemma {
-    width: 48%;
-    height: 48%;
+    width: 50%;
+    height: 50%;
+}
+
+.landing-ai__model-icon--qwen3 {
+    width: 58%;
+    height: 58%;
+}
+
+.landing-ai__model-icon--openrouter {
+    width: 54%;
+    height: 54%;
 }
 
 .landing-ai__model-icon-text {
@@ -628,12 +639,12 @@
 .landing-ai__orb-label {
     position: absolute;
     right: 50%;
-    bottom: -13px;
+    bottom: -15px;
     transform: translateX(50%);
     padding: 5px 10px;
     border: 1px solid rgba(148, 163, 184, 0.22);
     border-radius: 999px;
-    background: rgba(7, 17, 39, 0.88);
+    background: rgba(7, 17, 39, 0.9);
     color: #e5eefb;
     font-size: 11px;
     font-weight: 900;
@@ -642,48 +653,135 @@
     box-shadow: 0 10px 22px rgba(15, 23, 42, 0.26);
 }
 
+/* --- Позиции без пересечений --- */
+
 .landing-ai__orb--openai {
-    top: 30px;
-    left: 8%;
-    width: 116px;
-    height: 116px;
-    --orb-accent: #38bdf8;
-    --orb-bg: linear-gradient(135deg, #1d4ed8, #22d3ee);
-    --orb-halo: rgba(34, 211, 238, 0.12);
-    --orb-glow: rgba(34, 211, 238, 0.5);
-}
-
-.landing-ai__orb--gemma {
-    top: 0;
-    right: 9%;
-    width: 96px;
-    height: 96px;
+    top: 42px;
+    left: 0;
+    width: 124px;
+    height: 124px;
     --orb-accent: #ffffff;
-    --orb-bg: linear-gradient(135deg, #8b5cf6, #38bdf8);
-    --orb-halo: rgba(139, 92, 246, 0.18);
-    --orb-glow: rgba(139, 92, 246, 0.58);
-}
-
-.landing-ai__orb--qwen3 {
-    right: 13%;
-    bottom: 12px;
-    width: 132px;
-    height: 132px;
-    --orb-accent: #dbeafe;
-    --orb-bg: linear-gradient(135deg, #16a34a, #10b981);
-    --orb-halo: rgba(34, 197, 94, 0.16);
-    --orb-glow: rgba(34, 197, 94, 0.5);
+    --orb-bg: linear-gradient(135deg, #22d3ee, #2563eb);
+    --orb-halo: rgba(34, 211, 238, 0.13);
+    --orb-glow: rgba(34, 211, 238, 0.5);
+    animation: landing-ai-float-openai 8.4s ease-in-out infinite;
+    animation-delay: -1.2s;
 }
 
 .landing-ai__orb--openrouter {
-    bottom: 46px;
-    left: 17%;
-    width: 88px;
-    height: 88px;
+    top: 190px;
+    left: 74px;
+    width: 96px;
+    height: 96px;
     --orb-accent: #ffffff;
     --orb-bg: linear-gradient(135deg, #f43f5e, #f97316);
     --orb-halo: rgba(244, 63, 94, 0.14);
     --orb-glow: rgba(249, 115, 22, 0.45);
+    animation: landing-ai-float-openrouter 7.1s ease-in-out infinite;
+    animation-delay: -3.4s;
+}
+
+.landing-ai__orb--gemma {
+    top: -8px;
+    right: 15%;
+    width: 104px;
+    height: 104px;
+    --orb-accent: #ffffff;
+    --orb-bg: linear-gradient(135deg, #8b5cf6, #38bdf8);
+    --orb-halo: rgba(139, 92, 246, 0.18);
+    --orb-glow: rgba(139, 92, 246, 0.58);
+    animation: landing-ai-float-gemma 9.2s ease-in-out infinite;
+    animation-delay: -2.1s;
+}
+
+.landing-ai__orb--qwen3 {
+    right: 1%;
+    bottom: -10px;
+    width: 142px;
+    height: 142px;
+    --orb-accent: #ffffff;
+    --orb-bg: linear-gradient(135deg, #16a34a, #10b981);
+    --orb-halo: rgba(34, 197, 94, 0.16);
+    --orb-glow: rgba(34, 197, 94, 0.5);
+    animation: landing-ai-float-qwen3 10.6s ease-in-out infinite;
+    animation-delay: -4.6s;
+}
+
+/* --- Движение по разным осям --- */
+/* OpenAI: сначала вниз, затем мягко вверх-влево */
+@keyframes landing-ai-float-openai {
+    0%, 100% {
+        transform: translate3d(0, 0, 0) rotate(0deg);
+    }
+
+    22% {
+        transform: translate3d(0, 18px, 0) rotate(-1deg);
+    }
+
+    48% {
+        transform: translate3d(-10px, 6px, 0) rotate(2deg);
+    }
+
+    72% {
+        transform: translate3d(6px, -12px, 0) rotate(-1deg);
+    }
+}
+
+/* Qwen3: тоже сначала вниз, но потом уходит вправо и возвращается снизу */
+@keyframes landing-ai-float-qwen3 {
+    0%, 100% {
+        transform: translate3d(0, 0, 0) rotate(0deg);
+    }
+
+    20% {
+        transform: translate3d(0, 22px, 0) rotate(1deg);
+    }
+
+    46% {
+        transform: translate3d(14px, 12px, 0) rotate(-2deg);
+    }
+
+    72% {
+        transform: translate3d(-8px, -8px, 0) rotate(1deg);
+    }
+}
+
+/* Gemma: движение в противоположную сторону — сначала влево и вверх */
+@keyframes landing-ai-float-gemma {
+    0%, 100% {
+        transform: translate3d(0, 0, 0) rotate(0deg);
+    }
+
+    24% {
+        transform: translate3d(-18px, -10px, 0) rotate(-2deg);
+    }
+
+    52% {
+        transform: translate3d(-8px, 8px, 0) rotate(2deg);
+    }
+
+    78% {
+        transform: translate3d(12px, -4px, 0) rotate(-1deg);
+    }
+}
+
+/* OpenRouter: другая ось — сначала вправо и вниз */
+@keyframes landing-ai-float-openrouter {
+    0%, 100% {
+        transform: translate3d(0, 0, 0) rotate(0deg);
+    }
+
+    25% {
+        transform: translate3d(18px, 12px, 0) rotate(3deg);
+    }
+
+    50% {
+        transform: translate3d(8px, -8px, 0) rotate(-2deg);
+    }
+
+    76% {
+        transform: translate3d(-14px, 6px, 0) rotate(2deg);
+    }
 }
 
 .landing-ai__chips {

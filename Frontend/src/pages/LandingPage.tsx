@@ -266,40 +266,36 @@ function LandingModelIcon({ name }: { name: LandingModelIconName }) {
     if (name === 'qwen3') {
         return (
             <svg
-                className="landing-ai__model-icon"
+                className="landing-ai__model-icon landing-ai__model-icon--qwen3"
                 viewBox="0 0 96 96"
                 role="img"
                 aria-label="Qwen3"
             >
-                <defs>
-                    <linearGradient id="qwen3Gradient" x1="18" y1="18" x2="78" y2="78">
-                        <stop offset="0%" stopColor="currentColor" stopOpacity="1" />
-                        <stop offset="100%" stopColor="currentColor" stopOpacity="0.55" />
-                    </linearGradient>
-                </defs>
-
                 <circle
                     cx="48"
                     cy="48"
-                    r="30"
-                    fill="none"
-                    stroke="url(#qwen3Gradient)"
-                    strokeWidth="8"
-                />
-                <path
-                    d="M62 62 76 76"
+                    r="28"
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth="8"
-                    strokeLinecap="round"
+                    strokeWidth="7"
                 />
+
                 <path
-                    d="M34 48c0-9 6-16 15-16 7 0 13 4 15 10"
+                    d="M62 62 75 75"
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth="6"
+                    strokeWidth="7"
                     strokeLinecap="round"
                 />
+
+                <path
+                    d="M35 43c3-7 9-11 17-10 8 1 13 7 13 15 0 6-3 11-8 14"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="5"
+                    strokeLinecap="round"
+                />
+
                 <text
                     x="48"
                     y="57"
@@ -315,7 +311,7 @@ function LandingModelIcon({ name }: { name: LandingModelIconName }) {
     if (name === 'openrouter') {
         return (
             <svg
-                className="landing-ai__model-icon"
+                className="landing-ai__model-icon landing-ai__model-icon--openrouter"
                 viewBox="0 0 96 96"
                 role="img"
                 aria-label="OpenRouter"
@@ -323,17 +319,17 @@ function LandingModelIcon({ name }: { name: LandingModelIconName }) {
                 <g
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth="8"
+                    strokeWidth="6"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                 >
-                    <path d="M18 31h30c10 0 16 6 16 16v2" />
-                    <path d="M54 19 67 31 54 43" />
+                    <path d="M18 32h34c9 0 15 6 15 15v3" />
+                    <path d="M57 20 70 32 57 44" />
 
-                    <path d="M78 65H48c-10 0-16-6-16-16v-2" />
-                    <path d="M42 77 29 65 42 53" />
+                    <path d="M78 64H44c-9 0-15-6-15-15v-3" />
+                    <path d="M39 76 26 64 39 52" />
 
-                    <path d="M24 48h48" strokeWidth="5" opacity="0.5" />
+                    <path d="M30 48h36" opacity="0.42" />
                 </g>
             </svg>
         );
