@@ -6,6 +6,7 @@ import com.ms.executionservice.common.util.JsonUtils;
 import com.ms.executionservice.execution.dto.response.ExecutionResponse;
 import com.ms.executionservice.execution.entity.ExecutionEntity;
 import com.ms.executionservice.execution.enumtype.ExecutionStatus;
+import com.ms.executionservice.execution.event.ExecutionRetryDispatchEvent;
 import com.ms.executionservice.execution.repository.ExecutionLogRepository;
 import com.ms.executionservice.execution.repository.ExecutionRepository;
 import com.ms.executionservice.notebooks.repository.NotebookRepository;
@@ -17,6 +18,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -40,7 +42,7 @@ class ExecutionServiceRetryTest {
     private ExecutionLogRepository executionLogRepository;
 
     @Mock
-    private ExecutionDispatchService executionDispatchService;
+    private ApplicationEventPublisher eventPublisher;
 
     private JsonUtils jsonUtils;
     private ExecutionService executionService;
@@ -54,7 +56,7 @@ class ExecutionServiceRetryTest {
                 executionRepository,
                 executionLogRepository,
                 jsonUtils,
-                executionDispatchService
+                eventPublisher
         );
     }
 
@@ -78,7 +80,7 @@ class ExecutionServiceRetryTest {
                 () -> executionService.retry(currentUserId, notebookId, workflowId, executionId)
         );
 
-        verifyNoInteractions(executionDispatchService);
+        verifyNoInteractions(eventPublisher);
     }
 
     @Test
@@ -118,7 +120,7 @@ class ExecutionServiceRetryTest {
         assertTrue(ex.getMessage().contains("only after SUCCESS, FAILED or CANCELLED"));
 
         verify(executionRepository, never()).save(any());
-        verifyNoInteractions(executionDispatchService);
+        verifyNoInteractions(eventPublisher);
     }
 
     @Test
@@ -171,13 +173,18 @@ class ExecutionServiceRetryTest {
         assertTrue(response.outputData().isEmpty());
         assertNull(response.errorMessage());
 
-        verify(executionDispatchService).publishRetryRequested(
-                oldExecutionId,
-                response.id(),
-                workflowId,
-                notebookId,
-                currentUserId
-        );
+        ArgumentCaptor<ExecutionRetryDispatchEvent> eventCaptor =
+                ArgumentCaptor.forClass(ExecutionRetryDispatchEvent.class);
+
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+
+        ExecutionRetryDispatchEvent event = eventCaptor.getValue();
+
+        assertEquals(oldExecutionId, event.sourceExecutionId());
+        assertEquals(response.id(), event.executionId());
+        assertEquals(workflowId, event.workflowId());
+        assertEquals(notebookId, event.notebookId());
+        assertEquals(currentUserId, event.startedByUserId());
     }
 
     @Test
@@ -241,12 +248,17 @@ class ExecutionServiceRetryTest {
         assertNull(newExecution.getOutputData());
         assertNull(newExecution.getErrorMessage());
 
-        verify(executionDispatchService).publishRetryRequested(
-                oldExecutionId,
-                response.id(),
-                workflowId,
-                notebookId,
-                currentUserId
-        );
+        ArgumentCaptor<ExecutionRetryDispatchEvent> eventCaptor =
+                ArgumentCaptor.forClass(ExecutionRetryDispatchEvent.class);
+
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+
+        ExecutionRetryDispatchEvent event = eventCaptor.getValue();
+
+        assertEquals(oldExecutionId, event.sourceExecutionId());
+        assertEquals(response.id(), event.executionId());
+        assertEquals(workflowId, event.workflowId());
+        assertEquals(notebookId, event.notebookId());
+        assertEquals(currentUserId, event.startedByUserId());
     }
 }
