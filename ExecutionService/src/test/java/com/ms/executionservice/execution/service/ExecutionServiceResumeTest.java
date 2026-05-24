@@ -6,6 +6,7 @@ import com.ms.executionservice.common.util.JsonUtils;
 import com.ms.executionservice.execution.dto.response.ExecutionResponse;
 import com.ms.executionservice.execution.entity.ExecutionEntity;
 import com.ms.executionservice.execution.enumtype.ExecutionStatus;
+import com.ms.executionservice.execution.event.ExecutionResumeDispatchEvent;
 import com.ms.executionservice.execution.repository.ExecutionLogRepository;
 import com.ms.executionservice.execution.repository.ExecutionRepository;
 import com.ms.executionservice.notebooks.repository.NotebookRepository;
@@ -14,8 +15,10 @@ import com.ms.executionservice.workflow.repository.WorkflowRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.OffsetDateTime;
 import java.util.Map;
@@ -41,7 +44,7 @@ class ExecutionServiceResumeTest {
     private ExecutionLogRepository executionLogRepository;
 
     @Mock
-    private ExecutionDispatchService executionDispatchService;
+    private ApplicationEventPublisher eventPublisher;
 
     private JsonUtils jsonUtils;
     private ExecutionService executionService;
@@ -55,7 +58,7 @@ class ExecutionServiceResumeTest {
                 executionRepository,
                 executionLogRepository,
                 jsonUtils,
-                executionDispatchService
+                eventPublisher
         );
     }
 
@@ -88,7 +91,7 @@ class ExecutionServiceResumeTest {
         verify(executionRepository).findByIdAndWorkflow_IdAndWorkflow_Notebook_Id(
                 executionId, workflowId, notebookId
         );
-        verifyNoInteractions(executionDispatchService);
+        verifyNoInteractions(eventPublisher);
     }
 
     @Test
@@ -138,7 +141,7 @@ class ExecutionServiceResumeTest {
         verify(executionRepository).findByIdAndWorkflow_IdAndWorkflow_Notebook_Id(
                 executionId, workflowId, notebookId
         );
-        verifyNoInteractions(executionDispatchService);
+        verifyNoInteractions(eventPublisher);
     }
 
     @Test
@@ -199,14 +202,19 @@ class ExecutionServiceResumeTest {
                 executionId, workflowId, notebookId
         );
 
-        verify(executionDispatchService).publishResumeRequested(
-                executionId,
-                workflowId,
-                notebookId,
-                resumePayload
-        );
+        ArgumentCaptor<ExecutionResumeDispatchEvent> eventCaptor =
+                ArgumentCaptor.forClass(ExecutionResumeDispatchEvent.class);
 
-        verifyNoMoreInteractions(executionDispatchService);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+
+        ExecutionResumeDispatchEvent event = eventCaptor.getValue();
+
+        assertEquals(executionId, event.executionId());
+        assertEquals(workflowId, event.workflowId());
+        assertEquals(notebookId, event.notebookId());
+        assertEquals(resumePayload, event.resumePayload());
+
+        verifyNoMoreInteractions(eventPublisher);
     }
 
     @Test
@@ -251,11 +259,16 @@ class ExecutionServiceResumeTest {
         assertNotNull(response);
         assertEquals(ExecutionStatus.WAITING, response.status());
 
-        verify(executionDispatchService).publishResumeRequested(
-                executionId,
-                workflowId,
-                notebookId,
-                null
-        );
+        ArgumentCaptor<ExecutionResumeDispatchEvent> eventCaptor =
+                ArgumentCaptor.forClass(ExecutionResumeDispatchEvent.class);
+
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+
+        ExecutionResumeDispatchEvent event = eventCaptor.getValue();
+
+        assertEquals(executionId, event.executionId());
+        assertEquals(workflowId, event.workflowId());
+        assertEquals(notebookId, event.notebookId());
+        assertNull(event.resumePayload());
     }
 }
