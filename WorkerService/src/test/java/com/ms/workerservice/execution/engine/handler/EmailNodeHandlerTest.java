@@ -81,7 +81,11 @@ class EmailNodeHandlerTest {
         NodeResult result = handler.handle(block, input, context);
 
         assertThat(result.getOutput()).isInstanceOf(Map.class);
-        assertThat((Map<?, ?>) result.getOutput())
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> output = (Map<String, Object>) result.getOutput();
+
+        assertThat(output)
                 .containsEntry("sent", true)
                 .containsEntry("preview", false)
                 .containsEntry("from", "noreply@flowact.local");
@@ -122,7 +126,10 @@ class EmailNodeHandlerTest {
                 new ExecutionContext(UUID.randomUUID(), UUID.randomUUID(), Map.of())
         );
 
-        assertThat((Map<?, ?>) result.getOutput())
+        @SuppressWarnings("unchecked")
+        Map<String, Object> output = (Map<String, Object>) result.getOutput();
+
+        assertThat(output)
                 .containsEntry("sent", false)
                 .containsEntry("preview", true);
     }
@@ -150,7 +157,7 @@ class EmailNodeHandlerTest {
                 block("""
                         {
                           "recipient": "user@example.com",
-                          "subject": "Hello\nBCC: attacker@example.com",
+                          "subject": "Hello\\nBCC: attacker@example.com",
                           "body": "Body"
                         }
                         """),

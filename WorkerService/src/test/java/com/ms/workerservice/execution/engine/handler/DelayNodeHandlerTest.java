@@ -6,6 +6,7 @@ import com.ms.workerservice.execution.engine.ExecutionContext;
 import com.ms.workerservice.execution.engine.NodeAction;
 import com.ms.workerservice.execution.engine.NodeResult;
 import com.ms.workerservice.execution.engine.ResolvedInput;
+import com.ms.workerservice.execution.engine.TemplateRenderer;
 import com.ms.workerservice.workflow.entity.WorkflowBlockEntity;
 import com.ms.workerservice.workflow.enumtype.BlockType;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,7 +24,10 @@ class DelayNodeHandlerTest {
     @BeforeEach
     void setUp() {
         JsonHelper jsonHelper = new JsonHelper(new ObjectMapper());
-        delayNodeHandler = new DelayNodeHandler(jsonHelper);
+        delayNodeHandler = new DelayNodeHandler(
+                jsonHelper,
+                new TemplateRenderer(jsonHelper)
+        );
     }
 
     @Test

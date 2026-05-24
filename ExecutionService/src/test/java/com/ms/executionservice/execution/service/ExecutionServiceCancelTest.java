@@ -6,6 +6,7 @@ import com.ms.executionservice.common.util.JsonUtils;
 import com.ms.executionservice.execution.dto.response.ExecutionResponse;
 import com.ms.executionservice.execution.entity.ExecutionEntity;
 import com.ms.executionservice.execution.enumtype.ExecutionStatus;
+import com.ms.executionservice.execution.event.ExecutionCancelDispatchEvent;
 import com.ms.executionservice.execution.repository.ExecutionLogRepository;
 import com.ms.executionservice.execution.repository.ExecutionRepository;
 import com.ms.executionservice.notebooks.repository.NotebookRepository;
@@ -17,6 +18,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.OffsetDateTime;
 import java.util.Optional;
@@ -41,7 +43,7 @@ class ExecutionServiceCancelTest {
     private ExecutionLogRepository executionLogRepository;
 
     @Mock
-    private ExecutionDispatchService executionDispatchService;
+    private ApplicationEventPublisher eventPublisher;
 
     private JsonUtils jsonUtils;
     private ExecutionService executionService;
@@ -55,7 +57,7 @@ class ExecutionServiceCancelTest {
                 executionRepository,
                 executionLogRepository,
                 jsonUtils,
-                executionDispatchService
+                eventPublisher
         );
     }
 
@@ -79,7 +81,7 @@ class ExecutionServiceCancelTest {
                 () -> executionService.cancel(currentUserId, notebookId, workflowId, executionId)
         );
 
-        verifyNoInteractions(executionDispatchService);
+        verifyNoInteractions(eventPublisher);
     }
 
     @Test
@@ -122,7 +124,7 @@ class ExecutionServiceCancelTest {
         assertEquals(ExecutionStatus.SUCCESS, response.status());
 
         verify(executionRepository, never()).save(any());
-        verifyNoInteractions(executionDispatchService);
+        verifyNoInteractions(eventPublisher);
     }
 
     @Test
@@ -172,7 +174,7 @@ class ExecutionServiceCancelTest {
         assertEquals(ExecutionStatus.CANCELLED, saved.getStatus());
         assertNotNull(saved.getFinishedAt());
 
-        verifyNoInteractions(executionDispatchService);
+        verifyNoInteractions(eventPublisher);
     }
 
     @Test
@@ -221,11 +223,16 @@ class ExecutionServiceCancelTest {
         ExecutionEntity saved = entityCaptor.getValue();
         assertEquals(ExecutionStatus.CANCELLING, saved.getStatus());
 
-        verify(executionDispatchService).publishCancelRequested(
-                executionId,
-                workflowId,
-                notebookId
-        );
+        ArgumentCaptor<ExecutionCancelDispatchEvent> eventCaptor =
+                ArgumentCaptor.forClass(ExecutionCancelDispatchEvent.class);
+
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+
+        ExecutionCancelDispatchEvent event = eventCaptor.getValue();
+
+        assertEquals(executionId, event.executionId());
+        assertEquals(workflowId, event.workflowId());
+        assertEquals(notebookId, event.notebookId());
     }
 
     @Test
@@ -265,6 +272,6 @@ class ExecutionServiceCancelTest {
         assertEquals(ExecutionStatus.CANCELLING, response.status());
 
         verify(executionRepository, never()).save(any());
-        verifyNoInteractions(executionDispatchService);
+        verifyNoInteractions(eventPublisher);
     }
 }

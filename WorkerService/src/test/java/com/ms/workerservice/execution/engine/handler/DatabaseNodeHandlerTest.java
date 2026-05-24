@@ -73,7 +73,10 @@ class DatabaseNodeHandlerTest {
                 new ExecutionContext(UUID.randomUUID(), UUID.randomUUID(), Map.of("email", "user@example.com"))
         );
 
-        assertThat((Map<?, ?>) result.getOutput())
+        @SuppressWarnings("unchecked")
+        Map<String, Object> output = (Map<String, Object>) result.getOutput();
+
+        assertThat(output)
                 .containsEntry("count", 1);
 
         ArgumentCaptor<String> queryCaptor = ArgumentCaptor.forClass(String.class);
@@ -139,8 +142,8 @@ class DatabaseNodeHandlerTest {
         assertThatThrownBy(() -> handler.handle(
                 block("""
                         {
-                          "operation": "update",
-                          "query": "UPDATE users SET name = :name WHERE id = :id",
+                          "operation": "insert",
+                          "query": "INSERT INTO users (id, name) VALUES (:id, :name)",
                           "payload": {
                             "id": 1,
                             "name": "Mikhail"

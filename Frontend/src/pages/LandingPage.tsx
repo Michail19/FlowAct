@@ -231,14 +231,153 @@ function LandingEditorPreview() {
     );
 }
 
+type LandingModelIconName = 'openai' | 'qwen3' | 'openrouter' | 'gemma';
+
+function LandingModelIcon({ name }: { name: LandingModelIconName }) {
+    if (name === 'openai') {
+        return (
+            <svg
+                className="landing-ai__model-icon"
+                viewBox="0 0 96 96"
+                role="img"
+                aria-label="OpenAI"
+            >
+                <g
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="7"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                >
+                    <path d="M48 15c9 0 16 5 19 13 8 1 14 8 14 17 0 6-3 12-8 15 1 8-3 16-11 20-6 3-13 3-19-1-7 5-17 4-23-2-6-6-8-15-4-23-5-6-6-15-2-22 4-7 12-11 20-10 3-5 8-7 14-7Z" />
+                    <path d="M35 23 60 37" />
+                    <path d="M68 31 68 59" />
+                    <path d="M73 60 48 74" />
+                    <path d="M40 72 16 58" />
+                    <path d="M15 47 39 33" />
+                    <path d="M30 55 56 40" />
+                    <path d="M41 34 41 64" />
+                    <path d="M56 64 30 49" />
+                </g>
+            </svg>
+        );
+    }
+
+    if (name === 'qwen3') {
+        return (
+            <svg
+                className="landing-ai__model-icon landing-ai__model-icon--qwen3"
+                viewBox="0 0 96 96"
+                role="img"
+                aria-label="Qwen3"
+            >
+                <circle
+                    cx="48"
+                    cy="48"
+                    r="28"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="7"
+                />
+
+                <path
+                    d="M62 62 75 75"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="7"
+                    strokeLinecap="round"
+                />
+
+                <path
+                    d="M35 43c3-7 9-11 17-10 8 1 13 7 13 15 0 6-3 11-8 14"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="5"
+                    strokeLinecap="round"
+                />
+
+                <text
+                    x="48"
+                    y="57"
+                    textAnchor="middle"
+                    className="landing-ai__model-icon-text"
+                >
+                    3
+                </text>
+            </svg>
+        );
+    }
+
+    if (name === 'openrouter') {
+        return (
+            <svg
+                className="landing-ai__model-icon landing-ai__model-icon--openrouter"
+                viewBox="0 0 96 96"
+                role="img"
+                aria-label="OpenRouter"
+            >
+                <g
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                >
+                    <path d="M18 32h34c9 0 15 6 15 15v3" />
+                    <path d="M57 20 70 32 57 44" />
+
+                    <path d="M78 64H44c-9 0-15-6-15-15v-3" />
+                    <path d="M39 76 26 64 39 52" />
+
+                    <path d="M30 48h36" opacity="0.42" />
+                </g>
+            </svg>
+        );
+    }
+
+    return (
+        <svg
+            className="landing-ai__model-icon landing-ai__model-icon--gemma"
+            viewBox="0 0 96 96"
+            role="img"
+            aria-label="Gemma"
+        >
+            <path
+                d="M48 12 57 39 84 48 57 57 48 84 39 57 12 48 39 39Z"
+                fill="currentColor"
+            />
+            <path
+                d="M67 13 71 25 83 29 71 33 67 45 63 33 51 29 63 25Z"
+                fill="currentColor"
+                opacity="0.72"
+            />
+        </svg>
+    );
+}
+
 function LandingAiModels() {
     return (
         <section className="landing-ai" id="ai" data-reveal="section">
-            <div className="landing-ai__visual" aria-hidden="true">
-                <span className="landing-ai__orb landing-ai__orb--openai">AI</span>
-                <span className="landing-ai__orb landing-ai__orb--gemini">✦</span>
-                <span className="landing-ai__orb landing-ai__orb--deepseek">ML</span>
-                <span className="landing-ai__orb landing-ai__orb--other">API</span>
+            <div className="landing-ai__visual" aria-label="Поддерживаемые AI-модели">
+                <span className="landing-ai__orb landing-ai__orb--openai">
+                    <LandingModelIcon name="openai" />
+                    <span className="landing-ai__orb-label">OpenAI</span>
+                </span>
+
+                <span className="landing-ai__orb landing-ai__orb--gemma">
+                    <LandingModelIcon name="gemma" />
+                    <span className="landing-ai__orb-label">Gemma</span>
+                </span>
+
+                <span className="landing-ai__orb landing-ai__orb--qwen3">
+                    <LandingModelIcon name="qwen3" />
+                    <span className="landing-ai__orb-label">Qwen3</span>
+                </span>
+
+                <span className="landing-ai__orb landing-ai__orb--openrouter">
+                    <LandingModelIcon name="openrouter" />
+                    <span className="landing-ai__orb-label">OpenRouter</span>
+                </span>
             </div>
 
             <div className="landing-ai__content">
@@ -250,10 +389,11 @@ function LandingAiModels() {
                     Это удобно для классификации, генерации текста, проверки условий и подсказок.
                 </p>
 
-                <div className="landing-ai__chips" aria-label="Возможности AI-блоков">
-                    <span>Анализ текста</span>
-                    <span>Генерация ответа</span>
-                    <span>Рекомендация блока</span>
+                <div className="landing-ai__chips" aria-label="Поддерживаемые модели">
+                    <span>OpenAI</span>
+                    <span>Qwen3</span>
+                    <span>OpenRouter</span>
+                    <span>Gemma</span>
                 </div>
             </div>
         </section>

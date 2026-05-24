@@ -5,6 +5,7 @@ import com.ms.workerservice.common.util.JsonHelper;
 import com.ms.workerservice.execution.engine.ExecutionContext;
 import com.ms.workerservice.execution.engine.NodeResult;
 import com.ms.workerservice.execution.engine.ResolvedInput;
+import com.ms.workerservice.execution.engine.TemplateRenderer;
 import com.ms.workerservice.workflow.entity.WorkflowBlockEntity;
 import com.ms.workerservice.workflow.enumtype.BlockType;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,7 +23,10 @@ class TransformJsonNodeHandlerTest {
     @BeforeEach
     void setUp() {
         JsonHelper jsonHelper = new JsonHelper(new ObjectMapper());
-        transformJsonNodeHandler = new TransformJsonNodeHandler(jsonHelper);
+        transformJsonNodeHandler = new TransformJsonNodeHandler(
+                jsonHelper,
+                new TemplateRenderer(jsonHelper)
+        );
     }
 
     @Test
