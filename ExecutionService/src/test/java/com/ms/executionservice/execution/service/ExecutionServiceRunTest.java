@@ -7,6 +7,7 @@ import com.ms.executionservice.execution.dto.request.CreateExecutionRequest;
 import com.ms.executionservice.execution.dto.response.ExecutionResponse;
 import com.ms.executionservice.execution.entity.ExecutionEntity;
 import com.ms.executionservice.execution.enumtype.ExecutionStatus;
+import com.ms.executionservice.execution.event.ExecutionRunDispatchEvent;
 import com.ms.executionservice.execution.repository.ExecutionLogRepository;
 import com.ms.executionservice.execution.repository.ExecutionRepository;
 import com.ms.executionservice.notebooks.repository.NotebookRepository;
@@ -19,6 +20,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.Map;
 import java.util.Optional;
@@ -43,7 +45,7 @@ class ExecutionServiceRunTest {
     private ExecutionLogRepository executionLogRepository;
 
     @Mock
-    private ExecutionDispatchService executionDispatchService;
+    private ApplicationEventPublisher eventPublisher;
 
     private JsonUtils jsonUtils;
     private ExecutionService executionService;
@@ -57,7 +59,7 @@ class ExecutionServiceRunTest {
                 executionRepository,
                 executionLogRepository,
                 jsonUtils,
-                executionDispatchService
+                eventPublisher
         );
     }
 
@@ -83,7 +85,7 @@ class ExecutionServiceRunTest {
 
         verify(notebookRepository).existsByIdAndOwnerUserId(notebookId, currentUserId);
         verify(workflowRepository).findByIdAndNotebook_Id(workflowId, notebookId);
-        verifyNoInteractions(executionRepository, executionDispatchService);
+        verifyNoInteractions(executionRepository, eventPublisher);
     }
 
     @Test
@@ -105,7 +107,7 @@ class ExecutionServiceRunTest {
         );
 
         verify(notebookRepository).existsByIdAndOwnerUserId(notebookId, currentUserId);
-        verifyNoInteractions(workflowRepository, executionRepository, executionDispatchService);
+        verifyNoInteractions(workflowRepository, executionRepository, eventPublisher);
     }
 
     @Test
@@ -138,7 +140,7 @@ class ExecutionServiceRunTest {
 
         verify(notebookRepository).existsByIdAndOwnerUserId(notebookId, currentUserId);
         verify(workflowRepository).findByIdAndNotebook_Id(workflowId, notebookId);
-        verifyNoInteractions(executionRepository, executionDispatchService);
+        verifyNoInteractions(executionRepository, eventPublisher);
     }
 
     @Test
@@ -192,11 +194,16 @@ class ExecutionServiceRunTest {
         assertEquals("{\"text\":\"hello\"}", savedEntity.getInputData());
         assertNull(savedEntity.getOutputData());
 
-        verify(executionDispatchService).publishRunRequested(
-                response.id(),
-                workflowId,
-                notebookId,
-                currentUserId
-        );
+        ArgumentCaptor<ExecutionRunDispatchEvent> eventCaptor =
+                ArgumentCaptor.forClass(ExecutionRunDispatchEvent.class);
+
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+
+        ExecutionRunDispatchEvent event = eventCaptor.getValue();
+
+        assertEquals(response.id(), event.executionId());
+        assertEquals(workflowId, event.workflowId());
+        assertEquals(notebookId, event.notebookId());
+        assertEquals(currentUserId, event.startedByUserId());
     }
 }
