@@ -142,8 +142,8 @@ class DatabaseNodeHandlerTest {
         assertThatThrownBy(() -> handler.handle(
                 block("""
                         {
-                          "operation": "update",
-                          "query": "UPDATE users SET name = :name WHERE id = :id",
+                          "operation": "insert",
+                          "query": "INSERT INTO users (id, name) VALUES (:id, :name)",
                           "payload": {
                             "id": 1,
                             "name": "Mikhail"
