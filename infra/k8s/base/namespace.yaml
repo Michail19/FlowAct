@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: flowact
+  labels:
+    app.kubernetes.io/name: flowact
+    app.kubernetes.io/part-of: flowact
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: flowact-app
+  namespace: flowact
+  labels:
+    app.kubernetes.io/name: flowact
+    app.kubernetes.io/part-of: flowact
+# If GHCR packages are private, create the secret manually and uncomment this block.
+# imagePullSecrets:
+#   - name: ghcr-secret
