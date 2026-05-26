@@ -10,8 +10,47 @@ import type {
     WorkflowValidationResponse,
 } from './workflowApiTypes';
 
+const NOTEBOOK_BACKEND_IDS_STORAGE_KEY = 'flowact:notebook-backend-ids';
+
+function readBackendNotebookIds() {
+    try {
+        const value = window.localStorage.getItem(NOTEBOOK_BACKEND_IDS_STORAGE_KEY);
+        const parsedValue = value ? JSON.parse(value) : {};
+
+        if (
+            parsedValue &&
+            typeof parsedValue === 'object' &&
+            !Array.isArray(parsedValue)
+        ) {
+            return parsedValue as Record<string, string>;
+        }
+    } catch {
+        // ignore
+    }
+
+    return {};
+}
+
+function rememberBackendNotebookId(localNotebookId?: string | null, backendNotebookId?: string | null) {
+    if (!localNotebookId || !backendNotebookId || localNotebookId === backendNotebookId) {
+        return;
+    }
+
+    const ids = readBackendNotebookIds();
+    ids[localNotebookId] = backendNotebookId;
+
+    window.localStorage.setItem(
+        NOTEBOOK_BACKEND_IDS_STORAGE_KEY,
+        JSON.stringify(ids),
+    );
+}
+
+function resolveBackendNotebookId(notebookId: string) {
+    return readBackendNotebookIds()[notebookId] ?? notebookId;
+}
+
 function getWorkflowEndpoint(notebookId: string) {
-    return `/v1/notebooks/${notebookId}/workflows`;
+    return `/v1/notebooks/${resolveBackendNotebookId(notebookId)}/workflows`;
 }
 
 function toWorkflowRequest(payload: BackendWorkflowUpsertRequest): WorkflowRequest {
@@ -58,10 +97,15 @@ export const workflowApi = {
         }
 
         try {
-            return await apiClient.post<WorkflowResponse>(
+            const response = await apiClient.post<WorkflowResponse>(
                 getWorkflowEndpoint(notebookId),
                 toWorkflowRequest(payload),
             );
+
+            rememberBackendNotebookId(notebookId, response.notebookId);
+            rememberBackendNotebookId(payload.notebookId, response.notebookId);
+
+            return response;
         } catch (error) {
             if (isRetryableNotebookSyncError(error)) {
                 return createLocalWorkflowResponse(notebookId, payload);
@@ -81,10 +125,15 @@ export const workflowApi = {
         }
 
         try {
-            return await apiClient.put<WorkflowResponse>(
+            const response = await apiClient.put<WorkflowResponse>(
                 `${getWorkflowEndpoint(notebookId)}/${workflowId}`,
                 toWorkflowRequest(payload),
             );
+
+            rememberBackendNotebookId(notebookId, response.notebookId);
+            rememberBackendNotebookId(payload.notebookId, response.notebookId);
+
+            return response;
         } catch (error) {
             if (isRetryableNotebookSyncError(error)) {
                 return createLocalWorkflowResponse(

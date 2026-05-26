@@ -6,8 +6,35 @@ import type {
     ResumeExecutionRequest,
 } from './workflowApiTypes';
 
+const NOTEBOOK_BACKEND_IDS_STORAGE_KEY = 'flowact:notebook-backend-ids';
+
+function readBackendNotebookIds() {
+    try {
+        const value = window.localStorage.getItem(NOTEBOOK_BACKEND_IDS_STORAGE_KEY);
+        const parsedValue = value ? JSON.parse(value) : {};
+
+        if (
+            parsedValue &&
+            typeof parsedValue === 'object' &&
+            !Array.isArray(parsedValue)
+        ) {
+            return parsedValue as Record<string, string>;
+        }
+    } catch {
+        // ignore
+    }
+
+    return {};
+}
+
+function resolveBackendNotebookId(notebookId: string) {
+    return readBackendNotebookIds()[notebookId] ?? notebookId;
+}
+
 function getWorkflowExecutionEndpoint(notebookId: string, workflowId: string) {
-    return `/v1/notebooks/${notebookId}/workflows/${workflowId}/executions`;
+    const backendNotebookId = resolveBackendNotebookId(notebookId);
+
+    return `/v1/notebooks/${backendNotebookId}/workflows/${workflowId}/executions`;
 }
 
 function requireExecutionId(executionId: string | undefined) {
