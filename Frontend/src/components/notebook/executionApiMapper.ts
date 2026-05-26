@@ -71,15 +71,42 @@ function getShortLogMessage(
     return `${readableOutput.slice(0, 180).trim()}...`;
 }
 
+function getLogInputData(log: ExecutionLogResponse): unknown {
+    return log.input ?? log.inputData ?? null;
+}
+
+function getLogOutputData(log: ExecutionLogResponse): unknown {
+    return log.output ?? log.outputData ?? null;
+}
+
+function getLogErrorMessage(log: ExecutionLogResponse): string | null {
+    return log.error ?? log.errorMessage ?? null;
+}
+
+function getLogDisplayMessage(
+    log: ExecutionLogResponse,
+    readableOutput?: string,
+): string {
+    if (typeof log.message === 'string' && log.message.trim()) {
+        return log.message;
+    }
+
+    return getLogErrorMessage(log) ?? getShortLogMessage(log, readableOutput);
+}
+
 export function toNotebookExecutionLog(
     log: ExecutionLogResponse,
 ): NotebookExecutionLog {
-    const readableInput = log.input
-        ? extractReadableExecutionOutput(log.input)
+    const logInput = getLogInputData(log);
+    const logOutput = getLogOutputData(log);
+    const logError = getLogErrorMessage(log);
+
+    const readableInput = logInput
+        ? extractReadableExecutionOutput(logInput)
         : null;
 
-    const readableOutput = log.output
-        ? extractReadableExecutionOutput(log.output)
+    const readableOutput = logOutput
+        ? extractReadableExecutionOutput(logOutput)
         : null;
 
     return {
@@ -87,15 +114,13 @@ export function toNotebookExecutionLog(
         level: getLogLevelByApiStatus(log.status),
         status: mapApiLogStatusToWorkflowStatus(log.status),
         blockId: log.blockId,
-        message:
-            log.error ??
-            getShortLogMessage(log, readableOutput?.output),
+        message: getLogDisplayMessage(log, readableOutput?.output),
         input: readableInput?.output,
         rawInput: readableInput?.rawOutput,
         output: readableOutput?.output,
         rawOutput: readableOutput?.rawOutput,
         outputFormat: readableOutput?.outputFormat,
-        error: log.error,
+        error: logError,
         createdAt: log.createdAt,
     };
 }
