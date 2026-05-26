@@ -378,10 +378,32 @@ async function loadExecutionStateSnapshot(params: {
         latestExecution.id,
     );
 
+    const safeLogs =
+        latestLogs.length > 0
+            ? latestLogs
+            : latestExecution.status === 'SUCCESS' ||
+            latestExecution.status === 'FAILED' ||
+            latestExecution.status === 'CANCELLED'
+                ? [{
+                    id: `execution-${latestExecution.id}-summary`,
+                    executionId: latestExecution.id,
+                    blockId: '',
+                    status: latestExecution.status === 'SUCCESS'
+                        ? 'SUCCESS'
+                        : latestExecution.status === 'FAILED'
+                            ? 'FAILED'
+                            : 'SKIPPED',
+                    input: latestExecution.inputData,
+                    output: latestExecution.outputData,
+                    error: latestExecution.errorMessage,
+                    createdAt: latestExecution.updatedAt ?? latestExecution.createdAt,
+                }]
+                : latestLogs;
+
     const payloadWithExecutionState = applyExecutionStatusesToPayload({
         payload: params.payload,
         workflow: params.workflow,
-        logs: latestLogs,
+        logs: safeLogs,
         shouldApplyBlockStatuses: params.shouldApplyBlockStatuses,
         executionStatus: frontendStatus,
     });
@@ -389,7 +411,7 @@ async function loadExecutionStateSnapshot(params: {
     const notebookLogs = mapExecutionLogsToNotebookLogs({
         payload: payloadWithExecutionState,
         workflow: params.workflow,
-        logs: latestLogs,
+        logs: safeLogs,
     });
 
     return {

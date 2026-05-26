@@ -107,11 +107,27 @@ export function toNotebookPayload(params: {
 }
 
 function getConditionSourceHandleFromLabel(label?: string): string | undefined {
-    if (label === 'Да') {
+    const normalizedLabel = label?.trim().toLowerCase();
+
+    if (!normalizedLabel) {
+        return undefined;
+    }
+
+    if (
+        normalizedLabel === 'да' ||
+        normalizedLabel === 'yes' ||
+        normalizedLabel === 'true' ||
+        normalizedLabel.startsWith('да:')
+    ) {
         return 'yes';
     }
 
-    if (label === 'Нет') {
+    if (
+        normalizedLabel === 'нет' ||
+        normalizedLabel === 'no' ||
+        normalizedLabel === 'false' ||
+        normalizedLabel.startsWith('нет:')
+    ) {
         return 'no';
     }
 

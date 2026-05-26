@@ -501,6 +501,12 @@ function NotebookCanvas({
     }, []);
 
     useEffect(() => {
+        return () => {
+            flushNotebookDraftAutosave(latestPayloadRef.current);
+        };
+    }, []);
+
+    useEffect(() => {
         if (!initialPayload) {
             return;
         }

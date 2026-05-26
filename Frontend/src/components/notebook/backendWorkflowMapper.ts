@@ -313,11 +313,25 @@ function getBackendConditionForConnection(
         return null;
     }
 
-    if (connection.sourceHandle === 'yes' || connection.label === 'Да') {
+    const normalizedLabel = connection.label?.trim().toLowerCase();
+
+    if (
+        connection.sourceHandle === 'yes' ||
+        normalizedLabel === 'да' ||
+        normalizedLabel === 'yes' ||
+        normalizedLabel === 'true' ||
+        normalizedLabel?.startsWith('да:')
+    ) {
         return 'true';
     }
 
-    if (connection.sourceHandle === 'no' || connection.label === 'Нет') {
+    if (
+        connection.sourceHandle === 'no' ||
+        normalizedLabel === 'нет' ||
+        normalizedLabel === 'no' ||
+        normalizedLabel === 'false' ||
+        normalizedLabel?.startsWith('нет:')
+    ) {
         return 'false';
     }
 
