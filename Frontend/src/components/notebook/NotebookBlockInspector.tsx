@@ -54,12 +54,64 @@ function getStatusLabel(status: string) {
     }
 }
 
+const terminalLogStatuses = new Set<NotebookExecutionLog['status']>([
+    'success',
+    'error',
+    'cancelled',
+    'skipped',
+    'waiting',
+]);
+
+function getLogTime(log: NotebookExecutionLog) {
+    const timestamp = new Date(log.createdAt).getTime();
+
+    return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function sortLogsByCreatedAt(logs: NotebookExecutionLog[]) {
+    return [...logs].sort((firstLog, secondLog) => (
+        getLogTime(firstLog) - getLogTime(secondLog)
+    ));
+}
+
+function hasInput(log: NotebookExecutionLog) {
+    return Boolean(log.input ?? log.rawInput);
+}
+
+function hasOutput(log: NotebookExecutionLog) {
+    return Boolean(log.output ?? log.rawOutput);
+}
+
 function getLatestLog(logs: NotebookExecutionLog[]) {
     if (logs.length === 0) {
         return null;
     }
 
-    return logs[logs.length - 1];
+    const sortedLogs = sortLogsByCreatedAt(logs);
+    const reversedLogs = [...sortedLogs].reverse();
+
+    const latestFinalLog = reversedLogs.find((log) =>
+        terminalLogStatuses.has(log.status),
+    );
+    const latestInputLog = reversedLogs.find(hasInput);
+    const latestOutputLog = reversedLogs.find(hasOutput);
+    const latestErrorLog = reversedLogs.find((log) => Boolean(log.error));
+
+    const baseLog =
+        latestFinalLog ??
+        latestOutputLog ??
+        latestInputLog ??
+        sortedLogs[sortedLogs.length - 1];
+
+    return {
+        ...baseLog,
+        input: baseLog.input ?? latestInputLog?.input,
+        rawInput: baseLog.rawInput ?? latestInputLog?.rawInput,
+        output: baseLog.output ?? latestOutputLog?.output,
+        rawOutput: baseLog.rawOutput ?? latestOutputLog?.rawOutput,
+        outputFormat: baseLog.outputFormat ?? latestOutputLog?.outputFormat,
+        error: baseLog.error ?? latestErrorLog?.error ?? null,
+    };
 }
 
 function NotebookBlockInspector({
@@ -76,7 +128,9 @@ function NotebookBlockInspector({
             return [];
         }
 
-        return logs.filter((log) => log.blockId === block.blockId);
+        return sortLogsByCreatedAt(
+            logs.filter((log) => log.blockId === block.blockId),
+        );
     }, [block, logs]);
 
     const latestLog = getLatestLog(blockLogs);
