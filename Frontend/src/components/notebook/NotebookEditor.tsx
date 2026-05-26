@@ -378,26 +378,29 @@ async function loadExecutionStateSnapshot(params: {
         latestExecution.id,
     );
 
-    const safeLogs =
+    const fallbackLogStatus: ExecutionLogResponse['status'] =
+        latestExecution.status === 'SUCCESS'
+            ? 'SUCCESS'
+            : latestExecution.status === 'FAILED'
+                ? 'FAILED'
+                : 'SKIPPED';
+
+    const safeLogs: ExecutionLogResponse[] =
         latestLogs.length > 0
             ? latestLogs
-            : latestExecution.status === 'SUCCESS' ||
-            latestExecution.status === 'FAILED' ||
-            latestExecution.status === 'CANCELLED'
-                ? [{
-                    id: `execution-${latestExecution.id}-summary`,
-                    executionId: latestExecution.id,
-                    blockId: '',
-                    status: latestExecution.status === 'SUCCESS'
-                        ? 'SUCCESS'
-                        : latestExecution.status === 'FAILED'
-                            ? 'FAILED'
-                            : 'SKIPPED',
-                    input: latestExecution.inputData,
-                    output: latestExecution.outputData,
-                    error: latestExecution.errorMessage,
-                    createdAt: latestExecution.updatedAt ?? latestExecution.createdAt,
-                }]
+            : isRestoredExecutionFinished(frontendStatus)
+                ? [
+                    {
+                        id: `execution-${latestExecution.id}-summary`,
+                        executionId: latestExecution.id,
+                        blockId: '',
+                        status: fallbackLogStatus,
+                        input: latestExecution.inputData,
+                        output: latestExecution.outputData,
+                        error: latestExecution.errorMessage,
+                        createdAt: latestExecution.updatedAt ?? latestExecution.createdAt,
+                    },
+                ]
                 : latestLogs;
 
     const payloadWithExecutionState = applyExecutionStatusesToPayload({
