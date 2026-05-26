@@ -8,17 +8,12 @@ import com.ms.executionservice.execution.dto.response.ExecutionResponse;
 import com.ms.executionservice.execution.entity.ExecutionEntity;
 import com.ms.executionservice.execution.entity.ExecutionLogEntity;
 import com.ms.executionservice.execution.enumtype.ExecutionStatus;
-import com.ms.executionservice.execution.event.ExecutionCancelDispatchEvent;
-import com.ms.executionservice.execution.event.ExecutionResumeDispatchEvent;
-import com.ms.executionservice.execution.event.ExecutionRetryDispatchEvent;
-import com.ms.executionservice.execution.event.ExecutionRunDispatchEvent;
 import com.ms.executionservice.execution.repository.ExecutionLogRepository;
 import com.ms.executionservice.execution.repository.ExecutionRepository;
 import com.ms.executionservice.notebooks.repository.NotebookRepository;
 import com.ms.executionservice.workflow.entity.WorkflowEntity;
 import com.ms.executionservice.workflow.enumtype.WorkflowStatus;
 import com.ms.executionservice.workflow.repository.WorkflowRepository;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,7 +28,7 @@ public class ExecutionService {
     private final ExecutionRepository executionRepository;
     private final ExecutionLogRepository executionLogRepository;
     private final JsonUtils jsonUtils;
-    private final ApplicationEventPublisher eventPublisher;
+    private final ExecutionDispatchService executionDispatchService;
 
     public ExecutionService(
             NotebookRepository notebookRepository,
@@ -41,14 +36,14 @@ public class ExecutionService {
             ExecutionRepository executionRepository,
             ExecutionLogRepository executionLogRepository,
             JsonUtils jsonUtils,
-            ApplicationEventPublisher eventPublisher
+            ExecutionDispatchService executionDispatchService
     ) {
         this.notebookRepository = notebookRepository;
         this.workflowRepository = workflowRepository;
         this.executionRepository = executionRepository;
         this.executionLogRepository = executionLogRepository;
         this.jsonUtils = jsonUtils;
-        this.eventPublisher = eventPublisher;
+        this.executionDispatchService = executionDispatchService;
     }
 
     @Transactional
@@ -86,12 +81,12 @@ public class ExecutionService {
 
         execution = executionRepository.save(execution);
 
-        eventPublisher.publishEvent(new ExecutionRunDispatchEvent(
+        executionDispatchService.publishRunRequested(
                 execution.getId(),
                 workflow.getId(),
                 notebookId,
                 currentUserId
-        ));
+        );
 
         return toResponse(execution);
     }
@@ -183,13 +178,13 @@ public class ExecutionService {
 
         newExecution = executionRepository.save(newExecution);
 
-        eventPublisher.publishEvent(new ExecutionRetryDispatchEvent(
+        executionDispatchService.publishRetryRequested(
                 oldExecution.getId(),
                 newExecution.getId(),
                 oldExecution.getWorkflow().getId(),
                 notebookId,
                 currentUserId
-        ));
+        );
 
         return toResponse(newExecution);
     }
@@ -213,12 +208,12 @@ public class ExecutionService {
             throw new IllegalStateException("Execution is not in WAITING state");
         }
 
-        eventPublisher.publishEvent(new ExecutionResumeDispatchEvent(
+        executionDispatchService.publishResumeRequested(
                 execution.getId(),
                 workflowId,
                 notebookId,
                 resumePayload
-        ));
+        );
 
         return toResponse(execution);
     }
@@ -259,11 +254,11 @@ public class ExecutionService {
             execution.setStatus(ExecutionStatus.CANCELLING);
             execution = executionRepository.save(execution);
 
-            eventPublisher.publishEvent(new ExecutionCancelDispatchEvent(
+            executionDispatchService.publishCancelRequested(
                     execution.getId(),
                     execution.getWorkflow().getId(),
                     notebookId
-            ));
+            );
 
             return toResponse(execution);
         }
