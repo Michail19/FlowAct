@@ -13,8 +13,8 @@ public record ExecutionLogResponse(
         UUID executionId,
         UUID blockId,
         ExecutionLogStatus status,
-        Map<String, Object> input,
-        Map<String, Object> output,
+        Object input,
+        Object output,
         String error,
         OffsetDateTime createdAt
 ) {

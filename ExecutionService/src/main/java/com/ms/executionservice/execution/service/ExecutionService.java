@@ -323,8 +323,8 @@ public class ExecutionService {
                 .executionId(entity.getExecution().getId())
                 .blockId(entity.getBlock().getId())
                 .status(entity.getStatus())
-                .input(jsonUtils.toMap(entity.getInput()))
-                .output(jsonUtils.toMap(entity.getOutput()))
+                .input(jsonUtils.toObject(entity.getInput()))
+                .output(jsonUtils.toObject(entity.getOutput()))
                 .error(entity.getError())
                 .createdAt(entity.getCreatedAt())
                 .build();

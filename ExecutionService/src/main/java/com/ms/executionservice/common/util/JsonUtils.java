@@ -15,10 +15,11 @@ public class JsonUtils {
 
     private final ObjectMapper objectMapper;
 
-    public String toJson(Map<String, Object> value) {
+    public String toJson(Object value) {
         if (value == null) {
             return null;
         }
+
         try {
             return objectMapper.writeValueAsString(value);
         } catch (JsonProcessingException e) {
@@ -32,6 +33,18 @@ public class JsonUtils {
         }
         try {
             return objectMapper.readValue(value, new TypeReference<>() {});
+        } catch (JsonProcessingException e) {
+            throw new IllegalArgumentException("Failed to deserialize json", e);
+        }
+    }
+
+    public Object toObject(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+
+        try {
+            return objectMapper.readValue(value, Object.class);
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException("Failed to deserialize json", e);
         }
