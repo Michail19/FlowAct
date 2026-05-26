@@ -49,11 +49,11 @@ public class ExecutionLogEntity {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "input", columnDefinition = "jsonb")
-    private String input;
+    private Object input;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "output", columnDefinition = "jsonb")
-    private String output;
+    private Object output;
 
     @Column(name = "error")
     private String error;

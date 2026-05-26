@@ -378,7 +378,7 @@ public class ExecutionWorkerService {
                 .execution(execution)
                 .block(block)
                 .status(ExecutionLogStatus.RUNNING)
-                .input(jsonHelper.toJson(input))
+                .input(input)
                 .output(null)
                 .error(null)
                 .createdAt(OffsetDateTime.now())
@@ -392,7 +392,7 @@ public class ExecutionWorkerService {
             Object output
     ) {
         logEntity.setStatus(ExecutionLogStatus.SUCCESS);
-        logEntity.setOutput(jsonHelper.toJson(output));
+        logEntity.setOutput(output);
         logEntity.setError(null);
 
         executionLogRepository.save(logEntity);
