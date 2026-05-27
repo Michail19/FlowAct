@@ -529,25 +529,39 @@ function createValidationResult(params: {
     };
 }
 
-// function getServerNotebookIdOrThrow(payload: NotebookPayloadDto) {
-//     if (!payload.serverNotebookId) {
-//         throw new Error(
-//             'Notebook ещё не синхронизирован с backend: отсутствует serverNotebookId.',
-//         );
-//     }
-//
-//     return payload.serverNotebookId;
-// }
-//
-// function getWorkflowIdOrThrow(payload: NotebookPayloadDto) {
-//     if (!payload.workflowId) {
-//         throw new Error(
-//             'Workflow ещё не сохранён на backend: отсутствует workflowId.',
-//         );
-//     }
-//
-//     return payload.workflowId;
-// }
+async function ensureWorkflowActive(
+    notebookId: string,
+    workflowId: string,
+): Promise<WorkflowResponse> {
+    const currentWorkflow = await workflowApi.getWorkflow(notebookId, workflowId);
+
+    if (currentWorkflow.status === 'ACTIVE') {
+        return currentWorkflow;
+    }
+
+    try {
+        return await workflowApi.activateWorkflow(notebookId, workflowId);
+    } catch (error) {
+        /*
+         * Backend может вернуть 400, если workflow уже ACTIVE
+         * или если состояние успело измениться между GET и activate.
+         * В этом случае повторно читаем workflow и продолжаем,
+         * если он действительно ACTIVE.
+         */
+        if (error instanceof ApiError && error.status === 400) {
+            const refreshedWorkflow = await workflowApi.getWorkflow(
+                notebookId,
+                workflowId,
+            );
+
+            if (refreshedWorkflow.status === 'ACTIVE') {
+                return refreshedWorkflow;
+            }
+        }
+
+        throw error;
+    }
+}
 
 function applyBackendWorkflowIds(
     payload: NotebookPayloadDto,
@@ -1636,7 +1650,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                 }),
             ]);
 
-            const activatedWorkflow = await workflowApi.activateWorkflow(
+            const activatedWorkflow = await ensureWorkflowActive(
                 savedPayload.serverNotebookId,
                 savedPayload.workflowId,
             );
