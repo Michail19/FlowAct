@@ -2,3 +2,4 @@
 /docs/*.bkp
 .env
 Caddyfile
+infra/k8s/base/secrets.yaml

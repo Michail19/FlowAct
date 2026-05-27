@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import NotebookSvgIcon from './NotebookSvgIcon';
 import { useDemoNotebookMode } from './useDemoNotebookMode';
@@ -8,6 +8,7 @@ import type {
     WorkflowExecutionResult,
     WorkflowExecutionStatus,
 } from './executionTypes';
+import { copyToClipboard } from './copyToClipboard';
 
 import './NotebookRunPanel.css';
 
@@ -74,6 +75,38 @@ function formatDuration(durationMs: number) {
     return `${(durationMs / 1000).toFixed(1)} сек.`;
 }
 
+function formatLogForCopy(log: NotebookExecutionLog) {
+    const headerParts = [
+        `[${formatLogTime(log.createdAt)}]`,
+        log.level.toUpperCase(),
+        log.status,
+        log.blockTitle,
+    ].filter(Boolean);
+
+    return `${headerParts.join(' · ')}\n${log.message}`;
+}
+
+function formatResultForCopy(result: WorkflowExecutionResult) {
+    return JSON.stringify(
+        {
+            status: result.status,
+            summary: result.summary,
+            output: result.output,
+            rawOutput: result.rawOutput,
+            startedAt: result.startedAt,
+            finishedAt: result.finishedAt,
+            durationMs: result.durationMs,
+            totalBlocks: result.totalBlocks,
+            completedBlocks: result.completedBlocks,
+            failedBlocks: result.failedBlocks,
+            warningsCount: result.warningsCount,
+            errorsCount: result.errorsCount,
+        },
+        null,
+        2,
+    );
+}
+
 function NotebookRunPanel({
                               isOpen,
                               status,
@@ -94,6 +127,36 @@ function NotebookRunPanel({
     const isDemoMode = useDemoNotebookMode();
     const [activeTab, setActiveTab] = useState<RunPanelTab>('logs');
     const [isTechnicalOutputOpen, setIsTechnicalOutputOpen] = useState(false);
+    const [copiedTarget, setCopiedTarget] = useState<RunPanelTab | null>(null);
+
+    const logsCopyText = useMemo(
+        () => logs.map(formatLogForCopy).join('\n\n'),
+        [logs],
+    );
+
+    const resultCopyText = useMemo(
+        () => (result ? formatResultForCopy(result) : ''),
+        [result],
+    );
+
+    const activeCopyText = activeTab === 'logs' ? logsCopyText : resultCopyText;
+    const canCopyActiveTab = activeCopyText.trim().length > 0;
+
+    const handleCopyActiveTab = useCallback(() => {
+        if (!canCopyActiveTab) {
+            return;
+        }
+
+        void copyToClipboard(activeCopyText).then(() => {
+            setCopiedTarget(activeTab);
+
+            window.setTimeout(() => {
+                setCopiedTarget((currentTarget) =>
+                    currentTarget === activeTab ? null : currentTarget,
+                );
+            }, 1400);
+        });
+    }, [activeCopyText, activeTab, canCopyActiveTab]);
 
     if (!isOpen) {
         return null;
@@ -107,7 +170,24 @@ function NotebookRunPanel({
         <aside className={panelClassName}>
             <header className="notebook-run-panel__header">
                 <div>
-                    <h2 className="notebook-run-panel__title">Выполнение</h2>
+                    <div className="notebook-run-panel__title-row">
+                        <h2 className="notebook-run-panel__title">Выполнение</h2>
+
+                        {canCopyActiveTab && (
+                            <button
+                                className="notebook-run-panel__copy"
+                                type="button"
+                                onClick={handleCopyActiveTab}
+                                title={
+                                    activeTab === 'logs'
+                                        ? 'Скопировать логи'
+                                        : 'Скопировать результат'
+                                }
+                            >
+                                {copiedTarget === activeTab ? 'Скопировано' : 'Копировать'}
+                            </button>
+                        )}
+                    </div>
                     <span className={`notebook-run-panel__status notebook-run-panel__status--${status}`}>
                         {statusLabels[status]}
                     </span>

@@ -1,0 +1,20 @@
+services:
+  user-service:
+    image: ghcr.io/michail19/flowact-user-service:${FLOWACT_IMAGE_TAG:-feature-deployment}
+    build: null
+
+  execution-service:
+    image: ghcr.io/michail19/flowact-execution-service:${FLOWACT_IMAGE_TAG:-feature-deployment}
+    build: null
+
+  worker-service:
+    image: ghcr.io/michail19/flowact-worker-service:${FLOWACT_IMAGE_TAG:-feature-deployment}
+    build: null
+
+  ml-service:
+    image: ghcr.io/michail19/flowact-ml-service:${FLOWACT_IMAGE_TAG:-feature-deployment}
+    build: null
+
+  frontend:
+    image: ghcr.io/michail19/flowact-frontend:${FLOWACT_IMAGE_TAG:-feature-deployment}
+    build: null

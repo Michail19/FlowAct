@@ -12,7 +12,13 @@ function getPayloadStorageKey(payload: NotebookPayloadDto) {
 }
 
 function shouldAutosavePayload(payload: NotebookPayloadDto) {
-    return Boolean(payload.id) && !isDemoNotebookId(payload.id);
+    const hasContent =
+        payload.blocks.length > 0 ||
+        payload.connections.length > 0 ||
+        Boolean(payload.serverNotebookId) ||
+        Boolean(payload.workflowId);
+
+    return Boolean(payload.id) && !isDemoNotebookId(payload.id) && hasContent;
 }
 
 function mergeWithExistingLocalPayload(payload: NotebookPayloadDto): NotebookPayloadDto {
@@ -48,7 +54,8 @@ function persistAutosavePayload(storageKey: string, payload: NotebookPayloadDto)
     });
 
     saveNotebookLocally(payloadToSave, {
-        enqueueSync: true,
+        enqueueSync: false,
+        skipSyncQueue: true,
         syncReason: AUTOSAVE_REASON,
     });
 }

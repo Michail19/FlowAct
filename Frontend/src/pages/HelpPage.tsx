@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import {
@@ -118,6 +119,74 @@ const validationChecklist = [
     'Нет случайных изолированных блоков, которые не участвуют в запуске.',
 ];
 
+const helpSections = [
+    { id: 'quick-start', label: 'Быстрый старт' },
+    { id: 'system-features', label: 'Возможности системы' },
+    { id: 'variables', label: 'Переменные' },
+    { id: 'condition-syntax', label: 'Условия IF' },
+    { id: 'blocks', label: 'Блоки' },
+    { id: 'validation', label: 'Валидация' },
+    { id: 'shortcuts', label: 'Горячие клавиши' },
+    { id: 'export-import', label: 'Экспорт и импорт' },
+] as const;
+
+function useActiveHelpSection(sectionIds: string[]) {
+    const [activeSectionId, setActiveSectionId] = useState(
+        sectionIds[0] ?? '',
+    );
+
+    useEffect(() => {
+        let frameId = 0;
+
+        const updateActiveSection = () => {
+            frameId = 0;
+
+            const activationOffset = 180;
+            let nextActiveSectionId = sectionIds[0] ?? '';
+
+            for (const sectionId of sectionIds) {
+                const sectionElement = document.getElementById(sectionId);
+
+                if (!sectionElement) {
+                    continue;
+                }
+
+                const sectionTop = sectionElement.getBoundingClientRect().top;
+
+                if (sectionTop <= activationOffset) {
+                    nextActiveSectionId = sectionId;
+                }
+            }
+
+            setActiveSectionId(nextActiveSectionId);
+        };
+
+        const requestUpdate = () => {
+            if (frameId !== 0) {
+                return;
+            }
+
+            frameId = window.requestAnimationFrame(updateActiveSection);
+        };
+
+        updateActiveSection();
+
+        window.addEventListener('scroll', requestUpdate, { passive: true });
+        window.addEventListener('resize', requestUpdate);
+
+        return () => {
+            if (frameId !== 0) {
+                window.cancelAnimationFrame(frameId);
+            }
+
+            window.removeEventListener('scroll', requestUpdate);
+            window.removeEventListener('resize', requestUpdate);
+        };
+    }, [sectionIds]);
+
+    return activeSectionId;
+}
+
 // function createAnchor(value: string) {
 //     return value.replace(/[^a-zA-Zа-яА-Я0-9_-]+/g, '-').toLowerCase();
 // }
@@ -198,6 +267,27 @@ function HelpPage() {
         help: BLOCK_SETTINGS_HELP[type],
     }));
 
+    const sectionIds = useMemo(
+        () => helpSections.map((section) => section.id),
+        [],
+    );
+
+    const activeSectionId = useActiveHelpSection(sectionIds);
+
+    const handleSectionLinkClick = useCallback(
+        (event: React.MouseEvent<HTMLAnchorElement>, sectionId: string) => {
+            event.preventDefault();
+
+            document.getElementById(sectionId)?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start',
+            });
+
+            window.history.replaceState(null, '', `#${sectionId}`);
+        },
+        [],
+    );
+
     return (
         <main className="help-page">
             <header className="help-page__topbar">
@@ -207,8 +297,8 @@ function HelpPage() {
                 </Link>
 
                 <nav className="help-page__top-actions" aria-label="Навигация справки">
-                    <Link to="/landing">Лендинг</Link>
-                    <Link to="/home">Workspace</Link>
+                    <Link to="/landing">Главная</Link>
+                    <Link to="/home">Домой</Link>
                 </nav>
             </header>
 
@@ -224,14 +314,21 @@ function HelpPage() {
 
             <div className="help-page__layout">
                 <aside className="help-page__sidebar" aria-label="Разделы справки">
-                    <a href="#quick-start">Быстрый старт</a>
-                    <a href="#system-features">Возможности системы</a>
-                    <a href="#variables">Переменные</a>
-                    <a href="#condition-syntax">Условия IF</a>
-                    <a href="#blocks">Блоки</a>
-                    <a href="#validation">Валидация</a>
-                    <a href="#shortcuts">Горячие клавиши</a>
-                    <a href="#export-import">Экспорт и импорт</a>
+                    {helpSections.map((section) => (
+                        <a
+                            className={
+                                activeSectionId === section.id
+                                    ? 'help-page__sidebar-link help-page__sidebar-link--active'
+                                    : 'help-page__sidebar-link'
+                            }
+                            href={`#${section.id}`}
+                            key={section.id}
+                            aria-current={activeSectionId === section.id ? 'true' : undefined}
+                            onClick={(event) => handleSectionLinkClick(event, section.id)}
+                        >
+                            {section.label}
+                        </a>
+                    ))}
                 </aside>
 
                 <div className="help-page__content">
