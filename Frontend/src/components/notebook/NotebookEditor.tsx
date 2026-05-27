@@ -1061,13 +1061,10 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                             },
                         );
 
-                        const { id: _staleWorkflowId, ...createWorkflowPayload } =
-                            baseWorkflowPayload;
-
                         savedWorkflow = await workflowApi.createWorkflow(
                             serverNotebookId,
                             {
-                                ...createWorkflowPayload,
+                                ...baseWorkflowPayload,
                                 notebookId: serverNotebookId,
                             },
                         );
