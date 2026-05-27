@@ -1,7 +1,4 @@
 import { apiClient } from './apiClient';
-import { createPendingWorkflowId, isPendingNotebookId, isPendingWorkflowId } from './pendingBackendIds';
-import { isRetryableNotebookSyncError } from './notebookSyncQueue';
-import { createPersistenceError } from './persistenceError';
 import type {
     BackendWorkflowUpsertRequest,
     WorkflowRequest,
@@ -38,30 +35,6 @@ function toWorkflowRequest(payload: BackendWorkflowUpsertRequest): WorkflowReque
         metadata: payload.metadata,
     };
 }
-
-// function createLocalWorkflowResponse(
-//     notebookId: string,
-//     payload: BackendWorkflowUpsertRequest,
-//     workflowId = createPendingWorkflowId(payload.id),
-// ): WorkflowResponse {
-//     const now = new Date().toISOString();
-//
-//     return {
-//         id: workflowId,
-//         notebookId,
-//         name: payload.name,
-//         description:
-//             typeof payload.metadata?.description === 'string'
-//                 ? payload.metadata.description
-//                 : null,
-//         metadata: payload.metadata,
-//         status: 'DRAFT',
-//         blocks: payload.blocks,
-//         connections: payload.connections,
-//         createdAt: now,
-//         updatedAt: now,
-//     };
-// }
 
 export const workflowApi = {
     createWorkflow(notebookId: string, payload: BackendWorkflowUpsertRequest) {
