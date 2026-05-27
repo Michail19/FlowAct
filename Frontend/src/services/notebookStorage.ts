@@ -218,7 +218,7 @@ export function createEmptyNotebookLocally(title = 'Новый notebook'): Noteb
         blocks: [],
         connections: [],
         updatedAt: now,
-    }, { enqueueSync: true, syncReason: 'create-local-notebook' });
+    }, { enqueueSync: false, skipSyncQueue: true, syncReason: 'create-local-notebook' });
 }
 
 export function createDemoNotebookLocally(): NotebookPayloadDto {
