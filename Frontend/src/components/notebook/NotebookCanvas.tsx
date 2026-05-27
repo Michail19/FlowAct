@@ -480,6 +480,43 @@ function NotebookCanvas({
     }, []);
 
     useEffect(() => {
+        if (!initialPayload) {
+            return;
+        }
+
+        const statusByBlockId = new Map(
+            initialPayload.blocks.map((block) => [
+                block.id,
+                block.status ?? 'idle',
+            ]),
+        );
+
+        setNodes((currentNodes) => {
+            let hasChanges = false;
+
+            const nextNodes = currentNodes.map((node) => {
+                const nextStatus = statusByBlockId.get(node.id);
+
+                if (!nextStatus || node.data.status === nextStatus) {
+                    return node;
+                }
+
+                hasChanges = true;
+
+                return {
+                    ...node,
+                    data: {
+                        ...node.data,
+                        status: nextStatus,
+                    },
+                };
+            });
+
+            return hasChanges ? nextNodes : currentNodes;
+        });
+    }, [initialPayload, setNodes]);
+
+    useEffect(() => {
         const payload = buildCurrentPayload();
 
         latestPayloadRef.current = payload;

@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import type {
     NotebookBlockInspectionTarget,
     NotebookExecutionLog,
 } from './executionTypes';
 import NotebookSvgIcon from './NotebookSvgIcon';
+import { copyToClipboard } from './copyToClipboard';
 
 import './NotebookBlockInspector.css';
 
@@ -28,6 +29,13 @@ const blockTypeLabels: Record<string, string> = {
     loop: 'Цикл',
     merge: 'Объединение',
 };
+
+type InspectorCopyTarget =
+    | 'error'
+    | 'input'
+    | 'rawInput'
+    | 'output'
+    | 'rawOutput';
 
 function getBlockTypeLabel(blockType: string) {
     return blockTypeLabels[blockType] ?? blockType;
@@ -70,6 +78,26 @@ function NotebookBlockInspector({
                                 }: NotebookBlockInspectorProps) {
     const [isRawInputOpen, setIsRawInputOpen] = useState(false);
     const [isRawOutputOpen, setIsRawOutputOpen] = useState(false);
+    const [copiedTarget, setCopiedTarget] = useState<InspectorCopyTarget | null>(null);
+
+    const handleCopy = useCallback(
+        (target: InspectorCopyTarget, value?: string | null) => {
+            if (!value?.trim()) {
+                return;
+            }
+
+            void copyToClipboard(value).then(() => {
+                setCopiedTarget(target);
+
+                window.setTimeout(() => {
+                    setCopiedTarget((currentTarget) =>
+                        currentTarget === target ? null : currentTarget,
+                    );
+                }, 1400);
+            });
+        },
+        [],
+    );
 
     const blockLogs = useMemo(() => {
         if (!block) {
@@ -144,7 +172,18 @@ function NotebookBlockInspector({
                         <>
                             {latestLog.error && (
                                 <section className="notebook-block-inspector__section notebook-block-inspector__section--error">
-                                    <h3>Ошибка</h3>
+                                    <div className="notebook-block-inspector__section-header">
+                                        <h3>Ошибка</h3>
+
+                                        <button
+                                            className="notebook-block-inspector__copy"
+                                            type="button"
+                                            onClick={() => handleCopy('error', latestLog.error)}
+                                        >
+                                            {copiedTarget === 'error' ? 'Скопировано' : 'Копировать'}
+                                        </button>
+                                    </div>
+
                                     <div className="notebook-block-inspector__content">
                                         {latestLog.error}
                                     </div>
@@ -152,7 +191,24 @@ function NotebookBlockInspector({
                             )}
 
                             <section className="notebook-block-inspector__section">
-                                <h3>Входные данные</h3>
+                                <div className="notebook-block-inspector__section-header">
+                                    <h3>Входные данные</h3>
+
+                                    {(latestLog.rawInput || latestLog.input) && (
+                                        <button
+                                            className="notebook-block-inspector__copy"
+                                            type="button"
+                                            onClick={() =>
+                                                handleCopy(
+                                                    'input',
+                                                    latestLog.rawInput ?? latestLog.input,
+                                                )
+                                            }
+                                        >
+                                            {copiedTarget === 'input' ? 'Скопировано' : 'Копировать'}
+                                        </button>
+                                    )}
+                                </div>
 
                                 {latestLog.input ? (
                                     <div className="notebook-block-inspector__content">
@@ -188,7 +244,24 @@ function NotebookBlockInspector({
                             </section>
 
                             <section className="notebook-block-inspector__section">
-                                <h3>Выходные данные</h3>
+                                <div className="notebook-block-inspector__section-header">
+                                    <h3>Выходные данные</h3>
+
+                                    {(latestLog.rawOutput || latestLog.output) && (
+                                        <button
+                                            className="notebook-block-inspector__copy"
+                                            type="button"
+                                            onClick={() =>
+                                                handleCopy(
+                                                    'output',
+                                                    latestLog.rawOutput ?? latestLog.output,
+                                                )
+                                            }
+                                        >
+                                            {copiedTarget === 'output' ? 'Скопировано' : 'Копировать'}
+                                        </button>
+                                    )}
+                                </div>
 
                                 {latestLog.output ? (
                                     <div className="notebook-block-inspector__content">

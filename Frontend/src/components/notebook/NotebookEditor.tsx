@@ -529,6 +529,96 @@ function createValidationResult(params: {
     };
 }
 
+async function ensureWorkflowActive(
+    notebookId: string,
+    workflowId: string,
+): Promise<WorkflowResponse> {
+    const currentWorkflow = await workflowApi.getWorkflow(notebookId, workflowId);
+
+    if (currentWorkflow.status === 'ACTIVE') {
+        return currentWorkflow;
+    }
+
+    try {
+        return await workflowApi.activateWorkflow(notebookId, workflowId);
+    } catch (error) {
+        /*
+         * Backend может вернуть 400, если workflow уже ACTIVE
+         * или если состояние успело измениться между GET и activate.
+         * В этом случае повторно читаем workflow и продолжаем,
+         * если он действительно ACTIVE.
+         */
+        if (error instanceof ApiError && error.status === 400) {
+            const refreshedWorkflow = await workflowApi.getWorkflow(
+                notebookId,
+                workflowId,
+            );
+
+            if (refreshedWorkflow.status === 'ACTIVE') {
+                return refreshedWorkflow;
+            }
+        }
+
+        throw error;
+    }
+}
+
+function applyBackendWorkflowIds(
+    payload: NotebookPayloadDto,
+    workflow: WorkflowResponse,
+): NotebookPayloadDto {
+    return {
+        ...payload,
+        serverNotebookId: workflow.notebookId,
+        workflowId: workflow.id,
+        workflowStatus: workflow.status,
+    };
+}
+
+function haveSameBlockIds(
+    firstPayload: NotebookPayloadDto,
+    secondPayload: NotebookPayloadDto,
+) {
+    const firstIds = firstPayload.blocks.map((block) => block.id).sort();
+    const secondIds = secondPayload.blocks.map((block) => block.id).sort();
+
+    return (
+        firstIds.length === secondIds.length &&
+        firstIds.every((id, index) => id === secondIds[index])
+    );
+}
+
+function protectPayloadConnections(
+    nextPayload: NotebookPayloadDto,
+    stablePayload: NotebookPayloadDto | null | undefined,
+): NotebookPayloadDto {
+    if (!stablePayload) {
+        return nextPayload;
+    }
+
+    if (
+        nextPayload.blocks.length === 0 &&
+        stablePayload.blocks.length > 0
+    ) {
+        return stablePayload;
+    }
+
+    const hasLostAllConnections =
+        nextPayload.connections.length === 0 &&
+        stablePayload.connections.length > 0;
+
+    const sameBlocks = haveSameBlockIds(nextPayload, stablePayload);
+
+    if (hasLostAllConnections && sameBlocks) {
+        return {
+            ...nextPayload,
+            connections: stablePayload.connections,
+        };
+    }
+
+    return nextPayload;
+}
+
 function NotebookEditor({ notebookId }: NotebookEditorProps) {
     const isMobile = useMediaQuery('(max-width: 767px)');
     const isDesktop = useMediaQuery('(min-width: 1024px)');
@@ -975,13 +1065,18 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                 updatedAt: new Date().toISOString(),
             };
 
+            const protectedPayloadToSave = protectPayloadConnections(
+                payloadToSave,
+                loadedNotebookPayload,
+            );
+
             try {
                 const notebookRequest = {
                     name: payloadToSave.title,
                     description: `FlowAct notebook: ${payloadToSave.title}`,
                 };
 
-                let serverNotebookId = payloadToSave.serverNotebookId;
+                let serverNotebookId = protectedPayloadToSave.serverNotebookId;
 
                 if (serverNotebookId) {
                     await notebookApi.updateNotebook(serverNotebookId, notebookRequest);
@@ -991,43 +1086,110 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                 }
 
                 const payloadWithServerNotebookId: NotebookPayloadDto = {
-                    ...payloadToSave,
+                    ...protectedPayloadToSave,
                     serverNotebookId,
                 };
 
-                const backendWorkflowPayload = toBackendWorkflowRequest(
+                const baseWorkflowPayload = toBackendWorkflowRequest(
                     payloadWithServerNotebookId,
                 );
 
-                console.log('Backend workflow contract:', backendWorkflowPayload);
+                console.log('Backend workflow contract:', baseWorkflowPayload);
+
+                const workflowPayloadForServer = {
+                    ...baseWorkflowPayload,
+                    notebookId: serverNotebookId,
+                };
 
                 let workflowId = payloadWithServerNotebookId.workflowId;
-                let nextWorkflowStatus: WorkflowStatus | undefined =
-                    payloadWithServerNotebookId.workflowStatus;
+                let savedWorkflow: WorkflowResponse | null = null;
+
+                /*
+                 * Если workflowId потерялся из-за промежуточного canvas/autosave state,
+                 * не создаём новый workflow сразу. Сначала ищем уже существующий workflow
+                 * у backend notebook и обновляем его.
+                 */
+                if (!workflowId) {
+                    const workflowSummaries = await workflowApi.getWorkflows(serverNotebookId);
+
+                    const existingWorkflow =
+                        workflowSummaries.find(
+                            (workflowSummary) =>
+                                workflowSummary.name === workflowPayloadForServer.name,
+                        ) ?? workflowSummaries[0];
+
+                    workflowId = existingWorkflow?.id;
+                }
 
                 if (workflowId) {
-                    const updatedWorkflow = await workflowApi.updateWorkflow(
-                        serverNotebookId,
-                        workflowId,
-                        backendWorkflowPayload,
-                    );
+                    try {
+                        savedWorkflow = await workflowApi.updateWorkflow(
+                            serverNotebookId,
+                            workflowId,
+                            {
+                                ...workflowPayloadForServer,
+                                id: workflowId,
+                            },
+                        );
+                    } catch (error) {
+                        if (!(error instanceof ApiError && error.status === 404)) {
+                            throw error;
+                        }
 
-                    workflowId = updatedWorkflow.id;
-                    nextWorkflowStatus = updatedWorkflow.status;
-                } else {
-                    const createdWorkflow = await workflowApi.createWorkflow(
-                        serverNotebookId,
-                        backendWorkflowPayload,
-                    );
+                        console.warn(
+                            'Stored workflowId was not found on backend, trying to reuse existing workflow or create a new one:',
+                            {
+                                serverNotebookId,
+                                workflowId,
+                            },
+                        );
+                    }
+                }
 
-                    workflowId = createdWorkflow.id;
-                    nextWorkflowStatus = createdWorkflow.status;
+                if (!savedWorkflow) {
+                    try {
+                        savedWorkflow = await workflowApi.createWorkflow(
+                            serverNotebookId,
+                            workflowPayloadForServer,
+                        );
+                    } catch (error) {
+                        /*
+                         * Если backend вернул 400 на создание, чаще всего workflow
+                         * у notebook уже существует. Тогда перечитываем список и обновляем
+                         * существующий workflow вместо создания нового.
+                         */
+                        if (!(error instanceof ApiError && error.status === 400)) {
+                            throw error;
+                        }
+
+                        const workflowSummaries = await workflowApi.getWorkflows(serverNotebookId);
+
+                        const existingWorkflow =
+                            workflowSummaries.find(
+                                (workflowSummary) =>
+                                    workflowSummary.name === workflowPayloadForServer.name,
+                            ) ?? workflowSummaries[0];
+
+                        if (!existingWorkflow) {
+                            throw error;
+                        }
+
+                        savedWorkflow = await workflowApi.updateWorkflow(
+                            serverNotebookId,
+                            existingWorkflow.id,
+                            {
+                                ...workflowPayloadForServer,
+                                id: existingWorkflow.id,
+                            },
+                        );
+                    }
                 }
 
                 const savedPayload: NotebookPayloadDto = {
-                    ...payloadWithServerNotebookId,
-                    workflowId,
-                    workflowStatus: nextWorkflowStatus,
+                    ...applyBackendWorkflowIds(
+                        payloadWithServerNotebookId,
+                        savedWorkflow,
+                    ),
                     updatedAt: new Date().toISOString(),
                 };
 
@@ -1035,12 +1197,12 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
 
                 setLoadedNotebookPayload(savedLocalNotebook);
                 setNotebookPayload(savedLocalNotebook);
-                setWorkflowStatus(nextWorkflowStatus ?? null);
+                setWorkflowStatus(savedWorkflow.status);
                 setSaveError(null);
 
                 console.log('Notebook and workflow saved via API:', {
-                    serverNotebookId,
-                    workflowId,
+                    serverNotebookId: savedWorkflow.notebookId,
+                    workflowId: savedWorkflow.id,
                 });
 
                 return savedLocalNotebook;
@@ -1520,34 +1682,164 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
 
             const savedPayload = await saveNotebookToBackend();
 
-            if (!savedPayload?.serverNotebookId || !savedPayload.workflowId) {
+            if (!savedPayload.serverNotebookId || !savedPayload.workflowId) {
                 throw new Error('Workflow не имеет serverNotebookId или workflowId.');
             }
 
-            const activatedWorkflow = await workflowApi.activateWorkflow(
+            setExecutionLogs([
+                createExecutionLog({
+                    level: 'success',
+                    status: 'success',
+                    message: 'Workflow сохранён перед запуском.',
+                }),
+                createExecutionLog({
+                    level: 'info',
+                    status: 'validating',
+                    message: 'Запущена backend-проверка схемы.',
+                }),
+            ]);
+
+            const backendValidation = await workflowApi.validateWorkflow(
+                savedPayload.serverNotebookId,
+                savedPayload.workflowId,
+            );
+
+            const backendIssues = mapBackendValidationToIssues(backendValidation);
+            const backendBlockingIssues = getBlockingValidationIssues(backendIssues);
+
+            if (backendBlockingIssues.length > 0 || !backendValidation.valid) {
+                const finishedAt = new Date();
+
+                setValidationIssues([...validationIssues, ...backendIssues]);
+                setExecutionStatus('error');
+                setExecutionLogs(createValidationLogs(backendIssues));
+                setExecutionResult(
+                    createValidationResult({
+                        issues: [...validationIssues, ...backendIssues],
+                        totalBlocks: savedPayload.blocks.length,
+                        startedAt: finishedAt,
+                        idSuffix: 'backend-validation-error',
+                    }),
+                );
+
+                setSaveError(
+                    `Backend-валидация нашла ошибок: ${backendBlockingIssues.length}.`,
+                );
+
+                return;
+            }
+
+            setExecutionLogs([
+                createExecutionLog({
+                    level: 'success',
+                    status: 'success',
+                    message: 'Backend-проверка завершена успешно.',
+                }),
+                createExecutionLog({
+                    level: 'info',
+                    status: 'pending',
+                    message: 'Активация workflow перед запуском.',
+                }),
+            ]);
+
+            const activatedWorkflow = await ensureWorkflowActive(
                 savedPayload.serverNotebookId,
                 savedPayload.workflowId,
             );
 
             setWorkflowStatus(activatedWorkflow.status);
 
-            const activatedPayload: NotebookPayloadDto = {
-                ...savedPayload,
-                workflowStatus: activatedWorkflow.status,
-                updatedAt: new Date().toISOString(),
-            };
+            const activatedPayload = applyBackendWorkflowIds(
+                {
+                    ...savedPayload,
+                    updatedAt: new Date().toISOString(),
+                },
+                activatedWorkflow,
+            );
 
             const savedLocalNotebook = saveNotebookLocally(activatedPayload);
 
             setLoadedNotebookPayload(savedLocalNotebook);
             setNotebookPayload(savedLocalNotebook);
 
-            setRunRequest({
-                requestId,
-                serverNotebookId: activatedPayload.serverNotebookId!,
-                workflowId: activatedPayload.workflowId!,
-                inputData: {},
+            setExecutionStatus('pending');
+            setExecutionLogs([
+                createExecutionLog({
+                    level: 'success',
+                    status: 'success',
+                    message: 'Workflow активирован.',
+                }),
+                createExecutionLog({
+                    level: 'info',
+                    status: 'pending',
+                    message: 'Отправлен backend-запрос на запуск workflow.',
+                }),
+            ]);
+
+            const startedExecution = await executionApi.run(
+                activatedWorkflow.notebookId,
+                activatedWorkflow.id,
+                {
+                    inputData: {},
+                },
+            );
+
+            const target: WorkflowExecutionTarget = {
+                serverNotebookId: activatedWorkflow.notebookId,
+                workflowId: activatedWorkflow.id,
+                executionId: startedExecution.id,
+            };
+
+            setCurrentExecutionTarget(target);
+
+            const initialExecutionStatus = mapApiExecutionStatus(startedExecution.status);
+            setExecutionStatus(initialExecutionStatus);
+
+            const executionState = await loadExecutionStateSnapshot({
+                serverNotebookId: activatedWorkflow.notebookId,
+                workflow: activatedWorkflow,
+                payload: savedLocalNotebook,
+                executionId: startedExecution.id,
+                shouldApplyBlockStatuses: true,
             });
+
+            const payloadWithExecutionState = saveNotebookLocally(executionState.payload);
+
+            setLoadedNotebookPayload(payloadWithExecutionState);
+            setNotebookPayload(payloadWithExecutionState);
+            setExecutionLogs(executionState.logs);
+            setExecutionStatus(executionState.status);
+            setExecutionResult(executionState.result);
+
+            if (!isRestoredExecutionFinished(executionState.status)) {
+                void pollExecutionStateUntilFinished({
+                    serverNotebookId: activatedWorkflow.notebookId,
+                    workflow: activatedWorkflow,
+                    payload: payloadWithExecutionState,
+                    executionId: startedExecution.id,
+                    shouldApplyBlockStatuses: true,
+                    isCancelled: () => runRequestIdRef.current !== requestId,
+                    onStateLoaded: (nextExecutionState) => {
+                        const nextPayloadWithExecutionState = saveNotebookLocally(
+                            nextExecutionState.payload,
+                        );
+
+                        if (nextExecutionState.executionId) {
+                            setCurrentExecutionTarget({
+                                serverNotebookId: activatedWorkflow.notebookId,
+                                workflowId: activatedWorkflow.id,
+                                executionId: nextExecutionState.executionId,
+                            });
+                        }
+
+                        setLoadedNotebookPayload(nextPayloadWithExecutionState);
+                        setNotebookPayload(nextPayloadWithExecutionState);
+                        setExecutionLogs(nextExecutionState.logs);
+                        setExecutionStatus(nextExecutionState.status);
+                        setExecutionResult(nextExecutionState.result);
+                    },
+                });
+            }
         } catch (error) {
             const finishedAt = new Date();
 
@@ -1721,8 +2013,13 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
     }, []);
 
     const handleNotebookChange = useCallback((payload: NotebookPayloadDto) => {
+        const safePayload = protectPayloadConnections(
+            payload,
+            notebookPayload ?? loadedNotebookPayload,
+        );
+
         const loadedFingerprint = getPayloadFingerprint(loadedNotebookPayload);
-        const nextFingerprint = getPayloadFingerprint(payload);
+        const nextFingerprint = getPayloadFingerprint(safePayload);
 
         const hasRealChanges =
             Boolean(loadedNotebookPayload) &&
@@ -1742,11 +2039,11 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                     : previousStatus;
 
         const nextPayload: NotebookPayloadDto = {
-            ...payload,
+            ...safePayload,
             serverNotebookId:
-                payload.serverNotebookId ?? loadedNotebookPayload?.serverNotebookId,
+                safePayload.serverNotebookId ?? loadedNotebookPayload?.serverNotebookId,
             workflowId:
-                payload.workflowId ?? loadedNotebookPayload?.workflowId,
+                safePayload.workflowId ?? loadedNotebookPayload?.workflowId,
             workflowStatus: nextWorkflowStatus ?? undefined,
         };
 

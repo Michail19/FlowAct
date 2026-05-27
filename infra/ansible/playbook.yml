@@ -1,0 +1,8 @@
+---
+- name: Prepare Kubernetes nodes for FlowAct
+  hosts: k8s_cluster
+  become: true
+  roles:
+    - common
+    - containerd
+    - kubernetes

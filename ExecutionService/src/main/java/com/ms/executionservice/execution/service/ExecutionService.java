@@ -33,7 +33,7 @@ public class ExecutionService {
     private final ExecutionRepository executionRepository;
     private final ExecutionLogRepository executionLogRepository;
     private final JsonUtils jsonUtils;
-    private final ApplicationEventPublisher eventPublisher;
+    private final ExecutionDispatchService executionDispatchService;
 
     public ExecutionService(
             NotebookRepository notebookRepository,
@@ -41,14 +41,14 @@ public class ExecutionService {
             ExecutionRepository executionRepository,
             ExecutionLogRepository executionLogRepository,
             JsonUtils jsonUtils,
-            ApplicationEventPublisher eventPublisher
+            ExecutionDispatchService executionDispatchService
     ) {
         this.notebookRepository = notebookRepository;
         this.workflowRepository = workflowRepository;
         this.executionRepository = executionRepository;
         this.executionLogRepository = executionLogRepository;
         this.jsonUtils = jsonUtils;
-        this.eventPublisher = eventPublisher;
+        this.executionDispatchService = executionDispatchService;
     }
 
     @Transactional
@@ -86,12 +86,12 @@ public class ExecutionService {
 
         execution = executionRepository.save(execution);
 
-        eventPublisher.publishEvent(new ExecutionRunDispatchEvent(
+        executionDispatchService.publishRunRequested(
                 execution.getId(),
                 workflow.getId(),
                 notebookId,
                 currentUserId
-        ));
+        );
 
         return toResponse(execution);
     }
@@ -183,13 +183,13 @@ public class ExecutionService {
 
         newExecution = executionRepository.save(newExecution);
 
-        eventPublisher.publishEvent(new ExecutionRetryDispatchEvent(
+        executionDispatchService.publishRetryRequested(
                 oldExecution.getId(),
                 newExecution.getId(),
                 oldExecution.getWorkflow().getId(),
                 notebookId,
                 currentUserId
-        ));
+        );
 
         return toResponse(newExecution);
     }
@@ -213,12 +213,12 @@ public class ExecutionService {
             throw new IllegalStateException("Execution is not in WAITING state");
         }
 
-        eventPublisher.publishEvent(new ExecutionResumeDispatchEvent(
+        executionDispatchService.publishResumeRequested(
                 execution.getId(),
                 workflowId,
                 notebookId,
                 resumePayload
-        ));
+        );
 
         return toResponse(execution);
     }
@@ -259,11 +259,11 @@ public class ExecutionService {
             execution.setStatus(ExecutionStatus.CANCELLING);
             execution = executionRepository.save(execution);
 
-            eventPublisher.publishEvent(new ExecutionCancelDispatchEvent(
+            executionDispatchService.publishCancelRequested(
                     execution.getId(),
                     execution.getWorkflow().getId(),
                     notebookId
-            ));
+            );
 
             return toResponse(execution);
         }
