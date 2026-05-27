@@ -226,7 +226,7 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
-      ml-service:
+      execution-service:
         condition: service_healthy
     networks:
       - flowact-network
@@ -279,7 +279,9 @@ services:
     expose:
       - "80"
     depends_on:
-      execution-service:
+      worker-service:
+        condition: service_healthy
+      ml-service:
         condition: service_healthy
       user-service:
         condition: service_healthy

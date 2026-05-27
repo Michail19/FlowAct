@@ -72,7 +72,6 @@ public class ExecutionWorkerService {
         this.jsonHelper = jsonHelper;
     }
 
-    @Transactional
     public void handleRunRequested(ExecutionRunRequestedEvent event) {
         ExecutionEntity execution = executionRepository.findById(event.executionId())
                 .orElse(null);

@@ -119,6 +119,8 @@ public class DatabaseNodeHandler implements NodeHandler {
             query = buildQueryFromTableName(operation, tableName);
         }
 
+        query = normalizeSingleStatementQuery(query);
+
         validateQuery(operation, query);
 
         if ("select".equals(operation)) {
@@ -214,12 +216,6 @@ public class DatabaseNodeHandler implements NodeHandler {
     }
 
     private void validateSafeSql(String normalizedQuery) {
-        if (normalizedQuery.contains(";")) {
-            throw new IllegalArgumentException(
-                    "Multiple SQL statements are not allowed in database block."
-            );
-        }
-
         for (String keyword : DANGEROUS_KEYWORDS) {
             if (containsKeyword(normalizedQuery, keyword)) {
                 throw new IllegalArgumentException(
@@ -229,6 +225,115 @@ public class DatabaseNodeHandler implements NodeHandler {
         }
 
         assertNotSystemSchemaReference(normalizedQuery);
+    }
+
+    private String normalizeSingleStatementQuery(String query) {
+        String trimmedQuery = query == null ? "" : query.trim();
+
+        if (trimmedQuery.isBlank()) {
+            return trimmedQuery;
+        }
+
+        int semicolonIndex = findSemicolonOutsideQuotedText(trimmedQuery);
+
+        if (semicolonIndex < 0) {
+            return trimmedQuery;
+        }
+
+        String tail = trimmedQuery.substring(semicolonIndex + 1).trim();
+
+        if (!tail.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Multiple SQL statements are not allowed in database block."
+            );
+        }
+
+        return trimmedQuery.substring(0, semicolonIndex).trim();
+    }
+
+    private int findSemicolonOutsideQuotedText(String query) {
+        boolean insideSingleQuotedText = false;
+        boolean insideDoubleQuotedIdentifier = false;
+        boolean insideLineComment = false;
+        boolean insideBlockComment = false;
+
+        for (int index = 0; index < query.length(); index++) {
+            char currentChar = query.charAt(index);
+            char nextChar = index + 1 < query.length()
+                    ? query.charAt(index + 1)
+                    : '\0';
+
+            if (insideLineComment) {
+                if (currentChar == '\n' || currentChar == '\r') {
+                    insideLineComment = false;
+                }
+
+                continue;
+            }
+
+            if (insideBlockComment) {
+                if (currentChar == '*' && nextChar == '/') {
+                    insideBlockComment = false;
+                    index++;
+                }
+
+                continue;
+            }
+
+            if (insideSingleQuotedText) {
+                if (currentChar == '\'' && nextChar == '\'') {
+                    index++;
+                    continue;
+                }
+
+                if (currentChar == '\'') {
+                    insideSingleQuotedText = false;
+                }
+
+                continue;
+            }
+
+            if (insideDoubleQuotedIdentifier) {
+                if (currentChar == '"' && nextChar == '"') {
+                    index++;
+                    continue;
+                }
+
+                if (currentChar == '"') {
+                    insideDoubleQuotedIdentifier = false;
+                }
+
+                continue;
+            }
+
+            if (currentChar == '-' && nextChar == '-') {
+                insideLineComment = true;
+                index++;
+                continue;
+            }
+
+            if (currentChar == '/' && nextChar == '*') {
+                insideBlockComment = true;
+                index++;
+                continue;
+            }
+
+            if (currentChar == '\'') {
+                insideSingleQuotedText = true;
+                continue;
+            }
+
+            if (currentChar == '"') {
+                insideDoubleQuotedIdentifier = true;
+                continue;
+            }
+
+            if (currentChar == ';') {
+                return index;
+            }
+        }
+
+        return -1;
     }
 
     private String normalizeSql(String query) {

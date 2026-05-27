@@ -41,6 +41,10 @@ function isNotFoundError(error: unknown) {
     return error instanceof ApiError && error.status === 404;
 }
 
+function isEmptyNotebookPayload(payload: NotebookPayloadDto) {
+    return payload.blocks.length === 0 && payload.connections.length === 0;
+}
+
 function toWorkflowRequest(payload: BackendWorkflowUpsertRequest): WorkflowRequest {
     return {
         name: payload.name,
@@ -116,6 +120,11 @@ async function upsertWorkflow(
 
 async function syncNotebookPayload(payload: NotebookPayloadDto) {
     if (!payload.id) {
+        return null;
+    }
+
+    if (isEmptyNotebookPayload(payload)) {
+        removeNotebookSyncItem(payload.id);
         return null;
     }
 

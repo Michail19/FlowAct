@@ -21,6 +21,7 @@ export type NotebookListItem = {
 type SaveNotebookLocallyOptions = {
     enqueueSync?: boolean;
     syncReason?: string;
+    skipSyncQueue?: boolean;
 };
 
 function getCurrentStorageScope() {
@@ -160,9 +161,12 @@ export function saveNotebookLocally(
     localStorage.setItem(getNotebookListStorageKey(), JSON.stringify(nextList, null, 2));
 
     if (
-        options.enqueueSync ||
-        hasPendingBackendId(normalizedPayload.serverNotebookId) ||
-        hasPendingBackendId(normalizedPayload.workflowId)
+        !options.skipSyncQueue &&
+        (
+            options.enqueueSync ||
+            hasPendingBackendId(normalizedPayload.serverNotebookId) ||
+            hasPendingBackendId(normalizedPayload.workflowId)
+        )
     ) {
         enqueueNotebookSync(
             normalizedPayload,
@@ -214,7 +218,7 @@ export function createEmptyNotebookLocally(title = 'Новый notebook'): Noteb
         blocks: [],
         connections: [],
         updatedAt: now,
-    }, { enqueueSync: true, syncReason: 'create-local-notebook' });
+    }, { enqueueSync: false, skipSyncQueue: true, syncReason: 'create-local-notebook' });
 }
 
 export function createDemoNotebookLocally(): NotebookPayloadDto {
