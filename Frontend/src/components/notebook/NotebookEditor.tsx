@@ -529,6 +529,38 @@ function createValidationResult(params: {
     };
 }
 
+function getServerNotebookIdOrThrow(payload: NotebookPayloadDto) {
+    if (!payload.serverNotebookId) {
+        throw new Error(
+            'Notebook ещё не синхронизирован с backend: отсутствует serverNotebookId.',
+        );
+    }
+
+    return payload.serverNotebookId;
+}
+
+function getWorkflowIdOrThrow(payload: NotebookPayloadDto) {
+    if (!payload.workflowId) {
+        throw new Error(
+            'Workflow ещё не сохранён на backend: отсутствует workflowId.',
+        );
+    }
+
+    return payload.workflowId;
+}
+
+function applyBackendWorkflowIds(
+    payload: NotebookPayloadDto,
+    workflow: WorkflowResponse,
+): NotebookPayloadDto {
+    return {
+        ...payload,
+        serverNotebookId: workflow.notebookId,
+        workflowId: workflow.id,
+        workflowStatus: workflow.status,
+    };
+}
+
 function NotebookEditor({ notebookId }: NotebookEditorProps) {
     const isMobile = useMediaQuery('(max-width: 767px)');
     const isDesktop = useMediaQuery('(min-width: 1024px)');
