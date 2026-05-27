@@ -1027,39 +1027,66 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                     serverNotebookId,
                 };
 
-                const backendWorkflowPayload = toBackendWorkflowRequest(
+                const baseWorkflowPayload = toBackendWorkflowRequest(
                     payloadWithServerNotebookId,
                 );
 
-                console.log('Backend workflow contract:', backendWorkflowPayload);
+                console.log('Backend workflow contract:', baseWorkflowPayload);
 
-                let workflowId = payloadWithServerNotebookId.workflowId;
-                let nextWorkflowStatus: WorkflowStatus | undefined =
-                    payloadWithServerNotebookId.workflowStatus;
+                const storedWorkflowId = payloadWithServerNotebookId.workflowId;
 
-                if (workflowId) {
-                    const updatedWorkflow = await workflowApi.updateWorkflow(
-                        serverNotebookId,
-                        workflowId,
-                        backendWorkflowPayload,
-                    );
+                let savedWorkflow: WorkflowResponse;
 
-                    workflowId = updatedWorkflow.id;
-                    nextWorkflowStatus = updatedWorkflow.status;
+                if (storedWorkflowId) {
+                    try {
+                        savedWorkflow = await workflowApi.updateWorkflow(
+                            serverNotebookId,
+                            storedWorkflowId,
+                            {
+                                ...baseWorkflowPayload,
+                                notebookId: serverNotebookId,
+                                id: storedWorkflowId,
+                            },
+                        );
+                    } catch (error) {
+                        if (!(error instanceof ApiError && error.status === 404)) {
+                            throw error;
+                        }
+
+                        console.warn(
+                            'Stored workflowId was not found on backend, a new workflow will be created:',
+                            {
+                                serverNotebookId,
+                                workflowId: storedWorkflowId,
+                            },
+                        );
+
+                        const { id: _staleWorkflowId, ...createWorkflowPayload } =
+                            baseWorkflowPayload;
+
+                        savedWorkflow = await workflowApi.createWorkflow(
+                            serverNotebookId,
+                            {
+                                ...createWorkflowPayload,
+                                notebookId: serverNotebookId,
+                            },
+                        );
+                    }
                 } else {
-                    const createdWorkflow = await workflowApi.createWorkflow(
+                    savedWorkflow = await workflowApi.createWorkflow(
                         serverNotebookId,
-                        backendWorkflowPayload,
+                        {
+                            ...baseWorkflowPayload,
+                            notebookId: serverNotebookId,
+                        },
                     );
-
-                    workflowId = createdWorkflow.id;
-                    nextWorkflowStatus = createdWorkflow.status;
                 }
 
                 const savedPayload: NotebookPayloadDto = {
-                    ...payloadWithServerNotebookId,
-                    workflowId,
-                    workflowStatus: nextWorkflowStatus,
+                    ...applyBackendWorkflowIds(
+                        payloadWithServerNotebookId,
+                        savedWorkflow,
+                    ),
                     updatedAt: new Date().toISOString(),
                 };
 
@@ -1067,12 +1094,12 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
 
                 setLoadedNotebookPayload(savedLocalNotebook);
                 setNotebookPayload(savedLocalNotebook);
-                setWorkflowStatus(nextWorkflowStatus ?? null);
+                setWorkflowStatus(savedWorkflow.status);
                 setSaveError(null);
 
                 console.log('Notebook and workflow saved via API:', {
-                    serverNotebookId,
-                    workflowId,
+                    serverNotebookId: savedWorkflow.notebookId,
+                    workflowId: savedWorkflow.id,
                 });
 
                 return savedLocalNotebook;
@@ -1552,20 +1579,73 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
 
             const savedPayload = await saveNotebookToBackend();
 
-            if (!savedPayload?.serverNotebookId || !savedPayload.workflowId) {
-                throw new Error('Workflow не имеет serverNotebookId или workflowId.');
-            }
+            const serverNotebookId = getServerNotebookIdOrThrow(savedPayload);
+            const workflowId = getWorkflowIdOrThrow(savedPayload);
 
-            const activatedWorkflow = await workflowApi.activateWorkflow(
-                savedPayload.serverNotebookId,
-                savedPayload.workflowId,
+            setExecutionStatus('validating');
+            setExecutionLogs([
+                createExecutionLog({
+                    level: 'success',
+                    status: 'success',
+                    message: 'Workflow сохранён на backend.',
+                }),
+                createExecutionLog({
+                    level: 'info',
+                    status: 'validating',
+                    message: 'Запущена backend-проверка схемы перед запуском.',
+                }),
+            ]);
+
+            const backendValidation = await workflowApi.validateWorkflow(
+                serverNotebookId,
+                workflowId,
             );
 
-            setWorkflowStatus(activatedWorkflow.status);
+            const backendIssues = mapBackendValidationToIssues(backendValidation);
+            const backendBlockingIssues = getBlockingValidationIssues(backendIssues);
+
+            if (backendBlockingIssues.length > 0) {
+                const finishedAt = new Date();
+
+                setValidationIssues([...validationIssues, ...backendIssues]);
+                setExecutionStatus('error');
+                setExecutionLogs(createValidationLogs(backendIssues));
+                setExecutionResult(
+                    createValidationResult({
+                        issues: [...validationIssues, ...backendIssues],
+                        totalBlocks: savedPayload.blocks.length,
+                        startedAt: finishedAt,
+                        idSuffix: 'backend-validation-before-run',
+                    }),
+                );
+                setSaveError(
+                    `Backend-валидация нашла ошибок: ${backendBlockingIssues.length}.`,
+                );
+
+                return;
+            }
+
+            setExecutionStatus('pending');
+            setExecutionLogs([
+                createExecutionLog({
+                    level: 'success',
+                    status: 'success',
+                    message: 'Backend-проверка завершена успешно.',
+                }),
+                createExecutionLog({
+                    level: 'info',
+                    status: 'pending',
+                    message: 'Активация workflow и отправка запроса на запуск.',
+                }),
+            ]);
+
+            const activatedWorkflow = await workflowApi.activateWorkflow(
+                serverNotebookId,
+                workflowId,
+            );
 
             const activatedPayload: NotebookPayloadDto = {
-                ...savedPayload,
-                workflowStatus: activatedWorkflow.status,
+                ...applyBackendWorkflowIds(savedPayload, activatedWorkflow),
                 updatedAt: new Date().toISOString(),
             };
 
@@ -1573,11 +1653,13 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
 
             setLoadedNotebookPayload(savedLocalNotebook);
             setNotebookPayload(savedLocalNotebook);
+            setWorkflowStatus(activatedWorkflow.status);
+            setSaveError(null);
 
             setRunRequest({
                 requestId,
-                serverNotebookId: activatedPayload.serverNotebookId!,
-                workflowId: activatedPayload.workflowId!,
+                serverNotebookId: activatedWorkflow.notebookId,
+                workflowId: activatedWorkflow.id,
                 inputData: {},
             });
         } catch (error) {
