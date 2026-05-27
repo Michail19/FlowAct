@@ -1047,50 +1047,97 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
 
                 console.log('Backend workflow contract:', baseWorkflowPayload);
 
-                const storedWorkflowId = payloadWithServerNotebookId.workflowId;
+                let workflowId = payloadWithServerNotebookId.workflowId;
+                let savedWorkflow: WorkflowResponse | null = null;
 
-                let savedWorkflow: WorkflowResponse;
+                const workflowPayloadForServer = {
+                    ...baseWorkflowPayload,
+                    notebookId: serverNotebookId,
+                };
 
-                if (storedWorkflowId) {
+                /*
+                 * Если workflowId потерялся в localStorage/canvas state,
+                 * не создаём новый workflow сразу. Сначала ищем уже существующий
+                 * workflow у backend notebook и обновляем его.
+                 */
+                if (!workflowId) {
+                    const workflowSummaries = await workflowApi.getWorkflows(serverNotebookId);
+
+                    const existingWorkflow =
+                        workflowSummaries.find(
+                            (workflowSummary) =>
+                                workflowSummary.name === workflowPayloadForServer.name,
+                        ) ?? workflowSummaries[0];
+
+                    workflowId = existingWorkflow?.id;
+                }
+
+                if (workflowId) {
                     try {
                         savedWorkflow = await workflowApi.updateWorkflow(
                             serverNotebookId,
-                            storedWorkflowId,
+                            workflowId,
                             {
-                                ...baseWorkflowPayload,
-                                notebookId: serverNotebookId,
-                                id: storedWorkflowId,
+                                ...workflowPayloadForServer,
+                                id: workflowId,
                             },
                         );
                     } catch (error) {
+                        /*
+                         * Если local workflowId устарел, ниже попробуем создать workflow.
+                         * Остальные ошибки не скрываем.
+                         */
                         if (!(error instanceof ApiError && error.status === 404)) {
                             throw error;
                         }
 
                         console.warn(
-                            'Stored workflowId was not found on backend, a new workflow will be created:',
+                            'Stored workflowId was not found on backend, fallback save path will be used:',
                             {
                                 serverNotebookId,
-                                workflowId: storedWorkflowId,
-                            },
-                        );
-
-                        savedWorkflow = await workflowApi.createWorkflow(
-                            serverNotebookId,
-                            {
-                                ...baseWorkflowPayload,
-                                notebookId: serverNotebookId,
+                                workflowId,
                             },
                         );
                     }
-                } else {
-                    savedWorkflow = await workflowApi.createWorkflow(
-                        serverNotebookId,
-                        {
-                            ...baseWorkflowPayload,
-                            notebookId: serverNotebookId,
-                        },
-                    );
+                }
+
+                if (!savedWorkflow) {
+                    try {
+                        savedWorkflow = await workflowApi.createWorkflow(
+                            serverNotebookId,
+                            workflowPayloadForServer,
+                        );
+                    } catch (error) {
+                        /*
+                         * Если backend вернул 400 на создание, чаще всего workflow
+                         * у notebook уже существует. Тогда перечитываем список и обновляем
+                         * существующий workflow вместо создания нового.
+                         */
+                        if (!(error instanceof ApiError && error.status === 400)) {
+                            throw error;
+                        }
+
+                        const workflowSummaries = await workflowApi.getWorkflows(serverNotebookId);
+
+                        const existingWorkflow =
+                            workflowSummaries.find(
+                                (workflowSummary) =>
+                                    workflowSummary.name === workflowPayloadForServer.name,
+                            ) ?? workflowSummaries[0];
+
+                        if (!existingWorkflow) {
+                            throw error;
+                        }
+
+                        savedWorkflow = await workflowApi.updateWorkflow(
+                            serverNotebookId,
+                            existingWorkflow.id,
+                            {
+                                ...workflowPayloadForServer,
+                                id: existingWorkflow.id,
+                            },
+                        );
+                    }
                 }
 
                 const savedPayload: NotebookPayloadDto = {
