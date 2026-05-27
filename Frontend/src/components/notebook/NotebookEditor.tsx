@@ -1047,18 +1047,18 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
 
                 console.log('Backend workflow contract:', baseWorkflowPayload);
 
-                let workflowId = payloadWithServerNotebookId.workflowId;
-                let savedWorkflow: WorkflowResponse | null = null;
-
                 const workflowPayloadForServer = {
                     ...baseWorkflowPayload,
                     notebookId: serverNotebookId,
                 };
 
+                let workflowId = payloadWithServerNotebookId.workflowId;
+                let savedWorkflow: WorkflowResponse | null = null;
+
                 /*
-                 * Если workflowId потерялся в localStorage/canvas state,
-                 * не создаём новый workflow сразу. Сначала ищем уже существующий
-                 * workflow у backend notebook и обновляем его.
+                 * Если workflowId потерялся из-за промежуточного canvas/autosave state,
+                 * не создаём новый workflow сразу. Сначала ищем уже существующий workflow
+                 * у backend notebook и обновляем его.
                  */
                 if (!workflowId) {
                     const workflowSummaries = await workflowApi.getWorkflows(serverNotebookId);
@@ -1083,16 +1083,12 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                             },
                         );
                     } catch (error) {
-                        /*
-                         * Если local workflowId устарел, ниже попробуем создать workflow.
-                         * Остальные ошибки не скрываем.
-                         */
                         if (!(error instanceof ApiError && error.status === 404)) {
                             throw error;
                         }
 
                         console.warn(
-                            'Stored workflowId was not found on backend, fallback save path will be used:',
+                            'Stored workflowId was not found on backend, trying to reuse existing workflow or create a new one:',
                             {
                                 serverNotebookId,
                                 workflowId,
