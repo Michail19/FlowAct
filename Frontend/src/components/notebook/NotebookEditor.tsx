@@ -575,6 +575,50 @@ function applyBackendWorkflowIds(
     };
 }
 
+function haveSameBlockIds(
+    firstPayload: NotebookPayloadDto,
+    secondPayload: NotebookPayloadDto,
+) {
+    const firstIds = firstPayload.blocks.map((block) => block.id).sort();
+    const secondIds = secondPayload.blocks.map((block) => block.id).sort();
+
+    return (
+        firstIds.length === secondIds.length &&
+        firstIds.every((id, index) => id === secondIds[index])
+    );
+}
+
+function protectPayloadConnections(
+    nextPayload: NotebookPayloadDto,
+    stablePayload: NotebookPayloadDto | null | undefined,
+): NotebookPayloadDto {
+    if (!stablePayload) {
+        return nextPayload;
+    }
+
+    if (
+        nextPayload.blocks.length === 0 &&
+        stablePayload.blocks.length > 0
+    ) {
+        return stablePayload;
+    }
+
+    const hasLostAllConnections =
+        nextPayload.connections.length === 0 &&
+        stablePayload.connections.length > 0;
+
+    const sameBlocks = haveSameBlockIds(nextPayload, stablePayload);
+
+    if (hasLostAllConnections && sameBlocks) {
+        return {
+            ...nextPayload,
+            connections: stablePayload.connections,
+        };
+    }
+
+    return nextPayload;
+}
+
 function NotebookEditor({ notebookId }: NotebookEditorProps) {
     const isMobile = useMediaQuery('(max-width: 767px)');
     const isDesktop = useMediaQuery('(min-width: 1024px)');
@@ -1021,13 +1065,18 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                 updatedAt: new Date().toISOString(),
             };
 
+            const protectedPayloadToSave = protectPayloadConnections(
+                payloadToSave,
+                loadedNotebookPayload,
+            );
+
             try {
                 const notebookRequest = {
                     name: payloadToSave.title,
                     description: `FlowAct notebook: ${payloadToSave.title}`,
                 };
 
-                let serverNotebookId = payloadToSave.serverNotebookId;
+                let serverNotebookId = protectedPayloadToSave.serverNotebookId;
 
                 if (serverNotebookId) {
                     await notebookApi.updateNotebook(serverNotebookId, notebookRequest);
@@ -1037,7 +1086,7 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                 }
 
                 const payloadWithServerNotebookId: NotebookPayloadDto = {
-                    ...payloadToSave,
+                    ...protectedPayloadToSave,
                     serverNotebookId,
                 };
 
@@ -1964,8 +2013,13 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
     }, []);
 
     const handleNotebookChange = useCallback((payload: NotebookPayloadDto) => {
+        const safePayload = protectPayloadConnections(
+            payload,
+            notebookPayload ?? loadedNotebookPayload,
+        );
+
         const loadedFingerprint = getPayloadFingerprint(loadedNotebookPayload);
-        const nextFingerprint = getPayloadFingerprint(payload);
+        const nextFingerprint = getPayloadFingerprint(safePayload);
 
         const hasRealChanges =
             Boolean(loadedNotebookPayload) &&
@@ -1985,11 +2039,11 @@ function NotebookEditor({ notebookId }: NotebookEditorProps) {
                     : previousStatus;
 
         const nextPayload: NotebookPayloadDto = {
-            ...payload,
+            ...safePayload,
             serverNotebookId:
-                payload.serverNotebookId ?? loadedNotebookPayload?.serverNotebookId,
+                safePayload.serverNotebookId ?? loadedNotebookPayload?.serverNotebookId,
             workflowId:
-                payload.workflowId ?? loadedNotebookPayload?.workflowId,
+                safePayload.workflowId ?? loadedNotebookPayload?.workflowId,
             workflowStatus: nextWorkflowStatus ?? undefined,
         };
 
