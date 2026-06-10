@@ -173,24 +173,13 @@ class ExecutionServiceRetryTest {
         assertTrue(response.outputData().isEmpty());
         assertNull(response.errorMessage());
 
-        ArgumentCaptor<ExecutionRetryDispatchEvent> eventCaptor =
-                ArgumentCaptor.forClass(ExecutionRetryDispatchEvent.class);
-
         verify(executionDispatchService).publishRetryRequested(
-                eventCaptor.capture().sourceExecutionId(),
-                eventCaptor.capture().executionId(),
-                eventCaptor.capture().workflowId(),
-                eventCaptor.capture().notebookId(),
-                eventCaptor.capture().startedByUserId()
+                eq(oldExecutionId),
+                eq(response.id()),
+                eq(workflowId),
+                eq(notebookId),
+                eq(currentUserId)
         );
-
-        ExecutionRetryDispatchEvent event = eventCaptor.getValue();
-
-        assertEquals(oldExecutionId, event.sourceExecutionId());
-        assertEquals(response.id(), event.executionId());
-        assertEquals(workflowId, event.workflowId());
-        assertEquals(notebookId, event.notebookId());
-        assertEquals(currentUserId, event.startedByUserId());
     }
 
     @Test
@@ -254,23 +243,12 @@ class ExecutionServiceRetryTest {
         assertNull(newExecution.getOutputData());
         assertNull(newExecution.getErrorMessage());
 
-        ArgumentCaptor<ExecutionRetryDispatchEvent> eventCaptor =
-                ArgumentCaptor.forClass(ExecutionRetryDispatchEvent.class);
-
         verify(executionDispatchService).publishRetryRequested(
-                eventCaptor.capture().sourceExecutionId(),
-                eventCaptor.capture().executionId(),
-                eventCaptor.capture().workflowId(),
-                eventCaptor.capture().notebookId(),
-                eventCaptor.capture().startedByUserId()
+                eq(oldExecutionId),
+                eq(response.id()),
+                eq(workflowId),
+                eq(notebookId),
+                eq(currentUserId)
         );
-
-        ExecutionRetryDispatchEvent event = eventCaptor.getValue();
-
-        assertEquals(oldExecutionId, event.sourceExecutionId());
-        assertEquals(response.id(), event.executionId());
-        assertEquals(workflowId, event.workflowId());
-        assertEquals(notebookId, event.notebookId());
-        assertEquals(currentUserId, event.startedByUserId());
     }
 }

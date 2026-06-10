@@ -223,20 +223,11 @@ class ExecutionServiceCancelTest {
         ExecutionEntity saved = entityCaptor.getValue();
         assertEquals(ExecutionStatus.CANCELLING, saved.getStatus());
 
-        ArgumentCaptor<ExecutionCancelDispatchEvent> eventCaptor =
-                ArgumentCaptor.forClass(ExecutionCancelDispatchEvent.class);
-
         verify(executionDispatchService).publishCancelRequested(
-                eventCaptor.capture().executionId(),
-                eventCaptor.capture().workflowId(),
-                eventCaptor.capture().notebookId()
+                eq(executionId),
+                eq(workflowId),
+                eq(notebookId)
         );
-
-        ExecutionCancelDispatchEvent event = eventCaptor.getValue();
-
-        assertEquals(executionId, event.executionId());
-        assertEquals(workflowId, event.workflowId());
-        assertEquals(notebookId, event.notebookId());
     }
 
     @Test

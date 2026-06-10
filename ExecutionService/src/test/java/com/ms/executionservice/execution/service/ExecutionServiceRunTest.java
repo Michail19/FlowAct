@@ -194,21 +194,11 @@ class ExecutionServiceRunTest {
         assertEquals("{\"text\":\"hello\"}", savedEntity.getInputData());
         assertNull(savedEntity.getOutputData());
 
-        ArgumentCaptor<ExecutionRunDispatchEvent> eventCaptor =
-                ArgumentCaptor.forClass(ExecutionRunDispatchEvent.class);
-
         verify(executionDispatchService).publishRunRequested(
-                eventCaptor.capture().executionId(),
-                eventCaptor.capture().workflowId(),
-                eventCaptor.capture().notebookId(),
-                eventCaptor.capture().startedByUserId()
+                eq(response.id()),
+                eq(workflowId),
+                eq(notebookId),
+                eq(currentUserId)
         );
-
-        ExecutionRunDispatchEvent event = eventCaptor.getValue();
-
-        assertEquals(response.id(), event.executionId());
-        assertEquals(workflowId, event.workflowId());
-        assertEquals(notebookId, event.notebookId());
-        assertEquals(currentUserId, event.startedByUserId());
     }
 }
