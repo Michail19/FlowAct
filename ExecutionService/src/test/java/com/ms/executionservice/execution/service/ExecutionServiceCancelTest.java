@@ -43,7 +43,7 @@ class ExecutionServiceCancelTest {
     private ExecutionLogRepository executionLogRepository;
 
     @Mock
-    private ApplicationEventPublisher eventPublisher;
+    private ExecutionDispatchService executionDispatchService;
 
     private JsonUtils jsonUtils;
     private ExecutionService executionService;
@@ -57,7 +57,7 @@ class ExecutionServiceCancelTest {
                 executionRepository,
                 executionLogRepository,
                 jsonUtils,
-                eventPublisher
+                executionDispatchService
         );
     }
 
@@ -81,7 +81,7 @@ class ExecutionServiceCancelTest {
                 () -> executionService.cancel(currentUserId, notebookId, workflowId, executionId)
         );
 
-        verifyNoInteractions(eventPublisher);
+        verifyNoInteractions(executionDispatchService);
     }
 
     @Test
@@ -124,7 +124,7 @@ class ExecutionServiceCancelTest {
         assertEquals(ExecutionStatus.SUCCESS, response.status());
 
         verify(executionRepository, never()).save(any());
-        verifyNoInteractions(eventPublisher);
+        verifyNoInteractions(executionDispatchService);
     }
 
     @Test
@@ -174,7 +174,7 @@ class ExecutionServiceCancelTest {
         assertEquals(ExecutionStatus.CANCELLED, saved.getStatus());
         assertNotNull(saved.getFinishedAt());
 
-        verifyNoInteractions(eventPublisher);
+        verifyNoInteractions(executionDispatchService);
     }
 
     @Test
@@ -226,7 +226,11 @@ class ExecutionServiceCancelTest {
         ArgumentCaptor<ExecutionCancelDispatchEvent> eventCaptor =
                 ArgumentCaptor.forClass(ExecutionCancelDispatchEvent.class);
 
-        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        verify(executionDispatchService).publishCancelRequested(
+                eventCaptor.capture().executionId(),
+                eventCaptor.capture().workflowId(),
+                eventCaptor.capture().notebookId()
+        );
 
         ExecutionCancelDispatchEvent event = eventCaptor.getValue();
 
@@ -272,6 +276,6 @@ class ExecutionServiceCancelTest {
         assertEquals(ExecutionStatus.CANCELLING, response.status());
 
         verify(executionRepository, never()).save(any());
-        verifyNoInteractions(eventPublisher);
+        verifyNoInteractions(executionDispatchService);
     }
 }

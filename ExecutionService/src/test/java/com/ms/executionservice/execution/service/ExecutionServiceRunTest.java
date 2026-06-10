@@ -45,7 +45,7 @@ class ExecutionServiceRunTest {
     private ExecutionLogRepository executionLogRepository;
 
     @Mock
-    private ApplicationEventPublisher eventPublisher;
+    private ExecutionDispatchService executionDispatchService;
 
     private JsonUtils jsonUtils;
     private ExecutionService executionService;
@@ -59,7 +59,7 @@ class ExecutionServiceRunTest {
                 executionRepository,
                 executionLogRepository,
                 jsonUtils,
-                eventPublisher
+                executionDispatchService
         );
     }
 
@@ -85,7 +85,7 @@ class ExecutionServiceRunTest {
 
         verify(notebookRepository).existsByIdAndOwnerUserId(notebookId, currentUserId);
         verify(workflowRepository).findByIdAndNotebook_Id(workflowId, notebookId);
-        verifyNoInteractions(executionRepository, eventPublisher);
+        verifyNoInteractions(executionRepository, executionDispatchService);
     }
 
     @Test
@@ -107,7 +107,7 @@ class ExecutionServiceRunTest {
         );
 
         verify(notebookRepository).existsByIdAndOwnerUserId(notebookId, currentUserId);
-        verifyNoInteractions(workflowRepository, executionRepository, eventPublisher);
+        verifyNoInteractions(workflowRepository, executionRepository, executionDispatchService);
     }
 
     @Test
@@ -140,7 +140,7 @@ class ExecutionServiceRunTest {
 
         verify(notebookRepository).existsByIdAndOwnerUserId(notebookId, currentUserId);
         verify(workflowRepository).findByIdAndNotebook_Id(workflowId, notebookId);
-        verifyNoInteractions(executionRepository, eventPublisher);
+        verifyNoInteractions(executionRepository, executionDispatchService);
     }
 
     @Test
@@ -197,7 +197,12 @@ class ExecutionServiceRunTest {
         ArgumentCaptor<ExecutionRunDispatchEvent> eventCaptor =
                 ArgumentCaptor.forClass(ExecutionRunDispatchEvent.class);
 
-        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        verify(executionDispatchService).publishRunRequested(
+                eventCaptor.capture().executionId(),
+                eventCaptor.capture().workflowId(),
+                eventCaptor.capture().notebookId(),
+                eventCaptor.capture().startedByUserId()
+        );
 
         ExecutionRunDispatchEvent event = eventCaptor.getValue();
 
