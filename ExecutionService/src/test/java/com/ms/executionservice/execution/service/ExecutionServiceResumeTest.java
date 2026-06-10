@@ -44,7 +44,7 @@ class ExecutionServiceResumeTest {
     private ExecutionLogRepository executionLogRepository;
 
     @Mock
-    private ApplicationEventPublisher eventPublisher;
+    private ExecutionDispatchService executionDispatchService;
 
     private JsonUtils jsonUtils;
     private ExecutionService executionService;
@@ -58,7 +58,7 @@ class ExecutionServiceResumeTest {
                 executionRepository,
                 executionLogRepository,
                 jsonUtils,
-                eventPublisher
+                executionDispatchService
         );
     }
 
@@ -91,7 +91,7 @@ class ExecutionServiceResumeTest {
         verify(executionRepository).findByIdAndWorkflow_IdAndWorkflow_Notebook_Id(
                 executionId, workflowId, notebookId
         );
-        verifyNoInteractions(eventPublisher);
+        verifyNoInteractions(executionDispatchService);
     }
 
     @Test
@@ -141,7 +141,7 @@ class ExecutionServiceResumeTest {
         verify(executionRepository).findByIdAndWorkflow_IdAndWorkflow_Notebook_Id(
                 executionId, workflowId, notebookId
         );
-        verifyNoInteractions(eventPublisher);
+        verifyNoInteractions(executionDispatchService);
     }
 
     @Test
@@ -205,7 +205,12 @@ class ExecutionServiceResumeTest {
         ArgumentCaptor<ExecutionResumeDispatchEvent> eventCaptor =
                 ArgumentCaptor.forClass(ExecutionResumeDispatchEvent.class);
 
-        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        verify(executionDispatchService).publishResumeRequested(
+                eventCaptor.capture().executionId(),
+                eventCaptor.capture().workflowId(),
+                eventCaptor.capture().notebookId(),
+                eventCaptor.capture().resumePayload()
+        );
 
         ExecutionResumeDispatchEvent event = eventCaptor.getValue();
 
@@ -214,7 +219,7 @@ class ExecutionServiceResumeTest {
         assertEquals(notebookId, event.notebookId());
         assertEquals(resumePayload, event.resumePayload());
 
-        verifyNoMoreInteractions(eventPublisher);
+        verifyNoMoreInteractions(executionDispatchService);
     }
 
     @Test
@@ -262,7 +267,12 @@ class ExecutionServiceResumeTest {
         ArgumentCaptor<ExecutionResumeDispatchEvent> eventCaptor =
                 ArgumentCaptor.forClass(ExecutionResumeDispatchEvent.class);
 
-        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        verify(executionDispatchService).publishResumeRequested(
+                eventCaptor.capture().executionId(),
+                eventCaptor.capture().workflowId(),
+                eventCaptor.capture().notebookId(),
+                eventCaptor.capture().resumePayload()
+        );
 
         ExecutionResumeDispatchEvent event = eventCaptor.getValue();
 

@@ -42,7 +42,7 @@ class ExecutionServiceRetryTest {
     private ExecutionLogRepository executionLogRepository;
 
     @Mock
-    private ApplicationEventPublisher eventPublisher;
+    private ExecutionDispatchService executionDispatchService;
 
     private JsonUtils jsonUtils;
     private ExecutionService executionService;
@@ -56,7 +56,7 @@ class ExecutionServiceRetryTest {
                 executionRepository,
                 executionLogRepository,
                 jsonUtils,
-                eventPublisher
+                executionDispatchService
         );
     }
 
@@ -80,7 +80,7 @@ class ExecutionServiceRetryTest {
                 () -> executionService.retry(currentUserId, notebookId, workflowId, executionId)
         );
 
-        verifyNoInteractions(eventPublisher);
+        verifyNoInteractions(executionDispatchService);
     }
 
     @Test
@@ -120,7 +120,7 @@ class ExecutionServiceRetryTest {
         assertTrue(ex.getMessage().contains("only after SUCCESS, FAILED or CANCELLED"));
 
         verify(executionRepository, never()).save(any());
-        verifyNoInteractions(eventPublisher);
+        verifyNoInteractions(executionDispatchService);
     }
 
     @Test
@@ -176,7 +176,13 @@ class ExecutionServiceRetryTest {
         ArgumentCaptor<ExecutionRetryDispatchEvent> eventCaptor =
                 ArgumentCaptor.forClass(ExecutionRetryDispatchEvent.class);
 
-        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        verify(executionDispatchService).publishRetryRequested(
+                eventCaptor.capture().sourceExecutionId(),
+                eventCaptor.capture().executionId(),
+                eventCaptor.capture().workflowId(),
+                eventCaptor.capture().notebookId(),
+                eventCaptor.capture().startedByUserId()
+        );
 
         ExecutionRetryDispatchEvent event = eventCaptor.getValue();
 
@@ -251,7 +257,13 @@ class ExecutionServiceRetryTest {
         ArgumentCaptor<ExecutionRetryDispatchEvent> eventCaptor =
                 ArgumentCaptor.forClass(ExecutionRetryDispatchEvent.class);
 
-        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        verify(executionDispatchService).publishRetryRequested(
+                eventCaptor.capture().sourceExecutionId(),
+                eventCaptor.capture().executionId(),
+                eventCaptor.capture().workflowId(),
+                eventCaptor.capture().notebookId(),
+                eventCaptor.capture().startedByUserId()
+        );
 
         ExecutionRetryDispatchEvent event = eventCaptor.getValue();
 
