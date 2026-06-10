@@ -5,12 +5,9 @@ on:
     branches:
       - main
       - review
-      - feature/deployment
   pull_request:
     branches:
       - main
-      - review
-      - feature/deployment
   workflow_dispatch:
 
 permissions:
