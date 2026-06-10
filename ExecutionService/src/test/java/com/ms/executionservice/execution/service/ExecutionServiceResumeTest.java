@@ -202,22 +202,12 @@ class ExecutionServiceResumeTest {
                 executionId, workflowId, notebookId
         );
 
-        ArgumentCaptor<ExecutionResumeDispatchEvent> eventCaptor =
-                ArgumentCaptor.forClass(ExecutionResumeDispatchEvent.class);
-
         verify(executionDispatchService).publishResumeRequested(
-                eventCaptor.capture().executionId(),
-                eventCaptor.capture().workflowId(),
-                eventCaptor.capture().notebookId(),
-                eventCaptor.capture().resumePayload()
+                eq(executionId),
+                eq(workflowId),
+                eq(notebookId),
+                eq(resumePayload)
         );
-
-        ExecutionResumeDispatchEvent event = eventCaptor.getValue();
-
-        assertEquals(executionId, event.executionId());
-        assertEquals(workflowId, event.workflowId());
-        assertEquals(notebookId, event.notebookId());
-        assertEquals(resumePayload, event.resumePayload());
 
         verifyNoMoreInteractions(executionDispatchService);
     }
@@ -264,21 +254,11 @@ class ExecutionServiceResumeTest {
         assertNotNull(response);
         assertEquals(ExecutionStatus.WAITING, response.status());
 
-        ArgumentCaptor<ExecutionResumeDispatchEvent> eventCaptor =
-                ArgumentCaptor.forClass(ExecutionResumeDispatchEvent.class);
-
         verify(executionDispatchService).publishResumeRequested(
-                eventCaptor.capture().executionId(),
-                eventCaptor.capture().workflowId(),
-                eventCaptor.capture().notebookId(),
-                eventCaptor.capture().resumePayload()
+                eq(executionId),
+                eq(workflowId),
+                eq(notebookId),
+                isNull()
         );
-
-        ExecutionResumeDispatchEvent event = eventCaptor.getValue();
-
-        assertEquals(executionId, event.executionId());
-        assertEquals(workflowId, event.workflowId());
-        assertEquals(notebookId, event.notebookId());
-        assertNull(event.resumePayload());
     }
 }
