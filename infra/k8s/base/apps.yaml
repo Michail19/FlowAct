@@ -23,7 +23,7 @@ spec:
       containers:
         - name: user-service
           image: ghcr.io/michail19/flowact-user-service:feature-deployment
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - containerPort: 8083
           envFrom:
@@ -82,7 +82,7 @@ spec:
       containers:
         - name: execution-service
           image: ghcr.io/michail19/flowact-execution-service:feature-deployment
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - containerPort: 8082
           envFrom:
@@ -141,7 +141,7 @@ spec:
       containers:
         - name: worker-service
           image: ghcr.io/michail19/flowact-worker-service:feature-deployment
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - containerPort: 8081
           envFrom:
@@ -200,7 +200,7 @@ spec:
       containers:
         - name: ml-service
           image: ghcr.io/michail19/flowact-ml-service:feature-deployment
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - containerPort: 8000
           envFrom:
@@ -212,12 +212,18 @@ spec:
             httpGet:
               path: /api/v1/health/
               port: 8000
+              httpHeaders:
+                - name: Host
+                  value: localhost
             initialDelaySeconds: 20
             periodSeconds: 10
           livenessProbe:
             httpGet:
               path: /api/v1/health/
               port: 8000
+              httpHeaders:
+                - name: Host
+                  value: localhost
             initialDelaySeconds: 60
             periodSeconds: 20
 ---
@@ -259,7 +265,7 @@ spec:
       containers:
         - name: frontend
           image: ghcr.io/michail19/flowact-frontend:feature-deployment
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - containerPort: 80
           readinessProbe:

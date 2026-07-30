@@ -4,7 +4,7 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - configmaps.yaml
-  - secrets.example.yaml
+  - secrets.yaml
   - databases.yaml
   - kafka.yaml
   - apps.yaml
