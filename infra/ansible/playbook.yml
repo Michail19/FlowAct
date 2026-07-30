@@ -1,8 +1,32 @@
 ---
-- name: Prepare Kubernetes nodes for FlowAct
+- name: Prepare Kubernetes nodes
   hosts: k8s_cluster
   become: true
   roles:
     - common
     - containerd
     - kubernetes
+
+- name: Initialize control plane
+  hosts: control_plane
+  become: true
+  roles:
+    - control_plane
+
+- name: Join workers
+  hosts: workers
+  become: true
+  roles:
+    - worker_join
+
+- name: Install cluster addons
+  hosts: control_plane
+  become: true
+  roles:
+    - cluster_addons
+
+- name: Configure public HTTPS entrypoint
+  hosts: control_plane
+  become: true
+  roles:
+    - caddy
