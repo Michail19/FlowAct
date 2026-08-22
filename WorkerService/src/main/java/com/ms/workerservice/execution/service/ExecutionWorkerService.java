@@ -24,8 +24,11 @@ import com.ms.workerservice.workflow.entity.WorkflowEntity;
 import com.ms.workerservice.workflow.repository.WorkflowBlockRepository;
 import com.ms.workerservice.workflow.repository.WorkflowConnectionRepository;
 import com.ms.workerservice.workflow.repository.WorkflowRepository;
+import org.springframework.context.annotation.Bean;
+import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.backoff.FixedBackOff;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -73,12 +76,11 @@ public class ExecutionWorkerService {
     }
 
     public void handleRunRequested(ExecutionRunRequestedEvent event) {
-        ExecutionEntity execution = executionRepository.findById(event.executionId())
-                .orElse(null);
-
-        if (execution == null) {
-            return;
-        }
+        ExecutionEntity execution = executionRepository
+                .findById(event.executionId())
+                .orElseThrow(() ->
+                        new ExecutionNotReadyException(event.executionId())
+                );
 
         if (execution.getStatus() != ExecutionStatus.PENDING) {
             return;
@@ -126,6 +128,13 @@ public class ExecutionWorkerService {
             execution.setErrorMessage(ex.getMessage());
             execution.setFinishedAt(OffsetDateTime.now());
             executionRepository.save(execution);
+        }
+    }
+
+    public class ExecutionNotReadyException extends RuntimeException {
+
+        public ExecutionNotReadyException(UUID executionId) {
+            super("Execution is not visible yet: " + executionId);
         }
     }
 
@@ -406,5 +415,21 @@ public class ExecutionWorkerService {
         logEntity.setError(errorMessage != null ? errorMessage : "Unknown execution error");
 
         executionLogRepository.save(logEntity);
+    }
+
+    @Bean
+    public DefaultErrorHandler kafkaErrorHandler() {
+        var backOff = new FixedBackOff(
+                200L, // задержка между попытками
+                5L    // количество повторов
+        );
+
+        var handler = new DefaultErrorHandler(backOff);
+
+        handler.addRetryableExceptions(
+                ExecutionNotReadyException.class
+        );
+
+        return handler;
     }
 }
