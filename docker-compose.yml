@@ -130,6 +130,8 @@ services:
       retries: 20
     networks:
       - flowact-network
+    env_file:
+      - ./UserService/.env
 
   execution-service:
     build:
@@ -183,6 +185,8 @@ services:
       - "host.docker.internal:host-gateway"
     networks:
       - flowact-network
+    env_file:
+      - ./ExecutionService/.env
 
   worker-service:
     build:
@@ -230,6 +234,8 @@ services:
         condition: service_healthy
     networks:
       - flowact-network
+    env_file:
+      - ./WorkerService/.env
 
   ml-service:
     build:
