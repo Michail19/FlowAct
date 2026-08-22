@@ -15,7 +15,8 @@ FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
-RUN addgroup -S flowact \
+RUN apk add --no-cache curl \
+    && addgroup -S flowact \
     && adduser -S flowact -G flowact
 
 COPY --from=build /app/build/libs/*.jar app.jar
