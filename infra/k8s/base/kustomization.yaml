@@ -9,3 +9,19 @@ resources:
   - kafka.yaml
   - apps.yaml
   - ingress.yaml
+
+images:
+  - name: ghcr.io/michail19/flowact-user-service
+    newTag: review
+
+  - name: ghcr.io/michail19/flowact-execution-service
+    newTag: review
+
+  - name: ghcr.io/michail19/flowact-worker-service
+    newTag: review
+
+  - name: ghcr.io/michail19/flowact-ml-service
+    newTag: review
+
+  - name: ghcr.io/michail19/flowact-frontend
+    newTag: review

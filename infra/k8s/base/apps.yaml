@@ -22,7 +22,7 @@ spec:
       serviceAccountName: flowact-app
       containers:
         - name: user-service
-          image: ghcr.io/michail19/flowact-user-service:feature-deployment
+          image: ghcr.io/michail19/flowact-user-service
           imagePullPolicy: Always
           ports:
             - containerPort: 8083
@@ -81,7 +81,7 @@ spec:
       serviceAccountName: flowact-app
       containers:
         - name: execution-service
-          image: ghcr.io/michail19/flowact-execution-service:feature-deployment
+          image: ghcr.io/michail19/flowact-execution-service
           imagePullPolicy: Always
           ports:
             - containerPort: 8082
@@ -140,7 +140,7 @@ spec:
       serviceAccountName: flowact-app
       containers:
         - name: worker-service
-          image: ghcr.io/michail19/flowact-worker-service:feature-deployment
+          image: ghcr.io/michail19/flowact-worker-service
           imagePullPolicy: Always
           ports:
             - containerPort: 8081
@@ -199,7 +199,7 @@ spec:
       serviceAccountName: flowact-app
       containers:
         - name: ml-service
-          image: ghcr.io/michail19/flowact-ml-service:feature-deployment
+          image: ghcr.io/michail19/flowact-ml-service
           imagePullPolicy: Always
           ports:
             - containerPort: 8000
@@ -264,7 +264,7 @@ spec:
       serviceAccountName: flowact-app
       containers:
         - name: frontend
-          image: ghcr.io/michail19/flowact-frontend:feature-deployment
+          image: ghcr.io/michail19/flowact-frontend
           imagePullPolicy: Always
           ports:
             - containerPort: 80
