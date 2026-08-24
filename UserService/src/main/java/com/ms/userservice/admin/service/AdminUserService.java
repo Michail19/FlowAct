@@ -68,15 +68,32 @@ public class AdminUserService {
     }
 
     @Transactional
-    public AdminUserResponse updateUserRole(UUID currentAdminId, UUID userId, UpdateAdminUserRoleRequest request) {
+    public AdminUserResponse updateUserRole(
+            UUID currentAdminId,
+            UUID userId,
+            UpdateAdminUserRoleRequest request
+    ) {
         UserEntity user = findUser(userId);
 
-        if (currentAdminId.equals(userId) && request.role() != UserRole.ADMIN) {
-            throw new IllegalArgumentException("Admin cannot remove own admin role");
+        if (currentAdminId.equals(userId)
+                && request.role() != UserRole.ADMIN) {
+            throw new IllegalArgumentException(
+                    "Admin cannot remove own admin role"
+            );
         }
 
-        user.setRole(request.role());
-        return toAdminUserResponse(userRepository.save(user));
+        if (user.getRole() != request.role()) {
+            user.setRole(request.role());
+
+            revokeActiveRefreshTokens(
+                    userId,
+                    "ADMIN_ROLE_CHANGED"
+            );
+        }
+
+        return toAdminUserResponse(
+                userRepository.save(user)
+        );
     }
 
     @Transactional
