@@ -55,18 +55,44 @@ public class RefreshTokenService {
     }
 
     @Transactional
-    public RefreshTokenRotation rotate(String rawToken, HttpServletRequest request) {
-        RefreshTokenEntity currentToken = getActiveToken(rawToken);
+    public RefreshTokenRotation rotate(
+            String rawToken,
+            HttpServletRequest request
+    ) {
+        RefreshTokenEntity currentToken =
+                refreshTokenRepository.findByTokenHashForUpdate(hash(rawToken))
+                        .orElseThrow(
+                                () -> new UnauthorizedException(
+                                        "Invalid refresh token"
+                                )
+                        );
+
+        if (!currentToken.isActive()) {
+            throw new UnauthorizedException(
+                    "Refresh token is expired or revoked"
+            );
+        }
+
         String newRawToken = create(currentToken.getUser(), request);
-        RefreshTokenEntity newToken = refreshTokenRepository.findByTokenHash(hash(newRawToken))
-                .orElseThrow(() -> new UnauthorizedException("Refresh token was not created"));
+
+        RefreshTokenEntity newToken =
+                refreshTokenRepository.findByTokenHash(hash(newRawToken))
+                        .orElseThrow(
+                                () -> new UnauthorizedException(
+                                        "Refresh token was not created"
+                                )
+                        );
 
         currentToken.setRevokedAt(OffsetDateTime.now());
         currentToken.setRevokedReason(REASON_ROTATED);
         currentToken.setReplacedByToken(newToken);
+
         refreshTokenRepository.save(currentToken);
 
-        return new RefreshTokenRotation(currentToken.getUser(), newRawToken);
+        return new RefreshTokenRotation(
+                currentToken.getUser(),
+                newRawToken
+        );
     }
 
     @Transactional
