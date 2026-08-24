@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+images:
+  - name: ghcr.io/michail19/flowact-user-service
+    newTag: review
+
+  - name: ghcr.io/michail19/flowact-execution-service
+    newTag: review
+
+  - name: ghcr.io/michail19/flowact-worker-service
+    newTag: review
+
+  - name: ghcr.io/michail19/flowact-ml-service
+    newTag: review
+
+  - name: ghcr.io/michail19/flowact-frontend
+    newTag: review
